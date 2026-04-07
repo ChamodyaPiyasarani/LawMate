@@ -27,10 +27,10 @@ enum LawMateTab: Int, CaseIterable {
     var icon: String {
         switch self {
         case .home:     return "house.fill"
-        case .lawyers:  return "scalemass"
-        case .booking:  return "calendar.badge.checkmark"
-        case .messages: return "bubble.left"
-        case .profile:  return "person"
+        case .lawyers:  return "briefcase.fill"
+        case .booking:  return "calendar.badge.clock"
+        case .messages: return "bubble.left.fill"
+        case .profile:  return "person.fill"
         }
     }
 }
@@ -41,43 +41,46 @@ struct TabBarView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(LawMateTab.allCases, id: \.rawValue) { tab in
+            ForEach(LawMateTab.allCases, id: \.self) { tab in
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         selectedTab = tab
                     }
                 } label: {
                     VStack(spacing: 4) {
-                        Image(systemName: tab.icon)
-                            .font(.system(size: 22, weight: selectedTab == tab ? .bold : .regular))
-                            .foregroundColor(selectedTab == tab ? .lmPrimary : .lmTextSecondary)
+                        ZStack {
+                            if selectedTab == tab {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.lmPrimary.opacity(0.15))
+                                    .frame(width: 44, height: 44)
+                            }
+                            Image(systemName: tab.icon)
+                                .font(.system(size: 20))
+                                .foregroundColor(selectedTab == tab ? .lmPrimary : .lmTextSecondary)
+                        }
 
                         Text(tab.title)
-                            .font(.lmTab)
+                            .font(.system(size: 10, weight: selectedTab == tab ? .semibold : .medium))
                             .foregroundColor(selectedTab == tab ? .lmPrimary : .lmTextSecondary)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(
-                        // Active indicator capsule behind icon (Home tab in screenshot)
-                        selectedTab == tab
-                        ? Color.lmPaleMint
-                        : Color.clear
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .padding(.horizontal, 4)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(tab.title)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(
-            Color.white
-                .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: -4)
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
         )
+        .overlay(
+            Capsule()
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+        .padding(.horizontal, 24)
+        .padding(.bottom, 20) // Floating padding from bottom
     }
 }
 
