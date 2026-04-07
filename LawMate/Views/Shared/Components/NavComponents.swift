@@ -64,6 +64,15 @@ struct NotificationButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Notifications\(badgeCount > 0 ? ", \(badgeCount) unread" : "")")
+        .background(
+            Circle()
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+        )
+        .overlay(
+            Circle()
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
     }
 }
 
@@ -85,14 +94,13 @@ struct LawMateNavigationBar: View {
             if !title.isEmpty {
                 Text(title)
                     .font(.lmHeading)
-                    .foregroundColor(.lmTextPrimary)
+                    .foregroundColor(.lmPrimary)
             }
             Spacer()
             if showNotification {
                 NotificationButton(badgeCount: notificationCount, action: onNotification)
             } else if showBack {
-                // Balance the back button with invisible spacer
-                Color.clear.frame(width: 38, height: 38)
+                Color.clear.frame(width: 34, height: 34)
             }
         }
         .padding(.horizontal, 20)
@@ -111,7 +119,7 @@ struct LawMateNavigationBar: View {
                               notificationCount: 2,
                               onBack: {},
                               onNotification: {})
-            .background(Color.lmBackground)
+        .background(Color.lmBackground)
     }
     .padding()
     .background(Color.lmFieldBg)
