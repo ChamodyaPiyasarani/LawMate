@@ -19,12 +19,20 @@ struct LawMateBackButton: View {
     var body: some View {
         Button(action: action) {
             ZStack {
+                // Liquid glass background
                 Circle()
                     .fill(.ultraThinMaterial)
-                    .frame(width: 34, height: 34)
+                    .frame(width: 44, height: 44)
+                    .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 4)
+                
+                // Rim highlight
+                Circle()
+                    .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                    .frame(width: 44, height: 44)
+
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.lmTextPrimary)
+                    .font(.system(size: 16, weight: .bold)) // Bolder as in image
+                    .foregroundColor(.lmPrimary) // Changed to primary green
             }
         }
         .buttonStyle(.plain)
@@ -41,11 +49,19 @@ struct NotificationButton: View {
         Button(action: action) {
             ZStack(alignment: .topTrailing) {
                 ZStack {
+                    // Liquid glass background
                     Circle()
                         .fill(.ultraThinMaterial)
-                        .frame(width: 34, height: 34)
+                        .frame(width: 44, height: 44)
+                        .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 4)
+                    
+                    // Rim highlight
+                    Circle()
+                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                        .frame(width: 44, height: 44)
+
                     Image(systemName: "bell.fill")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundColor(.lmPrimary)
                 }
 
@@ -58,21 +74,12 @@ struct NotificationButton: View {
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.white)
                     }
-                    .offset(x: 4, y: -4)
+                    .offset(x: 2, y: -2)
                 }
             }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Notifications\(badgeCount > 0 ? ", \(badgeCount) unread" : "")")
-        .background(
-            Circle()
-                .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-        )
-        .overlay(
-            Circle()
-                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-        )
     }
 }
 
@@ -100,7 +107,7 @@ struct LawMateNavigationBar: View {
             if showNotification {
                 NotificationButton(badgeCount: notificationCount, action: onNotification)
             } else if showBack {
-                Color.clear.frame(width: 34, height: 34)
+                Color.clear.frame(width: 44, height: 44)
             }
         }
         .padding(.horizontal, 20)

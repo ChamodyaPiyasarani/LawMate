@@ -10,33 +10,58 @@
 
 import SwiftUI
 
+enum BlobStyle {
+    case auth   // Side-by-side overlapping (Login/SignUp)
+    case client // Left-aligned (Home/Other client screens)
+}
+
 struct GreenBlobBackground: View {
+    var style: BlobStyle = .auth
+
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {
-                // Large outer blob
-                Circle()
-                    .fill(Color.lmLightGreen.opacity(0.40))
-                    .frame(width: geo.size.width * 0.7,
-                           height: geo.size.width * 0.7)
-                    .offset(x: -geo.size.width * 0.15,
-                            y: -geo.size.width * 0.15)
+                if style == .auth {
+                    // Blob 1: Top-Left
+                    Circle()
+                        .fill(Color.lmLightGreen.opacity(0.35))
+                        .frame(width: geo.size.width * 1.2,
+                               height: geo.size.width * 1.2)
+                        .offset(x: -geo.size.width * 0.40,
+                                y: -geo.size.width * 0.45)
 
-                // Medium inner blob
-                Circle()
-                    .fill(Color.lmLightGreen.opacity(0.25))
-                    .frame(width: geo.size.width * 0.5,
-                           height: geo.size.width * 0.5)
-                    .offset(x: -geo.size.width * 0.05,
-                            y: -geo.size.width * 0.05)
+                    // Blob 2: Top-Right
+                    Circle()
+                        .fill(Color.lmLightGreen.opacity(0.20))
+                        .frame(width: geo.size.width * 1.1,
+                               height: geo.size.width * 1.1)
+                        .offset(x: geo.size.width * 0.30,
+                                y: -geo.size.width * 0.35)
 
-                // Small accent blob
-                Circle()
-                    .fill(Color.lmLightGreen.opacity(0.20))
-                    .frame(width: geo.size.width * 0.3,
-                           height: geo.size.width * 0.3)
-                    .offset(x: geo.size.width * 0.05,
-                            y: geo.size.width * 0.05)
+                    // Blob 3: Far Right / Accent
+                    Circle()
+                        .fill(Color.lmLightGreen.opacity(0.12))
+                        .frame(width: geo.size.width * 0.8,
+                               height: geo.size.width * 0.8)
+                        .offset(x: geo.size.width * 0.70,
+                                y: -geo.size.width * 0.15)
+                } else {
+                    // Client Style: Concentrated on the left (matches new requirement)
+                    Circle()
+                        .fill(Color.lmLightGreen.opacity(0.40))
+                        .frame(width: geo.size.width * 1.4)
+                        .offset(x: -geo.size.width * 0.5, y: -geo.size.width * 0.3)
+
+                    Circle()
+                        .fill(Color.lmLightGreen.opacity(0.25))
+                        .frame(width: geo.size.width * 1.1)
+                        .offset(x: -geo.size.width * 0.2, y: -geo.size.width * 0.1)
+
+                    Circle()
+                        .fill(Color.lmLightGreen.opacity(0.15))
+                        .frame(width: geo.size.width * 0.8)
+                        .offset(x: -geo.size.width * 0.1, y: geo.size.width * 0.1)
+                }
             }
         }
         .ignoresSafeArea()
