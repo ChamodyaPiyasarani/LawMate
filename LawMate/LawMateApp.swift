@@ -11,7 +11,8 @@ import SwiftUI
 struct LawMateApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
+                .preferredColorScheme(.light) // LawMate uses a light theme
         }
     }
 }
