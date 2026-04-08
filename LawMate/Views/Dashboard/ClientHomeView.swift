@@ -19,85 +19,99 @@ struct ClientHomeView: View {
         ZStack(alignment: .bottom) {
             Color.lmBackground.ignoresSafeArea()
             
-            VStack(spacing: 0) {
-                if selectedTab == .home {
-                    // MARK: Home Content
-                    ScrollView(showsIndicators: false) {
-                        ZStack(alignment: .topTrailing) {
-                            // Green blob top-left (Client Style)
-                            GreenBlobBackground(style: .client)
-                                .frame(height: 300)
+            NavigationStack {
+                VStack(spacing: 0) {
+                    if selectedTab == .home {
+                        // MARK: Home Content
+                        ScrollView(showsIndicators: false) {
+                            ZStack(alignment: .topTrailing) {
+                                // Green blob top-left (Client Style)
+                                GreenBlobBackground(style: .client)
+                                    .frame(height: 300)
 
-                            VStack(alignment: .leading, spacing: 32) {
-                                // MARK: Top bar
-                                HStack(alignment: .top) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Welcome to LawMate !")
-                                            .font(.system(size: 14, weight: .semibold))
-                                            .foregroundColor(.lmPrimary)
-
-                                        // Hero text — two-tone
-                                        VStack(alignment: .leading, spacing: 0) {
-                                            Text("Justice,")
-                                                .font(.lmHero)
+                                VStack(alignment: .leading, spacing: 32) {
+                                    // MARK: Top bar
+                                    HStack(alignment: .top) {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Welcome to LawMate !")
+                                                .font(.system(size: 14, weight: .semibold))
                                                 .foregroundColor(.lmPrimary)
-                                            Text("Refined.")
-                                                .font(.lmHero)
-                                                .foregroundColor(.lmTextSecondary.opacity(0.5))
-                                        }
-                                    }
-                                    Spacer()
-                                    NotificationButton(badgeCount: 0)
-                                }
-                                .padding(.horizontal, 24)
-                                .padding(.top, 64)
 
-                                // MARK: Find My Lawyer card
-                                FindLawyerCard(searchQuery: $searchQuery)
+                                            // Hero text — two-tone
+                                            VStack(alignment: .leading, spacing: 0) {
+                                                Text("Justice,")
+                                                    .font(.lmHero)
+                                                    .foregroundColor(.lmPrimary)
+                                                Text("Refined.")
+                                                    .font(.lmHero)
+                                                    .foregroundColor(.lmTextSecondary.opacity(0.5))
+                                            }
+                                        }
+                                        Spacer()
+                                        NotificationButton(badgeCount: 0)
+                                    }
+                                    .padding(.horizontal, 24)
+                                    .padding(.top, 64)
+
+                                    // MARK: Find My Lawyer card
+                                    FindLawyerCard(searchQuery: $searchQuery, selectedTab: $selectedTab)
+                                        .padding(.horizontal, 24)
+
+                                    // MARK: My Cases card
+                                    HomeFeatureCard(
+                                        title: "My Cases",
+                                        description: "Detailed Breakthroughs On Current Legislation And Your Rights In The Modern World.",
+                                        imageName: "doc.text.fill",
+                                        imageOnLeft: false
+                                    )
                                     .padding(.horizontal, 24)
 
-                                // MARK: My Cases card
-                                HomeFeatureCard(
-                                    title: "My Cases",
-                                    description: "Detailed Breakthroughs On Current Legislation And Your Rights In The Modern World.",
-                                    imageName: "doc.text.fill",
-                                    imageOnLeft: false
-                                )
-                                .padding(.horizontal, 24)
+                                    // MARK: Document Templates card
+                                    HomeFeatureCard(
+                                        title: "Document Templates",
+                                        description: "Standard Contracts, NDAs, And More. Ready For Signature.",
+                                        imageName: "doc.on.doc.fill",
+                                        imageOnLeft: true
+                                    )
+                                    .padding(.horizontal, 24)
 
-                                // MARK: Document Templates card
-                                HomeFeatureCard(
-                                    title: "Document Templates",
-                                    description: "Standard Contracts, NDAs, And More. Ready For Signature.",
-                                    imageName: "doc.on.doc.fill",
-                                    imageOnLeft: true
-                                )
-                                .padding(.horizontal, 24)
-
-                                // Bottom padding for TabBar
-                                Color.clear.frame(height: 120)
+                                    // Bottom padding for TabBar
+                                    Color.clear.frame(height: 120)
+                                }
                             }
                         }
+                        .ignoresSafeArea(edges: .top)
+                    } else if selectedTab == .lawyers {
+                        // MARK: Lawyers Content
+                        LawyersListView(onBack: {
+                            selectedTab = .home
+                        })
+                    } else if selectedTab == .booking {
+                        // MARK: Booking Content
+                        BookingDetailsView(onBack: {
+                            selectedTab = .home
+                        })
+                    } else {
+                        // Placeholder for other tabs (Messages, Profile)
+                        VStack {
+                            Spacer()
+                            Image(systemName: selectedTab.icon)
+                                .font(.system(size: 80))
+                                .foregroundColor(.lmPrimary.opacity(0.1))
+                            Text("\(selectedTab.title) Screen\nComing Soon")
+                                .font(.lmHeading)
+                                .foregroundColor(.lmTextSecondary)
+                                .multilineTextAlignment(.center)
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    .ignoresSafeArea(edges: .top)
-                } else if selectedTab == .lawyers {
-                    // MARK: Lawyers Content
-                    LawyersListView()
-                } else {
-                    // Placelolder for other tabs
-                    VStack {
-                        Spacer()
-                        Image(systemName: selectedTab.icon)
-                            .font(.system(size: 80))
-                            .foregroundColor(.lmPrimary.opacity(0.1))
-                        Text("\(selectedTab.title) Screen\nComing Soon")
-                            .font(.lmHeading)
-                            .foregroundColor(.lmTextSecondary)
-                            .multilineTextAlignment(.center)
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+                .navigationDestination(for: Lawyer.self) { lawyer in
+                    LawyerDetailView(lawyer: lawyer)
+                }
+                .navigationBarBackButtonHidden(true)
+                .toolbar(.hidden, for: .navigationBar)
             }
             
             // MARK: Global Tab Bar
@@ -115,6 +129,7 @@ struct ClientHomeView: View {
 // MARK: - Find Lawyer search card
 private struct FindLawyerCard: View {
     @Binding var searchQuery: String
+    @Binding var selectedTab: LawMateTab
 
     var body: some View {
         VStack(spacing: 16) {
@@ -131,15 +146,17 @@ private struct FindLawyerCard: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(Capsule())
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                Capsule()
                     .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
             )
 
             // CTA button
             Button {
-                // Navigate to lawyers list
+                withAnimation(.spring()) {
+                    selectedTab = .lawyers
+                }
             } label: {
                 HStack {
                     Spacer()
@@ -150,15 +167,15 @@ private struct FindLawyerCard: View {
                 }
                 .padding(.vertical, 14)
                 .background(Color.lmPrimary)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(Capsule())
             }
             .buttonStyle(.plain)
         }
-        .padding(24) // Increased padding
+        .padding(20) // Balanced padding
         .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 30)) // Increased radius
+        .clipShape(RoundedRectangle(cornerRadius: 24)) // Refined radius
         .overlay(
-            RoundedRectangle(cornerRadius: 30)
+            RoundedRectangle(cornerRadius: 24)
                 .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
         )
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
@@ -199,11 +216,11 @@ private struct HomeFeatureCard: View {
                     featureIcon
                 }
             }
-            .padding(24) // Increased padding
+            .padding(20) // Balanced padding
             .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 30)) // More rounded corners to match images
+            .clipShape(RoundedRectangle(cornerRadius: 24)) // Refined radius
             .overlay(
-                RoundedRectangle(cornerRadius: 30)
+                RoundedRectangle(cornerRadius: 24)
                     .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
             )
             .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
@@ -213,8 +230,8 @@ private struct HomeFeatureCard: View {
 
     private var featureIcon: some View {
         Image(systemName: imageName)
-            .font(.system(size: 80)) // Much larger icon
-            .foregroundColor(Color.lmPrimary.opacity(0.05)) // Very low opacity for background effect
+            .font(.system(size: 60)) // Refined large icon
+            .foregroundColor(Color.lmPrimary.opacity(0.05)) 
             .overlay(
                 Image(systemName: imageName)
                     .font(.system(size: 24))

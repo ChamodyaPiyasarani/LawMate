@@ -12,8 +12,21 @@
 import SwiftUI
 
 struct RootView: View {
+    @AppStorage("isLoggedIn") private var isLoggedIn = false
+    @State private var showSplash = true
+
     var body: some View {
-        SplashView()
+        Group {
+            if showSplash {
+                SplashView(onComplete: {
+                    withAnimation { showSplash = false }
+                })
+            } else if isLoggedIn {
+                ClientHomeView()
+            } else {
+                LoginView()
+            }
+        }
     }
 }
 

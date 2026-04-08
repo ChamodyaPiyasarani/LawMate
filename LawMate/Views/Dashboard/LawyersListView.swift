@@ -1,58 +1,95 @@
-//
-//  LawyersListView.swift
-//  LawMate
-//
-//  Created by COBSCCOMP242P-030 on 2026-04-07.
-//
-
 import SwiftUI
+import MapKit
 
-struct Lawyer: Identifiable {
-    let id = UUID()
+struct Lawyer: Identifiable, Hashable {
+    let id: String
     let name: String
     let specialty: String
     let bio: String
+    let description: String
+    let experience: String
+    let casesWon: String
     let rating: Double
     let location: String
     let image: String
+    let coordinate: CLLocationCoordinate2D
+    
+    // Conform to Hashable for navigation
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: Lawyer, rhs: Lawyer) -> Bool { lhs.id == rhs.id }
 }
 
 struct LawyersListView: View {
+    var onBack: () -> Void = {}
     @State private var searchText = ""
+    @State private var selectedSpecialty: String? = nil
+    @State private var minRating: Double = 0.0
+    @State private var selectedLocation: String? = nil
+    @State private var isMapViewActive = false
+    
+    // Initial camera position centered on Sri Lanka
+    @State private var cameraPosition: MapCameraPosition = .region(
+        MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 7.8731, longitude: 80.7718),
+            span: MKCoordinateSpan(latitudeDelta: 4.0, longitudeDelta: 4.0)
+        )
+    )
+    
     @Environment(\.dismiss) private var dismiss
     
     let lawyers = [
-        Lawyer(name: "Nimal Perera", specialty: "Criminal Law", bio: "Experienced criminal lawyer handling complex court cases", rating: 4.8, location: "Colombo, Sri Lanka", image: "person.fill"),
-        Lawyer(name: "Sanduni Fernando", specialty: "Family Law", bio: "Family law specialist focusing on divorce and custody", rating: 4.6, location: "Gampaha, Sri Lanka", image: "person.fill"),
-        Lawyer(name: "Ravindu Silva", specialty: "Corporate Law", bio: "Corporate lawyer advising businesses on legal compliance matters", rating: 4.7, location: "Kandy, Sri Lanka", image: "person.fill"),
-        Lawyer(name: "Ishara Jayasinghe", specialty: "Property Law", bio: "Property law expert handling land disputes and documentation", rating: 4.4, location: "Negombo, Sri Lanka", image: "person.fill"),
-        Lawyer(name: "Tharindu Wijeshinghe", specialty: "Civil Law", bio: "Civil litigation lawyer representing clients in legal disputes", rating: 4.6, location: "Galle, Sri Lanka", image: "person.fill")
+        Lawyer(id: "L1", name: "Nimal Perera", specialty: "Criminal Law", bio: "Experienced criminal lawyer handling complex court cases", 
+               description: "Experienced criminal defense lawyer with over 14 years of practice. Known for strong courtroom representation and client-focused strategies.",
+               experience: "14 YEARS", casesWon: "250 +", rating: 4.8, location: "Colombo, Sri Lanka", image: "person.fill", 
+               coordinate: CLLocationCoordinate2D(latitude: 6.9271, longitude: 79.8612)),
+        Lawyer(id: "L2", name: "Sanduni Fernando", specialty: "Family Law", bio: "Family law specialist focusing on divorce and custody", 
+               description: "Specialized in family mediation and complex divorce proceedings with a gentle yet firm approach.",
+               experience: "10 YEARS", casesWon: "180 +", rating: 4.6, location: "Gampaha, Sri Lanka", image: "person.fill",
+               coordinate: CLLocationCoordinate2D(latitude: 7.0873, longitude: 79.9925)),
+        Lawyer(id: "L3", name: "Ravindu Silva", specialty: "Corporate Law", bio: "Corporate lawyer advising businesses on legal compliance matters", 
+               description: "Corporate legal consultant for multinational firms, specializing in mergers and acquisitions.",
+               experience: "12 YEARS", casesWon: "300 +", rating: 4.7, location: "Kandy, Sri Lanka", image: "person.fill",
+               coordinate: CLLocationCoordinate2D(latitude: 7.2906, longitude: 80.6337)),
+        Lawyer(id: "L4", name: "Ishara Jayasinghe", specialty: "Property Law", bio: "Property law expert handling land disputes and documentation", 
+               description: "Providing expert counsel on real estate law, land ownership disputes, and title verification.",
+               experience: "8 YEARS", casesWon: "120 +", rating: 4.4, location: "Negombo, Sri Lanka", image: "person.fill",
+               coordinate: CLLocationCoordinate2D(latitude: 7.2089, longitude: 79.8354)),
+        Lawyer(id: "L5", name: "Tharindu Wijeshinghe", specialty: "Civil Law", bio: "Civil litigation lawyer representing clients in legal disputes", 
+               description: "Vast experience in civil litigation, personal injury claims, and dispute resolution.",
+               experience: "15 YEARS", casesWon: "400 +", rating: 4.6, location: "Galle, Sri Lanka", image: "person.fill",
+               coordinate: CLLocationCoordinate2D(latitude: 6.0535, longitude: 80.2210))
     ]
+    
+    private let allSpecialties = ["Criminal Law", "Family Law", "Corporate Law", "Property Law", "Civil Law"]
+    private let allLocations = ["Colombo", "Gampaha", "Kandy", "Negombo", "Galle"]
 
     var filteredLawyers: [Lawyer] {
-        if searchText.isEmpty { return lawyers }
-        return lawyers.filter { $0.name.localizedCaseInsensitiveContains(searchText) || $0.specialty.localizedCaseInsensitiveContains(searchText) }
+        lawyers.filter { lawyer in
+            let matchesSearch = searchText.isEmpty || 
+                               lawyer.name.localizedCaseInsensitiveContains(searchText) || 
+                               lawyer.specialty.localizedCaseInsensitiveContains(searchText)
+            
+            let matchesSpecialty = selectedSpecialty == nil || lawyer.specialty == selectedSpecialty
+            let matchesRating = lawyer.rating >= minRating
+            let matchesLocation = selectedLocation == nil || lawyer.location.contains(selectedLocation!)
+            
+            return matchesSearch && matchesSpecialty && matchesRating && matchesLocation
+        }
     }
 
     var body: some View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
             
-            // Client style blob on the left
+            // Green blob top-left (Client Style)
             GreenBlobBackground(style: .client)
                 .frame(height: 300)
             
             VStack(spacing: 0) {
-                // MARK: Custom Header
+                // MARK: Custom Header (Left-Aligned)
                 HStack {
-                    LawMateBackButton {
-                        // In a real app, this might go back or switch tab
-                    }
-                    
-                    Spacer()
-                    
                     Text("Find Your Lawyer")
-                        .font(.lmHeading)
+                        .font(.system(size: 22, weight: .bold))
                         .foregroundColor(.lmPrimary)
                     
                     Spacer()
@@ -60,7 +97,8 @@ struct LawyersListView: View {
                     NotificationButton(badgeCount: 0)
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 60)
+                .padding(.top, 64)
+                .zIndex(10)
                 
                 // MARK: Search Bar
                 HStack(spacing: 12) {
@@ -74,78 +112,173 @@ struct LawyersListView: View {
                 .clipShape(Capsule())
                 .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                 .padding(.horizontal, 24)
-                .padding(.top, 30)
+                .padding(.top, 10)
                 
-                // MARK: Filters
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        FilterPill(icon: "line.3.horizontal.decrease.circle.fill", title: "Category")
-                        FilterPill(icon: "star.fill", title: "Rate")
-                        FilterPill(icon: "scope", title: "Location")
-                        FilterPill(icon: "mappin.and.ellipse", title: "Map")
+                // MARK: Filters (Fixed on one line - Full Width)
+                HStack(spacing: 8) {
+                    // Category Dropdown
+                    Menu {
+                        Button("All Categories") { selectedSpecialty = nil }
+                        ForEach(allSpecialties, id: \.self) { specialty in
+                            Button(specialty) { selectedSpecialty = specialty }
+                        }
+                    } label: {
+                        FilterPill(icon: "line.3.horizontal.decrease.circle.fill", 
+                                  title: selectedSpecialty ?? "Category", 
+                                  isActive: selectedSpecialty != nil,
+                                  maxWidth: .infinity) {}
                     }
-                    .padding(.horizontal, 24)
-                }
-                .padding(.top, 20)
-                
-                // MARK: Lawyers List
-                ScrollView {
-                    VStack(spacing: 20) {
-                        ForEach(filteredLawyers) { lawyer in
-                            LawyerRow(lawyer: lawyer)
+                    
+                    FilterPill(icon: "star.fill", 
+                              title: minRating > 0 ? "\(String(format: "%.1f", minRating))+" : "Rate", 
+                              isActive: minRating > 0,
+                              maxWidth: .infinity) {
+                        minRating = minRating == 0 ? 4.6 : 0
+                    }
+                    
+                    // Location Dropdown
+                    Menu {
+                        Button("All Locations") { 
+                            selectedLocation = nil 
+                            updateMapForLocation(nil)
+                        }
+                        ForEach(allLocations, id: \.self) { location in
+                            Button(location) { 
+                                selectedLocation = location 
+                                updateMapForLocation(location)
+                            }
+                        }
+                    } label: {
+                        FilterPill(icon: "scope", 
+                                  title: selectedLocation ?? "Location", 
+                                  isActive: selectedLocation != nil,
+                                  maxWidth: .infinity) {}
+                    }
+                    
+                    FilterPill(icon: "mappin.and.ellipse", 
+                              title: "Map", 
+                              isActive: isMapViewActive,
+                              maxWidth: .infinity) {
+                        withAnimation(.spring()) {
+                            isMapViewActive.toggle()
                         }
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 20)
-                    .padding(.bottom, 120) // Space for TabBar
                 }
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+                .padding(.bottom, 12) // Added padding for spacing
+                .zIndex(1) // Ensure filters are above map
+                
+                // MARK: Lawyers List OR Map
+                ZStack {
+                    if isMapViewActive {
+                        Map(position: $cameraPosition) {
+                            ForEach(filteredLawyers) { lawyer in
+                                Annotation(lawyer.name, coordinate: lawyer.coordinate) {
+                                    NavigationLink(value: lawyer) {
+                                        LawyerMapAnnotation(lawyer: lawyer)
+                                    }
+                                }
+                            }
+                        }
+                        .mapStyle(.standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+                        .padding(.top, 20)
+                        .padding(.bottom, 100)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    } else {
+                        ScrollView {
+                            VStack(spacing: 16) {
+                                ForEach(filteredLawyers) { lawyer in
+                                    NavigationLink(value: lawyer) {
+                                        LawyerRow(lawyer: lawyer)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 24)
+                            .padding(.top, 20)
+                            .padding(.bottom, 140) // Extra space for TabBar
+                        }
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                }
+            }
+            .ignoresSafeArea(edges: .top)
+        }
+        .onChange(of: searchText) { oldValue, newValue in
+            // If search result identifies a single lawyer, center map on them
+            if isMapViewActive && filteredLawyers.count == 1 {
+                updateMapForLocation(filteredLawyers[0].location.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespaces))
+            }
+        }
+    }
+    
+    private func updateMapForLocation(_ location: String?) {
+        let coordinates: [String: CLLocationCoordinate2D] = [
+            "Colombo": CLLocationCoordinate2D(latitude: 6.9271, longitude: 79.8612),
+            "Gampaha": CLLocationCoordinate2D(latitude: 7.0873, longitude: 79.9925),
+            "Kandy": CLLocationCoordinate2D(latitude: 7.2906, longitude: 80.6337),
+            "Negombo": CLLocationCoordinate2D(latitude: 7.2089, longitude: 79.8354),
+            "Galle": CLLocationCoordinate2D(latitude: 6.0535, longitude: 80.2210)
+        ]
+        
+        withAnimation(.easeInOut) {
+            if let city = location, let coord = coordinates[city] {
+                cameraPosition = .region(MKCoordinateRegion(center: coord, span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)))
+            } else {
+                cameraPosition = .region(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 7.8731, longitude: 80.7718), span: MKCoordinateSpan(latitudeDelta: 4.0, longitudeDelta: 4.0)))
             }
         }
     }
 }
 
-// MARK: - Filter Pill
-struct FilterPill: View {
-    let icon: String
-    let title: String
+// MARK: - Custom Map Annotation
+struct LawyerMapAnnotation: View {
+    let lawyer: Lawyer
     
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 14))
-            Text(title)
-                .font(.lmCaption.weight(.medium))
+        ZStack {
+            Circle()
+                .fill(Color.lmPrimary)
+                .frame(width: 44, height: 44)
+                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+            
+            Circle()
+                .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                .frame(width: 44, height: 44)
+            
+            Image(systemName: "balance.scale")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.white)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color.white)
-        .clipShape(Capsule())
-        .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
-        .foregroundColor(.lmPrimary)
+        .scaleEffect(1.0)
     }
 }
+
 
 // MARK: - Lawyer Row Card
 struct LawyerRow: View {
     let lawyer: Lawyer
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 16) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 14) {
                 // Profile Image Placeholder
                 ZStack {
                     Circle()
                         .fill(Color.lmLightGreen.opacity(0.5))
-                        .frame(width: 70, height: 70)
+                        .frame(width: 56, height: 56)
                     Image(systemName: "person.fill")
-                        .font(.system(size: 30))
+                        .font(.system(size: 24))
                         .foregroundColor(.lmPrimary.opacity(0.6))
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(lawyer.name)
-                            .font(.lmHeading)
+                            .font(.system(size: 14, weight: .bold)) // Smaller and bold
                             .foregroundColor(.lmPrimary)
                         
                         Spacer()

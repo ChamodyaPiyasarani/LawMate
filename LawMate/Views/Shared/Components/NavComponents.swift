@@ -34,6 +34,7 @@ struct LawMateBackButton: View {
                     .font(.system(size: 16, weight: .bold)) // Bolder as in image
                     .foregroundColor(.lmPrimary) // Changed to primary green
             }
+            .contentShape(Circle()) // Reliable tap area
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Back")

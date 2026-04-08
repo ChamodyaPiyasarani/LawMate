@@ -13,10 +13,10 @@ import SwiftUI
 import LocalAuthentication
 
 struct LoginView: View {
+    @AppStorage("isLoggedIn") private var isLoggedIn = false
     @State private var email:    String = ""
     @State private var password: String = ""
     @State private var navigateToSignUp   = false
-    @State private var navigateToHome     = false
     @State private var biometricError: String? = nil
 
     var body: some View {
@@ -66,7 +66,9 @@ struct LoginView: View {
 
                             // MARK: Sign In button
                             LawMatePrimaryButton(title: "Sign in") {
-                                navigateToHome = true
+                                withAnimation {
+                                    isLoggedIn = true
+                                }
                             }
                             .padding(.horizontal, 40)
 
@@ -138,9 +140,6 @@ struct LoginView: View {
             .navigationDestination(isPresented: $navigateToSignUp) {
                 SignUpView()
             }
-            .navigationDestination(isPresented: $navigateToHome) {
-                ClientHomeView()
-            }
         }
     }
 
@@ -165,7 +164,9 @@ struct LoginView: View {
         ) { success, _ in
             DispatchQueue.main.async {
                 if success {
-                    navigateToHome = true
+                    withAnimation {
+                        isLoggedIn = true
+                    }
                 } else {
                     biometricError = "Biometric authentication failed."
                 }

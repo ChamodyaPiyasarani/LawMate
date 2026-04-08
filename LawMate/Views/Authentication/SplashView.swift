@@ -11,18 +11,19 @@
 import SwiftUI
 
 struct SplashView: View {
+    var onComplete: () -> Void = {}
+    
     @State private var logoScale: CGFloat = 0.7
     @State private var logoOpacity: Double = 0.0
     @State private var textOpacity: Double = 0.0
     @State private var isActive: Bool = false
 
     var body: some View {
-        if isActive {
-            LoginView()
-        } else {
-            splashContent
-                .onAppear { startAnimation() }
-        }
+        splashContent
+            .onAppear { startAnimation() }
+            .onChange(of: isActive) { oldValue, newValue in
+                if newValue { onComplete() }
+            }
     }
 
     private var splashContent: some View {
