@@ -1,7 +1,7 @@
 import SwiftUI
 
 // MARK: - Booking Model
-struct Booking: Identifiable {
+struct Booking: Identifiable, Hashable {
     let id: String
     let lawyerName: String
     let date: String
@@ -9,6 +9,10 @@ struct Booking: Identifiable {
     let category: String
     let method: String
     let status: BookingStatus
+    
+    // Conform to Hashable for navigation
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: Booking, rhs: Booking) -> Bool { lhs.id == rhs.id }
 }
 
 enum BookingStatus {
@@ -117,7 +121,10 @@ struct BookingDetailsView: View {
                         // MARK: Booking List
                         VStack(spacing: 16) { // Match Lawyers List
                             ForEach(bookings) { booking in
-                                BookingCard(booking: booking)
+                                NavigationLink(value: booking) {
+                                    BookingCard(booking: booking)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                         

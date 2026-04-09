@@ -14,12 +14,16 @@ import SwiftUI
 struct ClientHomeView: View {
     @State private var selectedTab:  LawMateTab = .home
     @State private var searchQuery:  String = ""
+    @State private var showMyCases: Bool = false
+    @State private var showDocuments: Bool = false
+    @State private var showNotifications: Bool = false
+    @State private var navPath = NavigationPath()
 
     var body: some View {
         ZStack(alignment: .bottom) {
             Color.lmBackground.ignoresSafeArea()
             
-            NavigationStack {
+            NavigationStack(path: $navPath) {
                 VStack(spacing: 0) {
                     if selectedTab == .home {
                         // MARK: Home Content
@@ -48,7 +52,9 @@ struct ClientHomeView: View {
                                             }
                                         }
                                         Spacer()
-                                        NotificationButton(badgeCount: 0)
+                                        NotificationButton(badgeCount: 5, action: {
+                                            showNotifications = true
+                                        })
                                     }
                                     .padding(.horizontal, 24)
                                     .padding(.top, 64)
@@ -62,7 +68,10 @@ struct ClientHomeView: View {
                                         title: "My Cases",
                                         description: "Detailed Breakthroughs On Current Legislation And Your Rights In The Modern World.",
                                         imageName: "doc.text.fill",
-                                        imageOnLeft: false
+                                        imageOnLeft: false,
+                                        action: {
+                                            showMyCases = true
+                                        }
                                     )
                                     .padding(.horizontal, 24)
 
@@ -71,7 +80,10 @@ struct ClientHomeView: View {
                                         title: "Document Templates",
                                         description: "Standard Contracts, NDAs, And More. Ready For Signature.",
                                         imageName: "doc.on.doc.fill",
-                                        imageOnLeft: true
+                                        imageOnLeft: true,
+                                        action: {
+                                            showDocuments = true
+                                        }
                                     )
                                     .padding(.horizontal, 24)
 
@@ -91,35 +103,75 @@ struct ClientHomeView: View {
                         BookingDetailsView(onBack: {
                             selectedTab = .home
                         })
+                    } else if selectedTab == .messages {
+                        // MARK: Messages Content
+                        MessagesListView(onBack: {
+                            selectedTab = .home
+                        })
                     } else {
-                        // Placeholder for other tabs (Messages, Profile)
-                        VStack {
-                            Spacer()
-                            Image(systemName: selectedTab.icon)
-                                .font(.system(size: 80))
-                                .foregroundColor(.lmPrimary.opacity(0.1))
-                            Text("\(selectedTab.title) Screen\nComing Soon")
-                                .font(.lmHeading)
-                                .foregroundColor(.lmTextSecondary)
-                                .multilineTextAlignment(.center)
-                            Spacer()
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        // MARK: Profile Content
+                        ProfileView(onBack: {
+                            selectedTab = .home
+                        })
                     }
                 }
                 .navigationDestination(for: Lawyer.self) { lawyer in
                     LawyerDetailView(lawyer: lawyer)
+                }
+                .navigationDestination(for: Booking.self) { booking in
+                    MyCaseDetailsView(booking: booking)
+                }
+                .navigationDestination(isPresented: $showMyCases) {
+                    MyCasesView()
+                }
+                .navigationDestination(isPresented: $showDocuments) {
+                    DocumentsView()
+                }
+                .navigationDestination(isPresented: $showNotifications) {
+                    NotificationsView()
+                }
+                .navigationDestination(for: ClientCase.self) { clientCase in
+                    CaseDetailView(clientCase: clientCase)
+                }
+                .navigationDestination(for: ChatPreview.self) { chat in
+                    ChatDetailView(chat: chat)
+                }
+                .navigationDestination(for: ProfileRoute.self) { route in
+                    switch route {
+                    case .personalInfo:
+                        PersonalInfoView()
+                    case .security:
+                        SecurityView()
+                    case .biometrics:
+                        BiometricsView()
+                    case .profileNotifications:
+                        ProfileNotificationsView()
+                    case .termsOfService:
+                        TermsView()
+                    case .privacyPolicy:
+                        PrivacyView()
+                    }
                 }
                 .navigationBarBackButtonHidden(true)
                 .toolbar(.hidden, for: .navigationBar)
             }
             
             // MARK: Global Tab Bar
-            VStack {
-                Spacer()
-                TabBarView(selectedTab: $selectedTab)
+            if navPath.isEmpty && !showMyCases && !showDocuments && !showNotifications {
+                VStack {
+                    Spacer()
+                    TabBarView(selectedTab: $selectedTab)
+                }
+                .ignoresSafeArea(edges: .bottom)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            .ignoresSafeArea(edges: .bottom)
+        }
+        .animation(.easeInOut(duration: 0.2), value: navPath.isEmpty && !showMyCases && !showDocuments && !showNotifications)
+        .onChange(of: selectedTab) { _ in
+            navPath = NavigationPath()
+            showMyCases = false
+            showDocuments = false
+            showNotifications = false
         }
     }
 }
@@ -188,10 +240,11 @@ private struct HomeFeatureCard: View {
     let description: String
     let imageName: String
     let imageOnLeft: Bool
+    var action: () -> Void = {}
 
     var body: some View {
         Button {
-            // Navigate to feature
+            action()
         } label: {
             HStack(alignment: .center, spacing: 16) {
                 if imageOnLeft {
