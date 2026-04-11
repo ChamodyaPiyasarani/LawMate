@@ -43,7 +43,6 @@ struct BookingDetailsView: View {
     
     @State private var searchQuery = ""
     @State private var selectedFilter = "Confirmed"
-    @State private var showBookingView = false
     
     private let filters = ["Confirmed", "Pending", "In progress", "Done"]
     private let bookings = [
@@ -70,9 +69,19 @@ struct BookingDetailsView: View {
                     Spacer()
                     
                     // MARK: + Add Button (Standardized as Circle)
-                    Button {
-                        showBookingView = true
-                    } label: {
+                    NavigationLink(value: ClientHomeView.AppRoute.booking(Lawyer(
+                        id: "L1",
+                        name: "Nimal Perera",
+                        specialty: "Criminal Law",
+                        bio: "Criminal specialist",
+                        description: "Bio",
+                        experience: "14 YEARS",
+                        casesWon: "250 +",
+                        rating: 4.8,
+                        location: "Colombo",
+                        image: "person",
+                        coordinate: .init(latitude: 6.9271, longitude: 79.8612)
+                    ))) {
                         Image(systemName: "plus")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.lmPrimary)
@@ -137,21 +146,6 @@ struct BookingDetailsView: View {
                 }
             }
             .ignoresSafeArea(edges: .top)
-        }
-        .navigationDestination(isPresented: $showBookingView) {
-            BookingView(lawyer: Lawyer(
-                id: "L1",
-                name: "Nimal Perera",
-                specialty: "Criminal Law",
-                bio: "Criminal specialist",
-                description: "Bio",
-                experience: "14 YEARS",
-                casesWon: "250 +",
-                rating: 4.8,
-                location: "Colombo",
-                image: "person",
-                coordinate: .init(latitude: 6.9271, longitude: 79.8612)
-            ))
         }
     }
 }

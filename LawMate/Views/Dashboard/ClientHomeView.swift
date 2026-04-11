@@ -3,10 +3,12 @@ import SwiftUI
 struct ClientHomeView: View {
     @State private var selectedTab:  LawMateTab = .home
     @State private var searchQuery:  String = ""
-    @State private var showMyCases: Bool = false
-    @State private var showDocuments: Bool = false
-    @State private var showNotifications: Bool = false
     @State private var navPath = NavigationPath()
+    
+    // Simple routes for screens without complex data models
+    enum AppRoute: Hashable {
+        case myCases, documents, notifications, booking(Lawyer)
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -42,7 +44,7 @@ struct ClientHomeView: View {
                                         }
                                         Spacer()
                                         NotificationButton(badgeCount: 5, action: {
-                                            showNotifications = true
+                                            navPath.append(AppRoute.notifications)
                                         })
                                     }
                                     .padding(.horizontal, 24)
@@ -58,9 +60,7 @@ struct ClientHomeView: View {
                                         description: "Detailed Breakthroughs On Current Legislation And Your Rights In The Modern World.",
                                         imageName: "doc.text.fill",
                                         imageOnLeft: false,
-                                        action: {
-                                            showMyCases = true
-                                        }
+                                        route: .myCases
                                     )
                                     .padding(.horizontal, 24)
 
@@ -70,9 +70,7 @@ struct ClientHomeView: View {
                                         description: "Standard Contracts, NDAs, And More. Ready For Signature.",
                                         imageName: "doc.on.doc.fill",
                                         imageOnLeft: true,
-                                        action: {
-                                            showDocuments = true
-                                        }
+                                        route: .documents
                                     )
                                     .padding(.horizontal, 24)
 
@@ -110,14 +108,17 @@ struct ClientHomeView: View {
                 .navigationDestination(for: Booking.self) { booking in
                     MyCaseDetailsView(booking: booking)
                 }
-                .navigationDestination(isPresented: $showMyCases) {
-                    MyCasesView()
-                }
-                .navigationDestination(isPresented: $showDocuments) {
-                    DocumentsView()
-                }
-                .navigationDestination(isPresented: $showNotifications) {
-                    NotificationsView()
+                .navigationDestination(for: AppRoute.self) { route in
+                    switch route {
+                    case .myCases:
+                        MyCasesView()
+                    case .documents:
+                        DocumentsView()
+                    case .notifications:
+                        NotificationsView()
+                    case .booking(let lawyer):
+                        BookingView(lawyer: lawyer)
+                    }
                 }
                 .navigationDestination(for: ClientCase.self) { clientCase in
                     CaseDetailView(clientCase: clientCase)
@@ -146,7 +147,7 @@ struct ClientHomeView: View {
             }
             
             // MARK: Global Tab Bar
-            if navPath.isEmpty && !showMyCases && !showDocuments && !showNotifications {
+            if navPath.isEmpty {
                 VStack {
                     Spacer()
                     TabBarView(selectedTab: $selectedTab)
@@ -155,12 +156,9 @@ struct ClientHomeView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: navPath.isEmpty && !showMyCases && !showDocuments && !showNotifications)
+        .animation(.easeInOut(duration: 0.2), value: navPath.isEmpty)
         .onChange(of: selectedTab) { _ in
             navPath = NavigationPath()
-            showMyCases = false
-            showDocuments = false
-            showNotifications = false
         }
     }
 }
@@ -229,12 +227,10 @@ private struct HomeFeatureCard: View {
     let description: String
     let imageName: String
     let imageOnLeft: Bool
-    var action: () -> Void = {}
+    let route: ClientHomeView.AppRoute
 
     var body: some View {
-        Button {
-            action()
-        } label: {
+        NavigationLink(value: route) {
             HStack(alignment: .center, spacing: 16) {
                 if imageOnLeft {
                     featureIcon

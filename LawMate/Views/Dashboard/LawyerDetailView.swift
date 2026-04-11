@@ -4,7 +4,6 @@ import MapKit
 struct LawyerDetailView: View {
     let lawyer: Lawyer
     @Environment(\.dismiss) private var dismiss
-    @State private var navigateToBooking = false
     @State private var showRatingSheet = false
 
     var body: some View {
@@ -144,9 +143,19 @@ struct LawyerDetailView: View {
                         .padding(.bottom, 24)
 
                         // MARK: CTA
-                        LawMatePrimaryButton(title: "Book An Appointment") {
-                            navigateToBooking = true
+                        NavigationLink(value: ClientHomeView.AppRoute.booking(lawyer)) {
+                            HStack {
+                                Spacer()
+                                Text("Book An Appointment")
+                                    .font(.lmButton)
+                                    .foregroundColor(.white)
+                                Spacer()
+                            }
+                            .padding(.vertical, 14)
+                            .background(Color.lmPrimary)
+                            .clipShape(Capsule())
                         }
+                        .buttonStyle(.plain)
                         .padding(.horizontal, 40)
                         .padding(.bottom, 20) // Extra button spacing
                         
@@ -159,9 +168,6 @@ struct LawyerDetailView: View {
             .ignoresSafeArea(edges: .top)
         }
         .navigationBarBackButtonHidden(true)
-        .navigationDestination(isPresented: $navigateToBooking) {
-            BookingView(lawyer: lawyer)
-        }
         .sheet(isPresented: $showRatingSheet) {
             RatingView(lawyerName: lawyer.name)
         }
