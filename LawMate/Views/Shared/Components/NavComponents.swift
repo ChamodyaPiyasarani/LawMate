@@ -84,14 +84,43 @@ struct NotificationButton: View {
     }
 }
 
+// MARK: - Camera Button
+struct CameraButton: View {
+    var action: () -> Void = {}
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                // Liquid glass background
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 44, height: 44)
+                    .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 4)
+                
+                // Rim highlight
+                Circle()
+                    .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                    .frame(width: 44, height: 44)
+
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(.lmPrimary)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - Reusable Navigation Bar
 struct LawMateNavigationBar: View {
     var title: String = ""
     var showBack: Bool = false
     var showNotification: Bool = false
+    var showCamera: Bool = false
     var notificationCount: Int = 0
     var onBack: () -> Void = {}
     var onNotification: () -> Void = {}
+    var onCamera: () -> Void = {}
 
     var body: some View {
         HStack {
@@ -105,8 +134,11 @@ struct LawMateNavigationBar: View {
                     .foregroundColor(.lmPrimary)
             }
             Spacer()
+            
             if showNotification {
                 NotificationButton(badgeCount: notificationCount, action: onNotification)
+            } else if showCamera {
+                CameraButton(action: onCamera)
             } else if showBack {
                 Color.clear.frame(width: 44, height: 44)
             }

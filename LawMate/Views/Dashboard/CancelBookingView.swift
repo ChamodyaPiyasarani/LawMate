@@ -15,11 +15,7 @@ struct CancelBookingView: View {
     
     var body: some View {
         ZStack(alignment: .top) {
-            Color.lmBackground.ignoresSafeArea()
-            
-            // Green blob top-left (Client Style)
-            GreenBlobBackground(style: .client)
-                .frame(height: 300)
+            Color.white.ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // MARK: Custom Header

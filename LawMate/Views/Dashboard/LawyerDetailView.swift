@@ -1,10 +1,3 @@
-//
-//  LawyerDetailView.swift
-//  LawMate
-//
-//  Created by COBSCCOMP242P-030 on 2026-04-08.
-//
-
 import SwiftUI
 import MapKit
 
@@ -12,6 +5,7 @@ struct LawyerDetailView: View {
     let lawyer: Lawyer
     @Environment(\.dismiss) private var dismiss
     @State private var navigateToBooking = false
+    @State private var showRatingSheet = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -27,9 +21,11 @@ struct LawyerDetailView: View {
                     title: "Lawyer Details",
                     showBack: true,
                     showNotification: true,
+                    showCamera: false,
                     onBack: { dismiss() }
                 )
                 .padding(.top, 48)
+
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 32) {
@@ -96,6 +92,57 @@ struct LawyerDetailView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.bottom, 24) // Controlled gap
 
+                        // MARK: Ratings & Reviews
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack {
+                                Text("Ratings & Reviews")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(.lmPrimary)
+                                
+                                Spacer()
+                                
+                                Button {
+                                    showRatingSheet = true
+                                } label: {
+                                    Text("Write a review")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(.lmPrimary)
+                                }
+                            }
+                            
+                            // Mock Review Example
+                            HStack(alignment: .top, spacing: 12) {
+                                Circle()
+                                    .fill(Color.lmPrimary.opacity(0.1))
+                                    .frame(width: 36, height: 36)
+                                    .overlay(Text("JS").font(.system(size: 12, weight: .bold)).foregroundColor(.lmPrimary))
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack(spacing: 4) {
+                                        ForEach(0..<5) { i in
+                                            Image(systemName: "star.fill")
+                                                .font(.system(size: 10))
+                                                .foregroundColor(i < 5 ? .orange : .gray.opacity(0.3))
+                                        }
+                                        Spacer()
+                                        Text("2 days ago")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.lmTextSecondary.opacity(0.6))
+                                    }
+                                    
+                                    Text("Very professional and clear in his explanations. Highly recommended for complex cases.")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.lmTextSecondary)
+                                        .lineLimit(2)
+                                }
+                            }
+                            .padding(16)
+                            .background(Color.white.opacity(0.4))
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 24)
+
                         // MARK: CTA
                         LawMatePrimaryButton(title: "Book An Appointment") {
                             navigateToBooking = true
@@ -114,6 +161,9 @@ struct LawyerDetailView: View {
         .navigationBarBackButtonHidden(true)
         .navigationDestination(isPresented: $navigateToBooking) {
             BookingView(lawyer: lawyer)
+        }
+        .sheet(isPresented: $showRatingSheet) {
+            RatingView(lawyerName: lawyer.name)
         }
     }
 }

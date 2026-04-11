@@ -66,63 +66,25 @@ struct BookingView: View {
                         .padding(.horizontal, 24)
 
                         // MARK: Calendar Card
-                        VStack(alignment: .leading, spacing: 20) {
-                            SectionTitle(title: "Service Selection") // Label updated as per image
+                        VStack(alignment: .leading, spacing: 12) {
+                            SectionTitle(title: "Select Date")
                             
-                            VStack(spacing: 16) {
-                                HStack {
-                                    Text("March 2026")
-                                        .font(.system(size: 18, weight: .bold))
-                                        .foregroundColor(.lmPrimary)
-                                    Spacer()
-                                    HStack(spacing: 20) {
-                                        Image(systemName: "chevron.left")
-                                        Image(systemName: "chevron.right")
-                                    }
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.lmTextPrimary)
-                                }
-                                
-                                // Days Header
-                                HStack {
-                                    ForEach(["MO", "TU", "WE", "TH", "FR", "SA", "SU"], id: \.self) { day in
-                                        Text(day)
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundColor(.lmTextSecondary.opacity(0.6))
-                                            .frame(maxWidth: .infinity)
-                                    }
-                                }
-                                
-                                // Calendar Grid
-                                let days = Array(1...31)
-                                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 12) {
-                                    ForEach(days, id: \.self) { day in
-                                        let isBooked = bookedDays.contains(day)
-                                        let isSelected = Calendar.current.component(.day, from: selectedDate) == day
-                                        
-                                        Button {
-                                            if !isBooked {
-                                                // Update selected date logic
-                                            }
-                                        } label: {
-                                            Text("\(day)")
-                                                .font(.system(size: 14, weight: .semibold))
-                                                .foregroundColor(isBooked ? .lmTextSecondary.opacity(0.2) : (isSelected ? .white : .lmTextPrimary))
-                                                .frame(width: 36, height: 36)
-                                                .background(isSelected ? Color.lmPrimary : Color.clear)
-                                                .clipShape(Circle())
-                                        }
-                                        .disabled(isBooked)
-                                    }
-                                }
-                            }
-                            .padding(24)
+                            DatePicker(
+                                "Select Date",
+                                selection: $selectedDate,
+                                in: Date()...,
+                                displayedComponents: [.date]
+                            )
+                            .datePickerStyle(.graphical)
+                            .padding()
+                            .background(Color.white.opacity(0.8))
                             .background(.ultraThinMaterial)
                             .clipShape(RoundedRectangle(cornerRadius: 24))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 24)
                                     .stroke(Color.white.opacity(0.3), lineWidth: 1)
                             )
+                            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                         }
                         .padding(.horizontal, 24)
 
@@ -184,7 +146,20 @@ struct BookingView: View {
 
                         // MARK: Confirm Button
                         LawMatePrimaryButton(title: "Confirm Appointment") {
-                            // Confirm logic
+                            EventKitManager.shared.createEvent(
+                                title: "Consultation with \(lawyer.name)",
+                                startDate: selectedDate,
+                                endDate: selectedDate.addingTimeInterval(3600), // 1 hour consultation
+                                location: isVideoCall ? "Video Call" : lawyer.location,
+                                notes: caseDescription
+                            ) { success, error in
+                                if success {
+                                    dismiss()
+                                } else if let error = error {
+                                    print("Failed to save event: \(error.localizedDescription)")
+                                    dismiss()
+                                }
+                            }
                         }
                         .padding(.horizontal, 40)
                         .padding(.top, 20)

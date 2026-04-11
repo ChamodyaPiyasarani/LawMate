@@ -1,14 +1,3 @@
-//
-//  ClientHomeView.swift
-//  LawMate
-//
-//  Created by COBSCCOMP242P-030 on 2026-04-07.
-//
-//  Screen 4 — Client Home (5. Clients - Home)
-//  Green blob top-right, hero text, lawyer search card,
-//  My Cases card, Document Templates card, custom tab bar.
-//
-
 import SwiftUI
 
 struct ClientHomeView: View {

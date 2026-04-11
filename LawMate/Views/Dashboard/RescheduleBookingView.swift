@@ -13,11 +13,7 @@ struct RescheduleBookingView: View {
     
     var body: some View {
         ZStack(alignment: .top) {
-            Color.lmBackground.ignoresSafeArea()
-            
-            // Green blob top-left (Client Style)
-            GreenBlobBackground(style: .client)
-                .frame(height: 300)
+            Color.white.ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // MARK: Custom Header
@@ -81,8 +77,15 @@ struct RescheduleBookingView: View {
                         
                         // MARK: Confirm Button
                         Button {
-                            // Confirm action
-                            dismiss()
+                            EventKitManager.shared.createEvent(
+                                title: "Rescheduled Consultation",
+                                startDate: selectedDate,
+                                endDate: selectedDate.addingTimeInterval(3600)
+                            ) { success, _ in
+                                DispatchQueue.main.async {
+                                    dismiss()
+                                }
+                            }
                         } label: {
                             HStack {
                                 Spacer()

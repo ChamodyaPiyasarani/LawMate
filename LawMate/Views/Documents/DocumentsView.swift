@@ -59,24 +59,8 @@ struct DocumentsView: View {
                     
                     Spacer()
                     
-                    VStack(spacing: 12) {
-                        NotificationButton(badgeCount: 0)
-                        
-                        Button {
-                            // Camera action
-                        } label: {
-                            Circle()
-                                .fill(Color.white)
-                                .frame(width: 44, height: 44)
-                                .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 4)
-                                .overlay(
-                                    Image(systemName: "camera.fill")
-                                        .font(.system(size: 18, weight: .medium))
-                                        .foregroundColor(.lmPrimary)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    CameraButton(action: {})
+                        .padding(.top, 10)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 64)

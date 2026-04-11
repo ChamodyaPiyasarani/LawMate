@@ -10,6 +10,7 @@ enum ProfileRoute: Hashable {
 }
 
 struct ProfileView: View {
+    @AppStorage("isLoggedIn") private var isLoggedIn = true
     var onBack: () -> Void = {}
     
     var body: some View {
@@ -25,10 +26,10 @@ struct ProfileView: View {
                 LawMateNavigationBar(
                     title: "Profile",
                     showBack: true,
-                    showNotification: true,
+                    showNotification: false,
+                    showCamera: false,
                     notificationCount: 0,
-                    onBack: onBack,
-                    onNotification: {}
+                    onBack: onBack
                 )
                 .padding(.top, 64)
                 .zIndex(10)
@@ -54,6 +55,44 @@ struct ProfileView: View {
                                 ("doc.text", "Terms of Service", ProfileRoute.termsOfService),
                                 ("shield", "Privacy Policy", ProfileRoute.privacyPolicy)
                             ])
+
+                            // MARK: Logout Section
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Account Actions")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.lmTextSecondary.opacity(0.6))
+                                    .padding(.horizontal, 8)
+                                
+                                Button(action: {
+                                    // Removing withAnimation here as it can cause a 
+                                    // crash during the root view swap in SwiftUI 4/5. 
+                                    // The RootView handles the transition animation.
+                                    isLoggedIn = false
+                                }) {
+                                    HStack(spacing: 16) {
+                                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                                            .font(.system(size: 18))
+                                            .foregroundColor(.red)
+                                            .frame(width: 24)
+                                        
+                                        Text("Logout")
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(.red)
+                                        
+                                        Spacer()
+                                    }
+                                    .padding(.vertical, 16)
+                                    .padding(.horizontal, 20)
+                                    .background(Color.red.opacity(0.05))
+                                    .background(.ultraThinMaterial)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(Color.red.opacity(0.1), lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
                     .padding(.horizontal, 24)

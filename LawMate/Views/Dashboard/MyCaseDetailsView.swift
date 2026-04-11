@@ -1,8 +1,16 @@
 import SwiftUI
+import MapKit
 
 struct MyCaseDetailsView: View {
     let booking: Booking
     @Environment(\.dismiss) private var dismiss
+    @State private var showRescheduleSheet = false
+    @State private var showCancelSheet = false
+    @State private var route: MKRoute?
+    
+    // Mock user location and lawyer location
+    let userLocation = CLLocationCoordinate2D(latitude: 6.9271, longitude: 79.8612)
+    let lawyerLocation = CLLocationCoordinate2D(latitude: 6.9355, longitude: 79.8485)
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -15,9 +23,10 @@ struct MyCaseDetailsView: View {
             VStack(spacing: 0) {
                 // MARK: Custom Header
                 LawMateNavigationBar(
-                    title: "My Case Details",
+                    title: "My Booking Details",
                     showBack: true,
                     showNotification: true,
+                    showCamera: false,
                     notificationCount: 0,
                     onBack: { dismiss() },
                     onNotification: {}
@@ -31,14 +40,33 @@ struct MyCaseDetailsView: View {
                         appointmentCard
                         
                         // MARK: Video/Map Placeholder Area
-                        RoundedRectangle(cornerRadius: 30)
-                            .fill(Color.gray.opacity(0.2))
+                        if booking.method == "In Person" {
+                            Map(initialPosition: .automatic) {
+                                Marker("You", coordinate: userLocation)
+                                Marker("Lawyer", coordinate: lawyerLocation)
+                                    .tint(Color.lmPrimary)
+                                
+                                if let currentRoute = route {
+                                    MapPolyline(currentRoute.polyline)
+                                        .stroke(Color.blue, lineWidth: 5)
+                                }
+                            }
                             .frame(height: 250)
-                            .overlay(
-                                Image(systemName: booking.method == "In Person" ? "map.fill" : "video.fill")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.gray.opacity(0.5))
-                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 30))
+                            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                            .onAppear {
+                                fetchRoute()
+                            }
+                        } else {
+                            RoundedRectangle(cornerRadius: 30)
+                                .fill(Color.gray.opacity(0.2))
+                                .frame(height: 250)
+                                .overlay(
+                                    Image(systemName: "video.fill")
+                                        .font(.system(size: 40))
+                                        .foregroundColor(.gray.opacity(0.5))
+                                )
+                        }
                         
                         // MARK: Primary CTA (Join/Directions)
                         Button {
@@ -60,7 +88,9 @@ struct MyCaseDetailsView: View {
                         
                         // MARK: Secondary Actions
                         HStack(spacing: 16) {
-                            NavigationLink(destination: RescheduleBookingView()) {
+                            Button {
+                                showRescheduleSheet = true
+                            } label: {
                                 Text("Reschedule")
                                     .font(.system(size: 16, weight: .bold))
                                     .foregroundColor(.white)
@@ -70,7 +100,9 @@ struct MyCaseDetailsView: View {
                                     .clipShape(Capsule())
                             }
                             
-                            NavigationLink(destination: CancelBookingView()) {
+                            Button {
+                                showCancelSheet = true
+                            } label: {
                                 Text("Cancel")
                                     .font(.system(size: 16, weight: .bold))
                                     .foregroundColor(.lmPrimary)
@@ -95,6 +127,26 @@ struct MyCaseDetailsView: View {
             .ignoresSafeArea(edges: .top)
         }
         .navigationBarBackButtonHidden(true)
+        .sheet(isPresented: $showRescheduleSheet) {
+            RescheduleBookingView()
+        }
+        .sheet(isPresented: $showCancelSheet) {
+            CancelBookingView()
+        }
+    }
+    
+    private func fetchRoute() {
+        let request = MKDirections.Request()
+        request.source = MKMapItem(placemark: MKPlacemark(coordinate: userLocation))
+        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: lawyerLocation))
+        request.transportType = .automobile
+        
+        Task {
+            let directions = MKDirections(request: request)
+            if let response = try? await directions.calculate() {
+                self.route = response.routes.first
+            }
+        }
     }
     
     // MARK: - Subcomponents

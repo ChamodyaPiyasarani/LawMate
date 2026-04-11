@@ -26,6 +26,11 @@ struct LawyersListView: View {
     @State private var minRating: Double = 0.0
     @State private var selectedLocation: String? = nil
     @State private var isMapViewActive = false
+    @State private var selectedLawyerId: String? = nil
+    @State private var route: MKRoute? = nil
+    
+    // Mock user location for routing
+    private let userLocation = CLLocationCoordinate2D(latitude: 6.9147, longitude: 79.8773) // Colombo City Center area
     
     // Initial camera position centered on Sri Lanka
     @State private var cameraPosition: MapCameraPosition = .region(
@@ -172,13 +177,24 @@ struct LawyersListView: View {
                 // MARK: Lawyers List OR Map
                 ZStack {
                     if isMapViewActive {
-                        Map(position: $cameraPosition) {
+                        Map(position: $cameraPosition, selection: $selectedLawyerId) {
+                            // User Location Marker
+                            Marker("You", systemImage: "person.circle.fill", coordinate: userLocation)
+                                .tint(.blue)
+                            
                             ForEach(filteredLawyers) { lawyer in
                                 Annotation(lawyer.name, coordinate: lawyer.coordinate) {
-                                    NavigationLink(value: lawyer) {
-                                        LawyerMapAnnotation(lawyer: lawyer)
-                                    }
+                                    LawyerMapAnnotation(lawyer: lawyer)
+                                        .onTapGesture {
+                                            selectedLawyerId = lawyer.id
+                                        }
                                 }
+                                .tag(lawyer.id)
+                            }
+                            
+                            if let currentRoute = route {
+                                MapPolyline(currentRoute)
+                                    .stroke(Color.blue, lineWidth: 5)
                             }
                         }
                         .mapStyle(.standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll))
@@ -187,6 +203,36 @@ struct LawyersListView: View {
                         .padding(.top, 20)
                         .padding(.bottom, 100)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .overlay(alignment: .bottom) {
+                            // Selection Info / View Profile Button
+                            if let selectedId = selectedLawyerId,
+                               let lawyer = lawyers.first(where: { $0.id == selectedId }) {
+                                NavigationLink(value: lawyer) {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(lawyer.name)
+                                                .font(.system(size: 14, weight: .bold))
+                                                .foregroundColor(.lmPrimary)
+                                            Text("Tap to View Details")
+                                                .font(.system(size: 10))
+                                                .foregroundColor(.lmTextSecondary)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .foregroundColor(.lmPrimary)
+                                    }
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 12)
+                                    .background(Color.white)
+                                    .clipShape(Capsule())
+                                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                                    .padding(.bottom, 120) // Adjust for tab bar
+                                    .padding(.horizontal, 24)
+                                }
+                                .buttonStyle(.plain)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                            }
+                        }
                     } else {
                         ScrollView {
                             VStack(spacing: 16) {
@@ -213,6 +259,36 @@ struct LawyersListView: View {
                 updateMapForLocation(filteredLawyers[0].location.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespaces))
             }
         }
+        .onChange(of: selectedLawyerId) { oldValue, newValue in
+            if let newId = newValue, let lawyer = lawyers.first(where: { $0.id == newId }) {
+                fetchRoute(to: lawyer)
+            } else {
+                route = nil
+            }
+        }
+    }
+    
+    private func fetchRoute(to lawyer: Lawyer) {
+        let request = MKDirections.Request()
+        request.source = MKMapItem(placemark: MKPlacemark(coordinate: userLocation))
+        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: lawyer.coordinate))
+        request.transportType = .automobile
+        
+        Task {
+            let directions = MKDirections(request: request)
+            do {
+                let response = try await directions.calculate()
+                await MainActor.run {
+                    self.route = response.routes.first
+                    // Adjust camera to show the route
+                    if let polyline = response.routes.first?.polyline {
+                        cameraPosition = .rect(polyline.boundingMapRect.padded())
+                    }
+                }
+            } catch {
+                print("Error calculating route: \(error)")
+            }
+        }
     }
     
     private func updateMapForLocation(_ location: String?) {
@@ -234,6 +310,15 @@ struct LawyersListView: View {
     }
 }
 
+// MARK: - Map Helpers
+extension MKMapRect {
+    func padded() -> MKMapRect {
+        let paddingX = self.width * 0.15
+        let paddingY = self.height * 0.15
+        return self.insetBy(dx: -paddingX, dy: -paddingY)
+    }
+}
+
 // MARK: - Custom Map Annotation
 struct LawyerMapAnnotation: View {
     let lawyer: Lawyer
@@ -249,7 +334,7 @@ struct LawyerMapAnnotation: View {
                 .stroke(Color.white.opacity(0.5), lineWidth: 1)
                 .frame(width: 44, height: 44)
             
-            Image(systemName: "balance.scale")
+            Image(systemName: "briefcase.fill")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.white)
         }

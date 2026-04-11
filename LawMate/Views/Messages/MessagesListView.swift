@@ -47,10 +47,10 @@ struct MessagesListView: View {
                 LawMateNavigationBar(
                     title: "Chat",
                     showBack: true,
-                    showNotification: true,
+                    showNotification: false,
+                    showCamera: false,
                     notificationCount: 0,
-                    onBack: onBack,
-                    onNotification: {}
+                    onBack: onBack
                 )
                 .padding(.top, 64)
                 .zIndex(10)

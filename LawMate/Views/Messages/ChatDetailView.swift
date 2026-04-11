@@ -155,9 +155,6 @@ struct ChatDetailView: View {
             }
             
             Spacer()
-            
-            // Notification
-            NotificationButton(badgeCount: 0)
         }
     }
 }
