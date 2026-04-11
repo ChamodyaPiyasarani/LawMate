@@ -14,6 +14,7 @@ import LocalAuthentication
 
 struct LoginView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
+    @AppStorage("userRole") private var storedRole: UserRole = .client
     @State private var email:    String = ""
     @State private var password: String = ""
     @State private var navigateToSignUp   = false

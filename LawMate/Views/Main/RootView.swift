@@ -13,6 +13,7 @@ import SwiftUI
 
 struct RootView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
+    @AppStorage("userRole") private var storedRole: UserRole = .client
     @State private var showSplash = true
 
     var body: some View {
@@ -22,7 +23,11 @@ struct RootView: View {
                     withAnimation { showSplash = false }
                 })
             } else if isLoggedIn {
-                ClientHomeView()
+                if storedRole == .lawyer {
+                    LawyerHomeView()
+                } else {
+                    ClientHomeView()
+                }
             } else {
                 LoginView()
             }

@@ -1,10 +1,8 @@
 import SwiftUI
 
-enum UserRole {
-    case none, lawyer, client
-}
-
 struct SignUpView: View {
+    @AppStorage("isLoggedIn") private var isLoggedIn = false
+    @AppStorage("userRole") private var storedRole: UserRole = .none
     @Environment(\.dismiss) private var dismiss
 
     @State private var username:  String = ""
@@ -98,7 +96,12 @@ struct SignUpView: View {
 
                             // MARK: Sign Up button
                             LawMatePrimaryButton(title: "Sign up") {
-                                // Handle sign up action
+                                if role != .none {
+                                    storedRole = role
+                                    withAnimation {
+                                        isLoggedIn = true
+                                    }
+                                }
                             }
                             .padding(.horizontal, 40)
                             .padding(.top, 40)
