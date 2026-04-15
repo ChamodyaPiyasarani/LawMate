@@ -113,12 +113,15 @@ struct ClientHomeView: View {
                     case .myCases:
                         MyCasesView()
                     case .documents:
-                        DocumentsView()
+                        AdvisoryListView()
                     case .notifications:
                         NotificationsView()
                     case .booking(let lawyer):
                         BookingView(lawyer: lawyer)
                     }
+                }
+                .navigationDestination(for: AdvisoryDocument.self) { doc in
+                    DocumentDetailView(document: doc)
                 }
                 .navigationDestination(for: ClientCase.self) { clientCase in
                     CaseDetailView(clientCase: clientCase)
@@ -140,6 +143,8 @@ struct ClientHomeView: View {
                         TermsView()
                     case .privacyPolicy:
                         PrivacyView()
+                    case .myUploads:
+                        LawyerMyUploadsView()
                     }
                 }
                 .navigationBarBackButtonHidden(true)
@@ -150,7 +155,7 @@ struct ClientHomeView: View {
             if navPath.isEmpty {
                 VStack {
                     Spacer()
-                    TabBarView(selectedTab: $selectedTab)
+                    TabBarView(selectedTab: $selectedTab, role: .client)
                 }
                 .ignoresSafeArea(edges: .bottom)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -173,23 +178,7 @@ private struct FindLawyerCard: View {
     var body: some View {
         VStack(spacing: 16) {
             // Search field
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14))
-                    .foregroundColor(.lmTextSecondary)
-                TextField("Search by name or specialization...", text: $searchQuery)
-                    .font(.lmField)
-                    .foregroundColor(.lmTextPrimary)
-                    .autocorrectionDisabled()
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(.ultraThinMaterial)
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-            )
+            LawMateSearchBar(text: $searchQuery, placeholder: "Search by name or specialization...")
 
             // CTA button
             Button {

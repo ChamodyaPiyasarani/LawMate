@@ -43,16 +43,19 @@ struct MessagesListView: View {
                 .frame(height: 300)
             
             VStack(spacing: 0) {
-                // MARK: Custom Header
-                LawMateNavigationBar(
-                    title: "Chat",
-                    showBack: true,
-                    showNotification: false,
-                    showCamera: false,
-                    notificationCount: 0,
-                    onBack: onBack
-                )
+                // MARK: Left-Aligned Header
+                HStack(alignment: .center) {
+                    Text("Chat")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(.lmPrimary)
+                    
+                    Spacer()
+                    
+                    NotificationButton(badgeCount: 3, action: {})
+                }
+                .padding(.horizontal, 24)
                 .padding(.top, 64)
+                .padding(.bottom, 24)
                 .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {
@@ -71,6 +74,7 @@ struct MessagesListView: View {
             }
             .ignoresSafeArea(edges: .top)
         }
+        .navigationBarBackButtonHidden(true)
     }
 }
 

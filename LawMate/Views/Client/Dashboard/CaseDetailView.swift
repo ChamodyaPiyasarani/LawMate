@@ -13,7 +13,7 @@ enum StepStatus {
     case completed, current, upcoming
 }
 
-struct CaseDocument: Identifiable {
+struct ClientCaseDocument: Identifiable {
     let id = UUID()
     let title: String
     let type: String
@@ -36,10 +36,10 @@ struct CaseDetailView: View {
         CaseProgressStep(title: "Final Verdict", description: "Judge's ruling and closure of the case.", date: "TBD", status: .upcoming)
     ]
     
-    let documents: [CaseDocument] = [
-        CaseDocument(title: "Initial_Consultation_Notes.pdf", type: "PDF", dateAdded: "Oct 12, 2025"),
-        CaseDocument(title: "Evidence_File_A.docx", type: "DOCX", dateAdded: "Nov 01, 2025"),
-        CaseDocument(title: "Court_Petition_Draft.pdf", type: "PDF", dateAdded: "Nov 28, 2025")
+    let documents: [ClientCaseDocument] = [
+        ClientCaseDocument(title: "Initial_Consultation_Notes.pdf", type: "PDF", dateAdded: "Oct 12, 2025"),
+        ClientCaseDocument(title: "Evidence_File_A.docx", type: "DOCX", dateAdded: "Nov 01, 2025"),
+        ClientCaseDocument(title: "Court_Petition_Draft.pdf", type: "PDF", dateAdded: "Nov 28, 2025")
     ]
     
     var body: some View {

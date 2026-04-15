@@ -13,6 +13,7 @@ import SwiftUI
 enum BlobStyle {
     case auth   // Side-by-side overlapping (Login/SignUp)
     case client // Left-aligned (Home/Other client screens)
+    case lawyer // Right-aligned (Home/Other lawyer screens)
 }
 
 struct GreenBlobBackground: View {
@@ -45,8 +46,8 @@ struct GreenBlobBackground: View {
                                height: geo.size.width * 0.8)
                         .offset(x: geo.size.width * 0.70,
                                 y: -geo.size.width * 0.15)
-                } else {
-                    // Client Style: Concentrated on the left (matches new requirement)
+                } else if style == .client {
+                    // Client Style: Concentrated on the left
                     Circle()
                         .fill(Color.lmLightGreen.opacity(0.40))
                         .frame(width: geo.size.width * 1.4)
@@ -61,6 +62,22 @@ struct GreenBlobBackground: View {
                         .fill(Color.lmLightGreen.opacity(0.15))
                         .frame(width: geo.size.width * 0.8)
                         .offset(x: -geo.size.width * 0.1, y: geo.size.width * 0.1)
+                } else {
+                    // Lawyer Style: Concentrated on the right
+                    Circle()
+                        .fill(Color.lmLightGreen.opacity(0.40))
+                        .frame(width: geo.size.width * 1.4)
+                        .offset(x: geo.size.width * 0.1, y: -geo.size.width * 0.3)
+
+                    Circle()
+                        .fill(Color.lmLightGreen.opacity(0.25))
+                        .frame(width: geo.size.width * 1.1)
+                        .offset(x: geo.size.width * 0.3, y: -geo.size.width * 0.1)
+
+                    Circle()
+                        .fill(Color.lmLightGreen.opacity(0.15))
+                        .frame(width: geo.size.width * 0.8)
+                        .offset(x: geo.size.width * 0.5, y: geo.size.width * 0.1)
                 }
             }
         }

@@ -106,18 +106,9 @@ struct LawyersListView: View {
                 .zIndex(10)
                 
                 // MARK: Search Bar
-                HStack(spacing: 12) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.lmTextSecondary)
-                    TextField("Search", text: $searchText)
-                        .font(.lmField)
-                }
-                .padding()
-                .background(Color.white)
-                .clipShape(Capsule())
-                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
-                .padding(.horizontal, 24)
-                .padding(.top, 10)
+                LawMateSearchBar(text: $searchText, placeholder: "Search lawyers or legal fields")
+                    .padding(.horizontal, 24)
+                    .padding(.top, 10)
                 
                 // MARK: Filters (Fixed on one line - Full Width)
                 HStack(spacing: 8) {
@@ -128,7 +119,7 @@ struct LawyersListView: View {
                             Button(specialty) { selectedSpecialty = specialty }
                         }
                     } label: {
-                        FilterPill(icon: "line.3.horizontal.decrease.circle.fill", 
+                        FilterPill(icon: "line.3.horizontal.decrease", 
                                   title: selectedSpecialty ?? "Category", 
                                   isActive: selectedSpecialty != nil,
                                   maxWidth: .infinity) {}
@@ -266,6 +257,7 @@ struct LawyersListView: View {
                 route = nil
             }
         }
+        .navigationBarBackButtonHidden(true)
     }
     
     private func fetchRoute(to lawyer: Lawyer) {

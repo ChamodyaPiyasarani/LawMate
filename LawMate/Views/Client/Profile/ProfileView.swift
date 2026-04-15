@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 enum ProfileRoute: Hashable {
     case personalInfo
@@ -7,31 +8,44 @@ enum ProfileRoute: Hashable {
     case profileNotifications
     case termsOfService
     case privacyPolicy
+    case myUploads
 }
 
 struct ProfileView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = true
+    @AppStorage("userRole") private var userRole: UserRole = .client
+    @Environment(\.dismiss) private var dismiss
+    
+    // Photo Selection State
+    @State private var selectedImage: UIImage? = nil
+    @State private var showImagePicker = false
+    @State private var imageSource: UIImagePickerController.SourceType = .photoLibrary
+    @State private var showSourceSelection = false
+    
     var onBack: () -> Void = {}
     
     var body: some View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
             
-            // Green blob top-left
-            GreenBlobBackground(style: .client)
+            // Background Blob (Style based on role)
+            GreenBlobBackground(style: userRole == .lawyer ? .lawyer : .client)
                 .frame(height: 300)
             
             VStack(spacing: 0) {
-                // Header
-                LawMateNavigationBar(
-                    title: "Profile",
-                    showBack: true,
-                    showNotification: false,
-                    showCamera: false,
-                    notificationCount: 0,
-                    onBack: onBack
-                )
+                // MARK: Left-Aligned Header
+                HStack(alignment: .center) {
+                    Text("Profile")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(.lmPrimary)
+                    
+                    Spacer()
+                    
+                    NotificationButton(badgeCount: 3, action: {})
+                }
+                .padding(.horizontal, 24)
                 .padding(.top, 64)
+                .padding(.bottom, 24)
                 .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {
@@ -39,14 +53,11 @@ struct ProfileView: View {
                         // MARK: Profile Info
                         profileHeader
                         
-                        // MARK: Sections
                         VStack(spacing: 24) {
-                            menuSection(title: "Account", items: [
-                                ("person", "Personal Information", ProfileRoute.personalInfo),
-                                ("lock", "Security & Password", ProfileRoute.security),
-                                ("faceid", "Biometric Settings", ProfileRoute.biometrics)
-                            ])
+                            // MARK: Account Section
+                            menuSection(title: "Account", items: accountItems)
                             
+                            // MARK: Other Sections
                             menuSection(title: "Preferences", items: [
                                 ("bell", "Notifications", ProfileRoute.profileNotifications)
                             ])
@@ -64,9 +75,6 @@ struct ProfileView: View {
                                     .padding(.horizontal, 8)
                                 
                                 Button(action: {
-                                    // Removing withAnimation here as it can cause a 
-                                    // crash during the root view swap in SwiftUI 4/5. 
-                                    // The RootView handles the transition animation.
                                     isLoggedIn = false
                                 }) {
                                     HStack(spacing: 16) {
@@ -102,46 +110,93 @@ struct ProfileView: View {
             }
             .ignoresSafeArea(edges: .top)
         }
+        .navigationBarBackButtonHidden(true)
+        .confirmationDialog("Change Profile Photo", isPresented: $showSourceSelection) {
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button("Take Photo") {
+                    imageSource = .camera
+                    showImagePicker = true
+                }
+            }
+            
+            Button("Choose from Library") {
+                imageSource = .photoLibrary
+                showImagePicker = true
+            }
+            
+            Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showImagePicker) {
+            ImagePicker(sourceType: imageSource, selectedImage: $selectedImage)
+        }
+    }
+    
+    private var accountItems: [(String, String, ProfileRoute)] {
+        var items = [
+            ("person", "Personal Information", ProfileRoute.personalInfo),
+            ("lock", "Security & Password", ProfileRoute.security),
+            ("faceid", "Biometric Settings", ProfileRoute.biometrics)
+        ]
+        
+        if userRole == .lawyer {
+            items.append(("doc.text", "My Advisory Documents", ProfileRoute.myUploads))
+        }
+        
+        return items
     }
     
     // MARK: - Profile Header
     private var profileHeader: some View {
         VStack(spacing: 16) {
-            ZStack(alignment: .bottomTrailing) {
-                Circle()
-                    .fill(Color.lmPrimary)
+            Button {
+                showSourceSelection = true
+            } label: {
+                ZStack(alignment: .bottomTrailing) {
+                    Group {
+                        if let image = selectedImage {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            Circle()
+                                .fill(Color.lmPrimary)
+                                .overlay(
+                                    Text(userRole == .lawyer ? "NP" : "EJ")
+                                        .font(.system(size: 32, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+                        }
+                    }
                     .frame(width: 96, height: 96)
-                    .overlay(
-                        Text("EJ")
-                            .font(.system(size: 32, weight: .bold))
-                            .foregroundColor(.white)
-                    )
+                    .clipShape(Circle())
                     .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
-                
-                // Camera Badge
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 28, height: 28)
-                    .shadow(radius: 2)
-                    .overlay(
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(.lmPrimary)
-                    )
-                    .offset(x: -4, y: -4)
+                    
+                    // Camera Badge
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 28, height: 28)
+                        .shadow(radius: 2)
+                        .overlay(
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(.lmPrimary)
+                        )
+                        .offset(x: -4, y: -4)
+                }
             }
+            .buttonStyle(.plain)
             
             VStack(spacing: 4) {
-                Text("Emily Johnson")
+                Text(userRole == .lawyer ? "Nimal Perera" : "Emily Johnson")
                     .font(.lmHeading)
                     .foregroundColor(.lmPrimary)
                 
-                Text("emily.johnson@email.com")
+                Text(userRole == .lawyer ? "perera.nimal@lawmate.com" : "emily.johnson@email.com")
                     .font(.lmCaption)
                     .foregroundColor(.lmTextSecondary)
             }
             
-            Text("Member since January 2024")
+            Text(userRole == .lawyer ? "Lawyer since March 2020" : "Member since January 2024")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.lmTextSecondary)
                 .padding(.horizontal, 20)
