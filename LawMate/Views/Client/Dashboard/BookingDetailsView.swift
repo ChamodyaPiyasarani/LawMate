@@ -100,18 +100,9 @@ struct BookingDetailsView: View {
                 .zIndex(10)
                 
                 // MARK: Fixed Search Bar (Standardized with Lawyers List)
-                HStack(spacing: 12) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.lmTextSecondary)
-                    TextField("Search", text: $searchQuery)
-                        .font(.lmField)
-                }
-                .padding()
-                .background(Color.white)
-                .clipShape(Capsule())
-                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
-                .padding(.horizontal, 24)
-                .padding(.top, 10) // Match Lawyers List
+                LawMateSearchBar(text: $searchQuery, placeholder: "Search bookings or lawyers")
+                    .padding(.horizontal, 24)
+                    .padding(.top, 10) // Match Lawyers List
                 
                 // MARK: Fixed Filter Chips (Standardized with Lawyers List)
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -147,6 +138,7 @@ struct BookingDetailsView: View {
             }
             .ignoresSafeArea(edges: .top)
         }
+        .navigationBarBackButtonHidden(true)
     }
 }
 

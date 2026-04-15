@@ -11,26 +11,38 @@
 import SwiftUI
 
 // MARK: - Tab items
-enum LawMateTab: Int, CaseIterable {
-    case home, lawyers, booking, messages, profile
+enum LawMateTab: String, CaseIterable {
+    case home, lawyers, booking, cases, calendar, messages, profile
 
-    var title: String {
+    func title(for role: UserRole) -> String {
         switch self {
         case .home:     return "Home"
         case .lawyers:  return "Lawyers"
         case .booking:  return "Booking"
+        case .cases:    return "Cases"
+        case .calendar: return "Calendar"
         case .messages: return "Messages"
         case .profile:  return "Profile"
         }
     }
 
-    var icon: String {
+    func icon(for role: UserRole) -> String {
         switch self {
         case .home:     return "house.fill"
         case .lawyers:  return "briefcase.fill"
         case .booking:  return "calendar.badge.clock"
+        case .cases:    return "briefcase.fill"
+        case .calendar: return "calendar"
         case .messages: return "bubble.left.fill"
         case .profile:  return "person.fill"
+        }
+    }
+    
+    static func tabs(for role: UserRole) -> [LawMateTab] {
+        if role == .lawyer {
+            return [.home, .cases, .calendar, .messages, .profile]
+        } else {
+            return [.home, .lawyers, .booking, .messages, .profile]
         }
     }
 }
@@ -38,10 +50,11 @@ enum LawMateTab: Int, CaseIterable {
 // MARK: - Tab Bar View
 struct TabBarView: View {
     @Binding var selectedTab: LawMateTab
+    var role: UserRole = .client
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(LawMateTab.allCases, id: \.self) { tab in
+            ForEach(LawMateTab.tabs(for: role), id: \.self) { tab in
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         selectedTab = tab
@@ -54,12 +67,12 @@ struct TabBarView: View {
                                     .fill(Color.lmPrimary.opacity(0.15))
                                     .frame(width: 44, height: 44)
                             }
-                            Image(systemName: tab.icon)
+                            Image(systemName: tab.icon(for: role))
                                 .font(.system(size: 20))
                                 .foregroundColor(selectedTab == tab ? .lmPrimary : .lmTextSecondary)
                         }
 
-                        Text(tab.title)
+                        Text(tab.title(for: role))
                             .font(.system(size: 10, weight: selectedTab == tab ? .semibold : .medium))
                             .foregroundColor(selectedTab == tab ? .lmPrimary : .lmTextSecondary)
                     }
@@ -87,7 +100,7 @@ struct TabBarView: View {
 #Preview {
     VStack {
         Spacer()
-        TabBarView(selectedTab: .constant(.home))
+        TabBarView(selectedTab: .constant(.home), role: .client)
     }
     .background(Color.lmBackground)
 }

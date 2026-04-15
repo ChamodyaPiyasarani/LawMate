@@ -10,6 +10,11 @@ struct SignUpView: View {
     @State private var contact:   String = ""
     @State private var password:  String = ""
     @State private var role:      UserRole = .none
+    
+    // Lawyer specific fields
+    @State private var experience: String = ""
+    @State private var specialty:  String = ""
+    @State private var bio:        String = ""
 
     @State private var navigateToLogin = false
 
@@ -85,6 +90,27 @@ struct SignUpView: View {
                             }
                             .padding(.horizontal, 24)
                             .padding(.top, 32)
+                            
+                            // MARK: Conditional Lawyer Fields
+                            if role == .lawyer {
+                                VStack(spacing: 20) {
+                                    LawMateTextField(icon: "star.fill",
+                                                    placeholder: "Years of Experience",
+                                                    text: $experience,
+                                                    keyboardType: .numberPad)
+                                    
+                                    LawMateTextField(icon: "briefcase.fill",
+                                                    placeholder: "Specialized Field (e.g. Divorce)",
+                                                    text: $specialty)
+                                    
+                                    LawMateTextField(icon: "pencil",
+                                                    placeholder: "Small Description",
+                                                    text: $bio)
+                                }
+                                .padding(.horizontal, 24)
+                                .padding(.top, 24)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                            }
 
                             // MARK: Password field
                             LawMateTextField(icon: "lock",
