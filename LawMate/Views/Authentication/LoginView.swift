@@ -151,26 +151,15 @@ struct LoginView: View {
         return context.biometryType == .faceID ? "faceid" : "touchid"
     }
 
-    // MARK: - Biometric auth (UI stub — no real auth logic yet)
     private func authenticateWithBiometrics() {
-        let context = LAContext()
-        var error: NSError?
-        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
-            biometricError = "Biometrics not available on this device."
-            return
-        }
-        context.evaluatePolicy(
-            .deviceOwnerAuthenticationWithBiometrics,
-            localizedReason: "Login to LawMate"
-        ) { success, _ in
-            DispatchQueue.main.async {
-                if success {
-                    withAnimation {
-                        isLoggedIn = true
-                    }
-                } else {
-                    biometricError = "Biometric authentication failed."
+        AuthService.shared.authenticateWithBiometrics { success, error in
+            if success {
+                withAnimation {
+                    // For demo purposes, we default to the last stored role or client
+                    isLoggedIn = true
                 }
+            } else {
+                biometricError = error ?? "Biometric authentication failed."
             }
         }
     }

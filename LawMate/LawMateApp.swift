@@ -9,10 +9,17 @@ import SwiftUI
 
 @main
 struct LawMateApp: App {
+    init() {
+        UNUserNotificationCenter.current().delegate = NotificationManager.shared
+    }
+    
     var body: some Scene {
         WindowGroup {
             RootView()
                 .preferredColorScheme(.light) // LawMate uses a light theme
+                .onAppear {
+                    NotificationManager.shared.requestPermission()
+                }
         }
     }
 }

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.1" lastSavedToolsVersion="2620" systemVersion="23E214" minimumToolsVersion="9.0" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="CDUser" syncable="YES" module="LawMate" customModuleProvider="target">
+        <attribute name="id" optional="NO" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="fullName" optional="NO" attributeType="String"/>
+        <attribute name="email" optional="NO" attributeType="String"/>
+        <attribute name="role" optional="NO" attributeType="String"/>
+        <attribute name="phoneNumber" optional="YES" attributeType="String"/>
+        <attribute name="profileImage" optional="YES" attributeType="String"/>
+    </entity>
+    <entity name="CDLegalCase" syncable="YES" module="LawMate" customModuleProvider="target">
+        <attribute name="id" optional="NO" attributeType="String"/>
+        <attribute name="caseNumber" optional="NO" attributeType="String"/>
+        <attribute name="title" optional="NO" attributeType="String"/>
+        <attribute name="clientName" optional="NO" attributeType="String"/>
+        <attribute name="type" optional="NO" attributeType="String"/>
+        <attribute name="status" optional="NO" attributeType="String"/>
+        <attribute name="priority" optional="NO" attributeType="String"/>
+        <attribute name="createdDate" optional="NO" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="documents" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDDocument" inverseName="legalCase" inverseEntity="CDDocument"/>
+    </entity>
+    <entity name="CDDocument" syncable="YES" module="LawMate" customModuleProvider="target">
+        <attribute name="id" optional="NO" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="fileName" optional="NO" attributeType="String"/>
+        <attribute name="fileType" optional="NO" attributeType="String"/>
+        <attribute name="uploadedAt" optional="NO" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="localFileName" optional="YES" attributeType="String"/>
+        <relationship name="legalCase" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CDLegalCase" inverseName="documents" inverseEntity="CDLegalCase"/>
+    </entity>
+</model>
