@@ -15,6 +15,8 @@ struct LawMatePrimaryButton: View {
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -49,6 +51,8 @@ struct LawMateSecondaryButton: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(.isButton)
     }
 }
 

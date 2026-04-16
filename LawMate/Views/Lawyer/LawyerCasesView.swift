@@ -7,40 +7,13 @@ struct LawyerCasesView: View {
     // Statuses for filtering
     let statuses = ["Active", "Pending", "Closed"]
     
-    // Mock cases using the new model
-    let cases = [
-        LegalCase.mockCase,
-        LegalCase(
-            id: "2",
-            caseNumber: "CLM-2024-005",
-            title: "Property Transfer Agreement",
-            clientName: "Amara Silva",
-            type: "Property Law",
-            status: "Pending",
-            priority: "Medium",
-            lawyerName: "Atty. John Doe",
-            createdDate: Date().addingTimeInterval(-86400 * 10),
-            stages: LegalCase.mockStages,
-            documents: []
-        ),
-        LegalCase(
-            id: "3",
-            caseNumber: "CLM-2024-012",
-            title: "Corporate Contract Review",
-            clientName: "Kamal de Silva",
-            type: "Corporate Law",
-            status: "Closed",
-            priority: "Low",
-            lawyerName: "Atty. John Doe",
-            createdDate: Date().addingTimeInterval(-86400 * 30),
-            stages: LegalCase.mockStages,
-            documents: LegalCase.mockDocs
-        )
-    ]
+    @StateObject private var firestore = FirestoreManager.shared
     
-    var filteredCases: [LegalCase] {
-        cases.filter { c in
-            let matchesSearch = searchText.isEmpty || c.clientName.lowercased().contains(searchText.lowercased()) || c.title.lowercased().contains(searchText.lowercased())
+    var filteredCases: [FBLegalCase] {
+        firestore.cases.filter { c in
+            let title = c.title 
+            let client = c.clientName 
+            let matchesSearch = searchText.isEmpty || client.lowercased().contains(searchText.lowercased()) || title.lowercased().contains(searchText.lowercased())
             let matchesStatus = selectedStatus == nil || c.status == selectedStatus
             return matchesSearch && matchesStatus
         }
@@ -120,6 +93,11 @@ struct LawyerCasesView: View {
                 }
             }
             .ignoresSafeArea(edges: .top)
+            .onAppear {
+                if let currentUser = AuthService.shared.currentUser {
+                    firestore.listenForCases(role: currentUser.role, userFullName: currentUser.fullName)
+                }
+            }
         }
     }
     
@@ -135,7 +113,7 @@ struct LawyerCasesView: View {
 
 // MARK: - Lawyer Case Card
 struct LawyerCaseCard: View {
-    let lawyerCase: LegalCase
+    let lawyerCase: FBLegalCase
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -235,14 +213,15 @@ import UniformTypeIdentifiers
 // MARK: - Lawyer Case Detail View
 struct LawyerCaseDetailView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var legalCase: LegalCase
+    
+    var legalCase: FBLegalCase
     
     @State private var selectedTab = 0 // 0: Progress, 1: Documents
     @State private var showFilePicker = false
     @State private var selectedStageIndex: Int? = nil
     
-    init(legalCase: LegalCase) {
-        _legalCase = State(initialValue: legalCase)
+    init(legalCase: FBLegalCase) {
+        self.legalCase = legalCase
     }
     
     var body: some View {
@@ -300,21 +279,22 @@ struct LawyerCaseDetailView: View {
     // MARK: - Logic
     
     private func toggleStageCompletion(at index: Int) {
-        withAnimation(.spring()) {
-            legalCase.stages[index].isCompleted.toggle()
-            if legalCase.stages[index].isCompleted {
-                legalCase.stages[index].date = Date()
-            } else {
-                legalCase.stages[index].date = nil
-            }
-            
-            // Update overall status if everything is done
-            if legalCase.stages.allSatisfy({ $0.isCompleted }) {
-                legalCase.status = "Closed"
-            } else if legalCase.stages.anySatisfy({ $0.isCompleted }) {
-                legalCase.status = "Active"
-            }
+        var updatedCase = legalCase
+        updatedCase.stages[index].isCompleted.toggle()
+        if updatedCase.stages[index].isCompleted {
+            updatedCase.stages[index].date = Date()
+        } else {
+            updatedCase.stages[index].date = nil
         }
+        
+        // Update status logic
+        if updatedCase.stages.allSatisfy({ $0.isCompleted }) {
+            updatedCase.status = "Closed"
+        } else if updatedCase.stages.contains(where: { $0.isCompleted }) {
+            updatedCase.status = "Active"
+        }
+        
+        FirestoreManager.shared.updateCase(updatedCase)
     }
     
     private func handleFileUpload(result: Result<[URL], Error>, stageIndex: Int) {
@@ -322,20 +302,21 @@ struct LawyerCaseDetailView: View {
         case .success(let urls):
             guard let url = urls.first else { return }
             
-            // Mock adding a document
-            let newDoc = LegalCaseDocument(
+            // In a real app, you'd upload the file to Firebase Storage here.
+            // For now, we'll just track the metadata in Firestore.
+            FirestoreManager.shared.addDocument(
+                toCaseId: legalCase.id ?? "",
                 fileName: url.lastPathComponent,
-                fileType: url.pathExtension.uppercased(),
-                uploadedAt: Date(),
-                uploadedStage: legalCase.stages[stageIndex].title
+                fileType: url.pathExtension.uppercased()
             )
             
-            withAnimation(.spring()) {
-                legalCase.documents.append(newDoc)
-            }
+            // Optionally update the stage to indicate a file was uploaded
+            var updatedCase = legalCase
+            updatedCase.stages[stageIndex].description += " (File attached)"
+            FirestoreManager.shared.updateCase(updatedCase)
             
         case .failure(let error):
-            print("File selection error: \(error.localizedDescription)")
+            print("Error selecting file: \(error.localizedDescription)")
         }
     }
     
@@ -390,7 +371,7 @@ struct LawyerCaseDetailView: View {
             HStack(spacing: 30) {
                 statItem(title: "Status", value: legalCase.status, icon: "clock.badge.checkmark", color: .orange)
                 statItem(title: "Progress", value: "\(Int(legalCase.progressProgress * 100))%", icon: "chart.bar.fill", color: .lmPrimary)
-                statItem(title: "Files", value: "\(legalCase.documents.count)", icon: "doc.fill", color: .blue)
+                statItem(title: "Files", value: "0", icon: "doc.fill", color: .blue) // Documents list migration handled separately
             }
         }
         .padding(24)
@@ -477,12 +458,12 @@ struct LawyerCaseDetailView: View {
                 
                 Spacer()
                 
-                Text("\(legalCase.documents.count) Files")
+                Text("\(legalCase.wrappedDocuments.count) Files")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.lmTextSecondary)
             }
             
-            if legalCase.documents.isEmpty {
+            if legalCase.wrappedDocuments.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "doc.text.magnifyingglass")
                         .font(.system(size: 40))
@@ -494,7 +475,7 @@ struct LawyerCaseDetailView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
             } else {
-                ForEach(legalCase.documents) { doc in
+                ForEach(legalCase.wrappedDocuments) { doc in
                     caseDocumentRow(doc)
                 }
             }
@@ -530,13 +511,13 @@ struct LawyerCaseDetailView: View {
         }
     }
     
-    private func caseDocumentRow(_ doc: LegalCaseDocument) -> some View {
+    private func caseDocumentRow(_ doc: CDDocument) -> some View {
         HStack(spacing: 16) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.lmPrimary.opacity(0.1))
                     .frame(width: 48, height: 48)
-                Image(systemName: doc.iconName)
+                Image(systemName: "doc.fill")
                     .foregroundColor(.lmPrimary)
             }
             
@@ -546,7 +527,7 @@ struct LawyerCaseDetailView: View {
                     .foregroundColor(.lmPrimary)
                 
                 HStack(spacing: 8) {
-                    Text(doc.uploadedStage)
+                    Text(doc.fileType)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.lmPrimary)
                         .padding(.horizontal, 8)

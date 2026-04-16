@@ -23,6 +23,9 @@ class NotificationManager: NSObject, ObservableObject {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             DispatchQueue.main.async {
                 self.isAuthorized = granted
+                if granted {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
                 if let error = error {
                     print("Error requesting notification permission: \(error)")
                 }
@@ -41,15 +44,31 @@ class NotificationManager: NSObject, ObservableObject {
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("Error scheduling notification: \(error)")
+                print("Error scheduling local notification: \(error)")
             }
         }
     }
 }
 
-// Extension to handle foreground notifications
+// MARK: - UNUserNotificationCenterDelegate
 extension NotificationManager: UNUserNotificationCenterDelegate {
+    
+    // Receive notification while app is in foreground
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound, .list])
+        
+        let userInfo = notification.request.content.userInfo
+        print("Received foreground notification: \(userInfo)")
+        
+        // You can customize behavior here based on payload
+        completionHandler([[.banner, .sound, .list]])
+    }
+    
+    // Handle user tapping the notification
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        
+        let userInfo = response.notification.request.content.userInfo
+        print("Tapped notification with userInfo: \(userInfo)")
+        
+        completionHandler()
     }
 }

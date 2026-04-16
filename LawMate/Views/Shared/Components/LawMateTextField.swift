@@ -62,6 +62,9 @@ struct LawMateTextField: View {
             RoundedRectangle(cornerRadius: 100, style: .continuous)
                 .stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(placeholder)
+        .accessibilityValue(isSecure && !text.isEmpty ? "Secured" : text)
     }
 }
 

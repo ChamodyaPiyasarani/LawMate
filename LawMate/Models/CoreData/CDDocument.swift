@@ -2,7 +2,7 @@ import Foundation
 import CoreData
 
 @objc(CDDocument)
-public class CDDocument: NSManagedObject {
+public class CDDocument: NSManagedObject, Identifiable {
     @NSManaged public var id: UUID?
     @NSManaged public var fileName: String
     @NSManaged public var fileType: String

@@ -21,6 +21,7 @@ struct Lawyer: Identifiable, Hashable {
 
 struct LawyersListView: View {
     var onBack: () -> Void = {}
+    @StateObject private var firestore = FirestoreManager.shared
     @State private var searchText = ""
     @State private var selectedSpecialty: String? = nil
     @State private var minRating: Double = 0.0
@@ -30,7 +31,7 @@ struct LawyersListView: View {
     @State private var route: MKRoute? = nil
     
     // Mock user location for routing
-    private let userLocation = CLLocationCoordinate2D(latitude: 6.9147, longitude: 79.8773) // Colombo City Center area
+    private let userLocation = CLLocationCoordinate2D(latitude: 6.9147, longitude: 79.8773)
     
     // Initial camera position centered on Sri Lanka
     @State private var cameraPosition: MapCameraPosition = .region(
@@ -42,31 +43,26 @@ struct LawyersListView: View {
     
     @Environment(\.dismiss) private var dismiss
     
-    let lawyers = [
-        Lawyer(id: "L1", name: "Nimal Perera", specialty: "Criminal Law", bio: "Experienced criminal lawyer handling complex court cases", 
-               description: "Experienced criminal defense lawyer with over 14 years of practice. Known for strong courtroom representation and client-focused strategies.",
-               experience: "14 YEARS", casesWon: "250 +", rating: 4.8, location: "Colombo, Sri Lanka", image: "person.fill", 
-               coordinate: CLLocationCoordinate2D(latitude: 6.9271, longitude: 79.8612)),
-        Lawyer(id: "L2", name: "Sanduni Fernando", specialty: "Family Law", bio: "Family law specialist focusing on divorce and custody", 
-               description: "Specialized in family mediation and complex divorce proceedings with a gentle yet firm approach.",
-               experience: "10 YEARS", casesWon: "180 +", rating: 4.6, location: "Gampaha, Sri Lanka", image: "person.fill",
-               coordinate: CLLocationCoordinate2D(latitude: 7.0873, longitude: 79.9925)),
-        Lawyer(id: "L3", name: "Ravindu Silva", specialty: "Corporate Law", bio: "Corporate lawyer advising businesses on legal compliance matters", 
-               description: "Corporate legal consultant for multinational firms, specializing in mergers and acquisitions.",
-               experience: "12 YEARS", casesWon: "300 +", rating: 4.7, location: "Kandy, Sri Lanka", image: "person.fill",
-               coordinate: CLLocationCoordinate2D(latitude: 7.2906, longitude: 80.6337)),
-        Lawyer(id: "L4", name: "Ishara Jayasinghe", specialty: "Property Law", bio: "Property law expert handling land disputes and documentation", 
-               description: "Providing expert counsel on real estate law, land ownership disputes, and title verification.",
-               experience: "8 YEARS", casesWon: "120 +", rating: 4.4, location: "Negombo, Sri Lanka", image: "person.fill",
-               coordinate: CLLocationCoordinate2D(latitude: 7.2089, longitude: 79.8354)),
-        Lawyer(id: "L5", name: "Tharindu Wijeshinghe", specialty: "Civil Law", bio: "Civil litigation lawyer representing clients in legal disputes", 
-               description: "Vast experience in civil litigation, personal injury claims, and dispute resolution.",
-               experience: "15 YEARS", casesWon: "400 +", rating: 4.6, location: "Galle, Sri Lanka", image: "person.fill",
-               coordinate: CLLocationCoordinate2D(latitude: 6.0535, longitude: 80.2210))
-    ]
-    
     private let allSpecialties = ["Criminal Law", "Family Law", "Corporate Law", "Property Law", "Civil Law"]
     private let allLocations = ["Colombo", "Gampaha", "Kandy", "Negombo", "Galle"]
+
+    var lawyers: [Lawyer] {
+        firestore.lawyers.map { user in
+            Lawyer(
+                id: user.id,
+                name: user.fullName,
+                specialty: user.specialty ?? "General Practice",
+                bio: user.bio ?? "Professional Lawyer",
+                description: user.bio ?? "",
+                experience: user.experience ?? "5+ YEARS",
+                casesWon: "N/A",
+                rating: 4.5, // Default rating for now
+                location: "Colombo, Sri Lanka", // Default location
+                image: "person.fill",
+                coordinate: CLLocationCoordinate2D(latitude: 6.9271, longitude: 79.8612) // Default coord
+            )
+        }
+    }
 
     var filteredLawyers: [Lawyer] {
         lawyers.filter { lawyer in
@@ -258,6 +254,9 @@ struct LawyersListView: View {
             }
         }
         .navigationBarBackButtonHidden(true)
+        .onAppear {
+            firestore.listenForLawyers()
+        }
     }
     
     private func fetchRoute(to lawyer: Lawyer) {

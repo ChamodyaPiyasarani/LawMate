@@ -123,7 +123,7 @@ struct ClientHomeView: View {
                 .navigationDestination(for: AdvisoryDocument.self) { doc in
                     DocumentDetailView(document: doc)
                 }
-                .navigationDestination(for: ClientCase.self) { clientCase in
+                .navigationDestination(for: FBLegalCase.self) { clientCase in
                     CaseDetailView(clientCase: clientCase)
                 }
                 .navigationDestination(for: ChatPreview.self) { chat in

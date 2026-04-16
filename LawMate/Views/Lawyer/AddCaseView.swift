@@ -208,7 +208,24 @@ struct AddCaseView: View {
                         
                         // MARK: Save Button
                         LawMatePrimaryButton(title: "Save Case") {
-                            // Save logic here
+                            let lawyerName = AuthService.shared.currentUser?.fullName ?? "Atty. Placeholder"
+                            let newCase = FBLegalCase(
+                                caseNumber: "LAW-\(Int.random(in: 1000...9999))",
+                                title: caseTitle.isEmpty ? "Untitled Case" : caseTitle,
+                                clientName: clientName.isEmpty ? "Unknown Client" : clientName,
+                                lawyerName: lawyerName,
+                                type: caseType,
+                                status: status,
+                                priority: priority,
+                                createdDate: Date(),
+                                stages: [FBCaseStage(title: "Draft Phase", description: "Case initialized in system.", isCompleted: false)]
+                            )
+                            
+                            FirestoreManager.shared.addCase(newCase)
+                            NotificationManager.shared.scheduleNotification(
+                                title: "Case Added", 
+                                body: "Successfully created active case: \(newCase.title)"
+                            )
                             dismiss()
                         }
                         .padding(.top, 20)

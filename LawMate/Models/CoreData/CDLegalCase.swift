@@ -2,15 +2,17 @@ import Foundation
 import CoreData
 
 @objc(CDLegalCase)
-public class CDLegalCase: NSManagedObject {
+public class CDLegalCase: NSManagedObject, Identifiable {
     @NSManaged public var id: String
     @NSManaged public var caseNumber: String
     @NSManaged public var title: String
     @NSManaged public var clientName: String
+    @NSManaged public var lawyerName: String?
     @NSManaged public var type: String
     @NSManaged public var status: String
     @NSManaged public var priority: String
     @NSManaged public var createdDate: Date
+    @NSManaged public var stagesData: Data?
     @NSManaged public var documents: NSSet?
 }
 

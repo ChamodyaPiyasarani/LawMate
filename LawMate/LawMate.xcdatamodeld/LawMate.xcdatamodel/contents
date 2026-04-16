@@ -17,6 +17,8 @@
         <attribute name="status" optional="NO" attributeType="String"/>
         <attribute name="priority" optional="NO" attributeType="String"/>
         <attribute name="createdDate" optional="NO" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="lawyerName" optional="YES" attributeType="String"/>
+        <attribute name="stagesData" optional="YES" attributeType="Binary" usesScalarValueType="NO"/>
         <relationship name="documents" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDDocument" inverseName="legalCase" inverseEntity="CDDocument"/>
     </entity>
     <entity name="CDDocument" syncable="YES" module="LawMate" customModuleProvider="target">

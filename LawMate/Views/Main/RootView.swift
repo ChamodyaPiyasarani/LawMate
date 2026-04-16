@@ -12,9 +12,9 @@
 import SwiftUI
 
 struct RootView: View {
-    @AppStorage("isLoggedIn") private var isLoggedIn = false
-    @AppStorage("userRole") private var storedRole: UserRole = .client
+    @StateObject private var auth = AuthService.shared
     @State private var showSplash = true
+    @State private var showSeedAlert = false
 
     var body: some View {
         Group {
@@ -22,14 +22,28 @@ struct RootView: View {
                 SplashView(onComplete: {
                     withAnimation { showSplash = false }
                 })
-            } else if isLoggedIn {
-                if storedRole == .lawyer {
+            } else if auth.isAuthenticated {
+                if auth.currentUser?.role == .lawyer {
                     LawyerHomeView()
                 } else {
                     ClientHomeView()
                 }
             } else {
                 LoginView()
+                    .overlay(alignment: .bottom) {
+                        Button("Developer: Seed Data") {
+                            FirestoreManager.shared.seedInitialLawyers()
+                            showSeedAlert = true
+                        }
+                        .font(.lmCaption)
+                        .foregroundColor(.gray)
+                        .padding(.bottom, 20)
+                    }
+                    .alert("Database Seeded", isPresented: $showSeedAlert) {
+                        Button("OK", role: .cancel) { }
+                    } message: {
+                        Text("Mock lawyers have been added to your Firestore. You can now login or sign up.")
+                    }
             }
         }
     }

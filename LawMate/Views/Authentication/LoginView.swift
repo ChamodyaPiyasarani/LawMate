@@ -65,11 +65,13 @@ struct LoginView: View {
                             .padding(.horizontal, 24)
                             .padding(.bottom, 36)
 
-                            // MARK: Sign In button
                             LawMatePrimaryButton(title: "Sign in") {
-                                withAnimation {
-                                    isLoggedIn = true
-                                }
+                                AuthService.shared.login(email: email, role: .client)
+                                // The observer in AuthService will toggle isLoggedIn automatically
+                                NotificationManager.shared.scheduleNotification(
+                                    title: "Login Attempt",
+                                    body: "Attempting to login via Firebase..."
+                                )
                             }
                             .padding(.horizontal, 40)
 
@@ -157,6 +159,10 @@ struct LoginView: View {
                 withAnimation {
                     // For demo purposes, we default to the last stored role or client
                     isLoggedIn = true
+                    NotificationManager.shared.scheduleNotification(
+                        title: "Login Successful",
+                        body: "Welcome back to LawMate."
+                    )
                 }
             } else {
                 biometricError = error ?? "Biometric authentication failed."

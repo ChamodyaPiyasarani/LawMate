@@ -22,25 +22,11 @@ struct ClientCaseDocument: Identifiable {
 
 // MARK: - Case Detail View (Progress & Documents)
 struct CaseDetailView: View {
-    let clientCase: ClientCase
+    let clientCase: FBLegalCase
     @Environment(\.dismiss) private var dismiss
     
     @State private var selectedTab = 0 // 0: Progress, 1: Documents
-    
-    // Dynamic mock data based on case choice
-    let progressSteps: [CaseProgressStep] = [
-        CaseProgressStep(title: "Case Opened", description: "Initial consultation and case file creation.", date: "Oct 12, 2025", status: .completed),
-        CaseProgressStep(title: "Evidence Gathering", description: "Collecting relevant documents and testimonies.", date: "Nov 05, 2025", status: .completed),
-        CaseProgressStep(title: "Court Filing", description: "Filing the petition in the district court.", date: "Dec 14, 2025", status: .current),
-        CaseProgressStep(title: "Pre-Trial Hearing", description: "Initial arguments and settlement discussions.", date: "TBD", status: .upcoming),
-        CaseProgressStep(title: "Final Verdict", description: "Judge's ruling and closure of the case.", date: "TBD", status: .upcoming)
-    ]
-    
-    let documents: [ClientCaseDocument] = [
-        ClientCaseDocument(title: "Initial_Consultation_Notes.pdf", type: "PDF", dateAdded: "Oct 12, 2025"),
-        ClientCaseDocument(title: "Evidence_File_A.docx", type: "DOCX", dateAdded: "Nov 01, 2025"),
-        ClientCaseDocument(title: "Court_Petition_Draft.pdf", type: "PDF", dateAdded: "Nov 28, 2025")
-    ]
+    @State private var documents: [FBDocument] = []
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -95,26 +81,34 @@ struct CaseDetailView: View {
             .ignoresSafeArea(edges: .top)
         }
         .navigationBarBackButtonHidden(true)
+        .onAppear {
+            FirestoreManager.shared.fetchDocuments(forCaseId: clientCase.id ?? "") { fetchedDocs in
+                self.documents = fetchedDocs
+            }
+        }
     }
     
     // MARK: - Progress Section
     private var progressSection: some View {
         VStack(spacing: 0) {
-            ForEach(Array(progressSteps.enumerated()), id: \.element.id) { index, step in
+            ForEach(Array(clientCase.stages.enumerated()), id: \.offset) { index, stage in
                 HStack(alignment: .top, spacing: 16) {
+                    let isActive = !stage.isCompleted && (index == 0 || clientCase.stages[index-1].isCompleted)
+                    let stepStatus: StepStatus = stage.isCompleted ? .completed : (isActive ? .current : .upcoming)
+                    
                     // Timeline Graphics
                     VStack(spacing: 0) {
                         // Node
                         ZStack {
                             Circle()
-                                .fill(step.status == .completed ? Color.lmPrimary : (step.status == .current ? Color.orange : Color.gray.opacity(0.3)))
+                                .fill(stepStatus == .completed ? Color.lmPrimary : (stepStatus == .current ? Color.orange : Color.gray.opacity(0.3)))
                                 .frame(width: 24, height: 24)
                             
-                            if step.status == .completed {
+                            if stepStatus == .completed {
                                 Image(systemName: "checkmark")
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundColor(.white)
-                            } else if step.status == .current {
+                            } else if stepStatus == .current {
                                 Circle()
                                     .fill(Color.white)
                                     .frame(width: 8, height: 8)
@@ -122,32 +116,38 @@ struct CaseDetailView: View {
                         }
                         
                         // Vertical Connecting Line
-                        if index != progressSteps.count - 1 {
+                        if index != clientCase.stages.count - 1 {
                             Rectangle()
-                                .fill(step.status == .completed ? Color.lmPrimary : Color.gray.opacity(0.3))
+                                .fill(stepStatus == .completed ? Color.lmPrimary : Color.gray.opacity(0.3))
                                 .frame(width: 2)
-                                .frame(minHeight: 50) // Adjust height to stretch to the next node
+                                .frame(minHeight: 50)
                         }
                     }
                     
                     // Step Content
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text(step.title)
+                            Text(stage.title)
                                 .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(step.status == .upcoming ? .lmTextSecondary : .lmPrimary)
+                                .foregroundColor(stepStatus == .upcoming ? .lmTextSecondary : .lmPrimary)
                             
                             Spacer()
                             
-                            Text(step.date)
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.lmTextSecondary)
+                            if let stepDate = stage.date {
+                                Text("\(stepDate, style: .date)")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.lmTextSecondary)
+                            } else {
+                                Text("TBD")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.lmTextSecondary)
+                            }
                         }
                         
-                        Text(step.description)
+                        Text(stage.description)
                             .font(.system(size: 14))
                             .foregroundColor(.lmTextSecondary)
-                            .padding(.bottom, 24) // spacing between steps
+                            .padding(.bottom, 24)
                     }
                     .padding(.top, 2)
                 }
@@ -172,7 +172,7 @@ struct CaseDetailView: View {
                             .font(.system(size: 20))
                             .foregroundColor(.lmPrimary)
                             .overlay(
-                                Text(doc.type)
+                                Text(doc.fileType)
                                     .font(.system(size: 8, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 4)
@@ -183,13 +183,13 @@ struct CaseDetailView: View {
                     }
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(doc.title)
+                        Text(doc.fileName)
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.lmPrimary)
                             .lineLimit(1)
                             .truncationMode(.middle)
                         
-                        Text("Added \(doc.dateAdded)")
+                        Text("Added \(doc.uploadedAt, style: .date)")
                             .font(.system(size: 12))
                             .foregroundColor(.lmTextSecondary)
                     }
@@ -197,7 +197,7 @@ struct CaseDetailView: View {
                     Spacer()
                     
                     Button {
-                        // View/Download action
+                        // View action
                     } label: {
                         Image(systemName: "arrow.down.circle.fill")
                             .font(.system(size: 24))
@@ -214,6 +214,18 @@ struct CaseDetailView: View {
                         .stroke(Color.white.opacity(0.5), lineWidth: 1)
                 )
                 .shadow(color: Color.black.opacity(0.03), radius: 5, y: 2)
+            }
+            
+            if documents.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .font(.system(size: 40))
+                        .foregroundColor(.lmPrimary.opacity(0.3))
+                    Text("No documents yet")
+                        .font(.lmBody)
+                        .foregroundColor(.lmTextSecondary)
+                }
+                .padding(.top, 60)
             }
         }
         .padding(.horizontal, 24)
@@ -241,6 +253,4 @@ struct TabButton: View {
     }
 }
 
-#Preview {
-    CaseDetailView(clientCase: ClientCase(id: "TEST", lawyerName: "Nimal Perera", description: "Defending a client accused of theft.", category: "Criminal Law", method: nil, statusTitle: "Confirmed", statusColorCategory: "success"))
-}
+// We omitted the static preview as it requires CoreData context mocking which is convoluted locally

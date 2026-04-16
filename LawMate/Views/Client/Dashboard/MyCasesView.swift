@@ -16,27 +16,7 @@ struct ClientCase: Identifiable, Hashable {
 
 struct MyCasesView: View {
     @Environment(\.dismiss) private var dismiss
-    
-    let mockCases = [
-        ClientCase(
-            id: "C1",
-            lawyerName: "Nimal Perera",
-            description: "Defending a client accused of theft, ensuring fair trial and legal rights",
-            category: "Criminal Law",
-            method: nil,
-            statusTitle: "Confirmed",
-            statusColorCategory: "success"
-        ),
-        ClientCase(
-            id: "C2",
-            lawyerName: "Sanduni Fernando",
-            description: "I need help with divorce and child custody arrangements legally.",
-            category: "Family Law",
-            method: "Video Call",
-            statusTitle: "In Progress",
-            statusColorCategory: "warning"
-        )
-    ]
+    @StateObject private var firestore = FirestoreManager.shared
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -61,7 +41,7 @@ struct MyCasesView: View {
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
-                        ForEach(mockCases) { clientCase in
+                        ForEach(firestore.cases) { clientCase in
                             NavigationLink(value: clientCase) {
                                 // Card View
                                 MyCaseCard(clientCase: clientCase)
@@ -77,17 +57,23 @@ struct MyCasesView: View {
             .ignoresSafeArea(edges: .top)
         }
         .navigationBarBackButtonHidden(true)
+        .onAppear {
+            if let currentUser = AuthService.shared.currentUser {
+                firestore.listenForCases(role: currentUser.role, userFullName: currentUser.fullName)
+            }
+        }
     }
 }
 
 // MARK: - Case Card Component
 struct MyCaseCard: View {
-    let clientCase: ClientCase
+    let clientCase: FBLegalCase
     
     var statusColor: Color {
-        switch clientCase.statusColorCategory {
-        case "success": return .green
-        case "warning": return .orange
+        switch clientCase.status {
+        case "Active", "Confirmed": return .green
+        case "Pending", "In Progress": return .orange
+        case "Closed": return .gray
         default: return .gray
         }
     }
@@ -107,14 +93,14 @@ struct MyCaseCard: View {
                 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .top) {
-                        Text(clientCase.lawyerName)
+                        Text(clientCase.lawyerName.isEmpty ? "Assigned Lawyer" : clientCase.lawyerName)
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.lmPrimary)
                         
                         Spacer()
                         
                         // Status Badge
-                        Text(clientCase.statusTitle)
+                        Text(clientCase.status)
                             .font(.system(size: 11, weight: .bold))
                             .foregroundColor(statusColor)
                             .padding(.horizontal, 10)
@@ -123,8 +109,8 @@ struct MyCaseCard: View {
                             .clipShape(Capsule())
                     }
                     
-                    Text(clientCase.description)
-                        .font(.system(size: 12, weight: .medium))
+                    Text(clientCase.title)
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.lmPrimary.opacity(0.8))
                         .fixedSize(horizontal: false, vertical: true)
                         .lineSpacing(4)
@@ -132,17 +118,15 @@ struct MyCaseCard: View {
             }
             
             HStack {
-                Text(clientCase.category)
+                Text(clientCase.type)
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.lmPrimary.opacity(0.7))
                 
                 Spacer()
                 
-                if let method = clientCase.method {
-                    Text(method)
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.lmPrimary.opacity(0.7))
-                }
+                Text(clientCase.caseNumber)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.lmPrimary.opacity(0.7))
             }
         }
         .padding(20)

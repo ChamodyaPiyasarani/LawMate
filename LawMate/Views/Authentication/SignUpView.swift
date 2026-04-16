@@ -17,6 +17,8 @@ struct SignUpView: View {
     @State private var bio:        String = ""
 
     @State private var navigateToLogin = false
+    
+    let specialties = ["Criminal Law", "Family Law", "Corporate Law", "Property Law", "Civil Law", "Others"]
 
     var body: some View {
         NavigationStack {
@@ -99,9 +101,38 @@ struct SignUpView: View {
                                                     text: $experience,
                                                     keyboardType: .numberPad)
                                     
-                                    LawMateTextField(icon: "briefcase.fill",
-                                                    placeholder: "Specialized Field (e.g. Divorce)",
-                                                    text: $specialty)
+                                    // Specialized Field Dropdown
+                                    Menu {
+                                        ForEach(specialties, id: \.self) { spec in
+                                            Button(spec) {
+                                                specialty = spec
+                                            }
+                                        }
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: "briefcase.fill")
+                                                .foregroundColor(.lmPrimary)
+                                                .frame(width: 24)
+                                            
+                                            Text(specialty.isEmpty ? "Specialized Field (e.g. Divorce)" : specialty)
+                                                .foregroundColor(specialty.isEmpty ? .lmTextSecondary : .lmTextPrimary)
+                                                .font(.lmBody)
+                                            
+                                            Spacer()
+                                            
+                                            Image(systemName: "chevron.down")
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundColor(.lmPrimary)
+                                        }
+                                        .padding()
+                                        .background(Color.white.opacity(0.6))
+                                        .background(.ultraThinMaterial)
+                                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                        )
+                                    }
                                     
                                     LawMateTextField(icon: "pencil",
                                                     placeholder: "Small Description",
@@ -120,13 +151,22 @@ struct SignUpView: View {
                                 .padding(.horizontal, 24)
                                 .padding(.top, 24)
 
-                            // MARK: Sign Up button
                             LawMatePrimaryButton(title: "Sign up") {
                                 if role != .none {
-                                    storedRole = role
-                                    withAnimation {
-                                        isLoggedIn = true
-                                    }
+                                    let profileData: [String: String] = [
+                                        "fullName": username,
+                                        "phone": contact,
+                                        "specialty": specialty,
+                                        "experience": experience,
+                                        "bio": bio
+                                    ]
+                                    
+                                    AuthService.shared.login(email: email, role: role, profile: profileData)
+                                    // The observer in AuthService will toggle isLoggedIn automatically
+                                    NotificationManager.shared.scheduleNotification(
+                                        title: "Welcome to LawMate!",
+                                        body: "Your account is registering..."
+                                    )
                                 }
                             }
                             .padding(.horizontal, 40)

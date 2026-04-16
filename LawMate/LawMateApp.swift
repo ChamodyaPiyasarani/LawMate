@@ -6,20 +6,18 @@
 //
 
 import SwiftUI
+import FirebaseCore
 
 @main
 struct LawMateApp: App {
-    init() {
-        UNUserNotificationCenter.current().delegate = NotificationManager.shared
-    }
+    @UIApplicationDelegateAdaptor(LawMateAppDelegate.self) var delegate
+    let persistenceController = PersistenceController.shared
     
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environment(\.managedObjectContext, persistenceController.container.viewContext)
                 .preferredColorScheme(.light) // LawMate uses a light theme
-                .onAppear {
-                    NotificationManager.shared.requestPermission()
-                }
         }
     }
 }
