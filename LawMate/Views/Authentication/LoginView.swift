@@ -19,6 +19,10 @@ struct LoginView: View {
     @State private var password: String = ""
     @State private var navigateToSignUp   = false
     @State private var biometricError: String? = nil
+    
+    // Validation Errors
+    @State private var emailError: String?
+    @State private var passwordError: String?
 
     var body: some View {
         NavigationStack {
@@ -55,23 +59,33 @@ struct LoginView: View {
                                 LawMateTextField(icon: "at",
                                                 placeholder: "Email Address",
                                                 text: $email,
-                                                keyboardType: .emailAddress)
+                                                keyboardType: .emailAddress,
+                                                errorMessage: emailError)
 
                                 LawMateTextField(icon: "lock",
                                                 placeholder: "Password",
                                                 text: $password,
-                                                isSecure: true)
+                                                isSecure: true,
+                                                errorMessage: passwordError)
                             }
                             .padding(.horizontal, 24)
                             .padding(.bottom, 36)
 
                             LawMatePrimaryButton(title: "Sign in") {
-                                AuthService.shared.login(email: email, role: .client)
-                                // The observer in AuthService will toggle isLoggedIn automatically
-                                NotificationManager.shared.scheduleNotification(
-                                    title: "Login Attempt",
-                                    body: "Attempting to login via Firebase..."
-                                )
+                                if validateForm() {
+                                    ToastManager.shared.show(title: "Logging in...", message: "Please wait.", type: .info)
+                                    
+                                    AuthService.shared.login(email: email, password: password) { result in
+                                        switch result {
+                                        case .success:
+                                            ToastManager.shared.show(title: "Welcome Back!", message: "Successfully logged in.", type: .success)
+                                        case .failure(let error):
+                                            ToastManager.shared.show(title: "Login Failed", message: error.localizedDescription, type: .error)
+                                        }
+                                    }
+                                } else {
+                                    ToastManager.shared.show(title: "Validation Error", message: "Please check your login details.", type: .error)
+                                }
                             }
                             .padding(.horizontal, 40)
 
@@ -168,6 +182,19 @@ struct LoginView: View {
                 biometricError = error ?? "Biometric authentication failed."
             }
         }
+    }
+    
+
+    private func validateForm() -> Bool {
+        var isValid = true
+        
+        emailError = (email.isEmpty || !email.contains("@")) ? "Enter a valid email address" : nil
+        if emailError != nil { isValid = false }
+        
+        passwordError = password.isEmpty ? "Password cannot be empty" : nil
+        if passwordError != nil { isValid = false }
+        
+        return isValid
     }
 }
 

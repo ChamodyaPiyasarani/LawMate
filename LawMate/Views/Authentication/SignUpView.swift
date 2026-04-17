@@ -18,6 +18,13 @@ struct SignUpView: View {
 
     @State private var navigateToLogin = false
     
+    // Validation Errors
+    @State private var usernameError: String?
+    @State private var emailError: String?
+    @State private var contactError: String?
+    @State private var passwordError: String?
+    @State private var experienceError: String?
+    
     let specialties = ["Criminal Law", "Family Law", "Corporate Law", "Property Law", "Civil Law", "Others"]
 
     var body: some View {
@@ -54,17 +61,20 @@ struct SignUpView: View {
                             VStack(spacing: 20) {
                                 LawMateTextField(icon: "person",
                                                 placeholder: "User Name",
-                                                text: $username)
+                                                text: $username,
+                                                errorMessage: usernameError)
 
                                 LawMateTextField(icon: "at",
                                                 placeholder: "Email Address",
                                                 text: $email,
-                                                keyboardType: .emailAddress)
+                                                keyboardType: .emailAddress,
+                                                errorMessage: emailError)
 
                                 LawMateTextField(icon: "phone",
                                                 placeholder: "Contact Number",
                                                 text: $contact,
-                                                keyboardType: .phonePad)
+                                                keyboardType: .phonePad,
+                                                errorMessage: contactError)
                             }
                             .padding(.horizontal, 24)
 
@@ -99,7 +109,8 @@ struct SignUpView: View {
                                     LawMateTextField(icon: "star.fill",
                                                     placeholder: "Years of Experience",
                                                     text: $experience,
-                                                    keyboardType: .numberPad)
+                                                    keyboardType: .numberPad,
+                                                    errorMessage: experienceError)
                                     
                                     // Specialized Field Dropdown
                                     Menu {
@@ -111,7 +122,7 @@ struct SignUpView: View {
                                     } label: {
                                         HStack {
                                             Image(systemName: "briefcase.fill")
-                                                .foregroundColor(.lmPrimary)
+                                                .foregroundColor(.lmTextSecondary)
                                                 .frame(width: 24)
                                             
                                             Text(specialty.isEmpty ? "Specialized Field (e.g. Divorce)" : specialty)
@@ -122,7 +133,7 @@ struct SignUpView: View {
                                             
                                             Image(systemName: "chevron.down")
                                                 .font(.system(size: 12, weight: .bold))
-                                                .foregroundColor(.lmPrimary)
+                                                .foregroundColor(.lmTextSecondary)
                                         }
                                         .padding()
                                         .background(Color.white.opacity(0.6))
@@ -147,12 +158,13 @@ struct SignUpView: View {
                             LawMateTextField(icon: "lock",
                                             placeholder: "Password",
                                             text: $password,
-                                            isSecure: true)
+                                            isSecure: true,
+                                            errorMessage: passwordError)
                                 .padding(.horizontal, 24)
                                 .padding(.top, 24)
 
                             LawMatePrimaryButton(title: "Sign up") {
-                                if role != .none {
+                                if validateForm() {
                                     let profileData: [String: String] = [
                                         "fullName": username,
                                         "phone": contact,
@@ -161,12 +173,22 @@ struct SignUpView: View {
                                         "bio": bio
                                     ]
                                     
-                                    AuthService.shared.login(email: email, role: role, profile: profileData)
-                                    // The observer in AuthService will toggle isLoggedIn automatically
-                                    NotificationManager.shared.scheduleNotification(
-                                        title: "Welcome to LawMate!",
-                                        body: "Your account is registering..."
-                                    )
+                                    ToastManager.shared.show(title: "Creating account...", message: "Please wait.", type: .info)
+                                    
+                                    AuthService.shared.signUp(email: email, role: role, password: password, profile: profileData) { result in
+                                        switch result {
+                                        case .success:
+                                            ToastManager.shared.show(title: "Success", message: "Account created successfully!", type: .success)
+                                            NotificationManager.shared.scheduleNotification(
+                                                title: "Welcome to LawMate!",
+                                                body: "Your account has been registered successfully."
+                                            )
+                                        case .failure(let error):
+                                            ToastManager.shared.show(title: "Registration Failed", message: error.localizedDescription, type: .error)
+                                        }
+                                    }
+                                } else {
+                                    ToastManager.shared.show(title: "Validation Error", message: "Please check the form for errors.", type: .error)
                                 }
                             }
                             .padding(.horizontal, 40)
@@ -200,6 +222,33 @@ struct SignUpView: View {
                 LoginView()
             }
         }
+    }
+    private func validateForm() -> Bool {
+        var isValid = true
+        
+        usernameError = username.isEmpty ? "Username cannot be empty" : nil
+        if usernameError != nil { isValid = false }
+        
+        emailError = (email.isEmpty || !email.contains("@")) ? "Enter a valid email address" : nil
+        if emailError != nil { isValid = false }
+        
+        contactError = contact.count < 10 ? "Enter a valid phone number" : nil
+        if contactError != nil { isValid = false }
+        
+        passwordError = password.count < 6 ? "Password must be at least 6 characters" : nil
+        if passwordError != nil { isValid = false }
+        
+        if role == .none {
+            ToastManager.shared.show(title: "Select Role", message: "Please select whether you are a Lawyer or Client", type: .warning)
+            isValid = false
+        }
+        
+        if role == .lawyer {
+            experienceError = experience.isEmpty ? "Experience required" : nil
+            if experienceError != nil { isValid = false }
+        }
+        
+        return isValid
     }
 }
 

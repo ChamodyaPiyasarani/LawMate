@@ -94,6 +94,8 @@ struct ClientHomeView: View {
                         // MARK: Messages Content
                         MessagesListView(onBack: {
                             selectedTab = .home
+                        }, onSelect: { conversation in
+                            navPath.append(conversation)
                         })
                     } else {
                         // MARK: Profile Content
@@ -126,8 +128,8 @@ struct ClientHomeView: View {
                 .navigationDestination(for: FBLegalCase.self) { clientCase in
                     CaseDetailView(clientCase: clientCase)
                 }
-                .navigationDestination(for: ChatPreview.self) { chat in
-                    ChatDetailView(chat: chat)
+                .navigationDestination(for: FBConversation.self) { conversation in
+                    ChatDetailView(conversation: conversation)
                 }
                 .navigationDestination(for: ProfileRoute.self) { route in
                     switch route {
@@ -145,6 +147,8 @@ struct ClientHomeView: View {
                         PrivacyView()
                     case .myUploads:
                         LawyerMyUploadsView()
+                    case .accessibility:
+                        AccessibilitySettingsView()
                     }
                 }
                 .navigationBarBackButtonHidden(true)

@@ -11,6 +11,9 @@ struct BookingView: View {
     @State private var isVideoCall = false
     @State private var caseDescription = ""
     
+    // Validation Errors
+    @State private var descriptionError: String?
+    
     let services = ["Case Review (1 hour)", "Legal Consultation (30 mins)", "Document Drafting", "Court Representation"]
     let timeSlots = ["09:00 AM", "10:30 AM", "01:00 PM", "02:30 PM"]
     let bookedDays = [1, 5, 8, 12, 19, 24, 28] // Example booked days for this month
@@ -131,34 +134,56 @@ struct BookingView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             SectionTitle(title: "Brief Case Description")
                             
-                            TextEditor(text: $caseDescription)
-                                .frame(height: 120)
-                                .padding(12)
-                                .background(Color.white.opacity(0.4))
-                                .background(.ultraThinMaterial)
-                                .clipShape(RoundedRectangle(cornerRadius: 16))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                )
+                            VStack(alignment: .leading, spacing: 4) {
+                                TextEditor(text: $caseDescription)
+                                    .frame(height: 120)
+                                    .padding(12)
+                                    .background(Color.white.opacity(0.4))
+                                    .background(.ultraThinMaterial)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(descriptionError != nil ? Color.red : Color.white.opacity(0.3), lineWidth: 1)
+                                    )
+                                
+                                if let error = descriptionError {
+                                    Text(error)
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundColor(.red)
+                                        .padding(.leading, 12)
+                                        .transition(.opacity)
+                                }
+                            }
+                            .animation(.easeInOut(duration: 0.2), value: descriptionError)
                         }
                         .padding(.horizontal, 24)
 
                         // MARK: Confirm Button
                         LawMatePrimaryButton(title: "Confirm Appointment") {
-                            EventKitManager.shared.createEvent(
-                                title: "Consultation with \(lawyer.name)",
-                                startDate: selectedDate,
-                                endDate: selectedDate.addingTimeInterval(3600), // 1 hour consultation
-                                location: isVideoCall ? "Video Call" : lawyer.location,
-                                notes: caseDescription
-                            ) { success, error in
-                                if success {
-                                    dismiss()
-                                } else if let error = error {
-                                    print("Failed to save event: \(error.localizedDescription)")
-                                    dismiss()
+                            if validateForm() {
+                                EventKitManager.shared.createEvent(
+                                    title: "Consultation with \(lawyer.name)",
+                                    startDate: selectedDate,
+                                    endDate: selectedDate.addingTimeInterval(3600), // 1 hour consultation
+                                    location: isVideoCall ? "Video Call" : lawyer.location,
+                                    notes: caseDescription
+                                ) { success, error in
+                                    DispatchQueue.main.async {
+                                        if success {
+                                            ToastManager.shared.show(title: "Booking Confirmed", message: "Your appointment is set.", type: .success)
+                                            NotificationManager.shared.scheduleNotification(
+                                                title: "Booking Confirmed",
+                                                body: "Your appointment with \(lawyer.name) has been booked successfully."
+                                            )
+                                            dismiss()
+                                        } else {
+                                            ToastManager.shared.show(title: "Booking Failed", message: error?.localizedDescription ?? "Could not save to calendar.", type: .warning)
+                                            dismiss()
+                                        }
+                                    }
                                 }
+                            } else {
+                                ToastManager.shared.show(title: "Validation Error", message: "Please enter a case description.", type: .error)
                             }
                         }
                         .padding(.horizontal, 40)
@@ -171,6 +196,15 @@ struct BookingView: View {
             .ignoresSafeArea(edges: .top)
         }
         .navigationBarBackButtonHidden(true)
+    }
+    
+    private func validateForm() -> Bool {
+        var isValid = true
+        
+        descriptionError = caseDescription.trimmingCharacters(in: .whitespaces).isEmpty ? "Description is required" : nil
+        if descriptionError != nil { isValid = false }
+        
+        return isValid
     }
 }
 

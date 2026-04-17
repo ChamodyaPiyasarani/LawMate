@@ -21,7 +21,14 @@ struct User: Identifiable, Codable {
     var bio: String?
     var fcmToken: String?
     
-    init(id: String, fullName: String, email: String, role: UserRole, profileImage: String? = nil, phoneNumber: String = "", specialty: String? = nil, experience: String? = nil, bio: String? = nil, fcmToken: String? = nil) {
+    // Accessibility Preferences
+    var textScale: Double
+    var highContrast: Bool
+    
+    // UI Preference / Testing
+    var password: String?
+    
+    init(id: String, fullName: String, email: String, role: UserRole, profileImage: String? = nil, phoneNumber: String = "", specialty: String? = nil, experience: String? = nil, bio: String? = nil, fcmToken: String? = nil, textScale: Double = 1.0, highContrast: Bool = false, password: String? = nil) {
         self.id = id
         self.fullName = fullName
         self.email = email
@@ -32,6 +39,9 @@ struct User: Identifiable, Codable {
         self.experience = experience
         self.bio = bio
         self.fcmToken = fcmToken
+        self.textScale = textScale
+        self.highContrast = highContrast
+        self.password = password
     }
 }
 

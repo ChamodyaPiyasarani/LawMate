@@ -13,38 +13,36 @@ import SwiftUI
 
 struct RootView: View {
     @StateObject private var auth = AuthService.shared
+    @StateObject private var acc = AccessibilityManager.shared
     @State private var showSplash = true
-    @State private var showSeedAlert = false
 
     var body: some View {
-        Group {
-            if showSplash {
-                SplashView(onComplete: {
-                    withAnimation { showSplash = false }
-                })
-            } else if auth.isAuthenticated {
-                if auth.currentUser?.role == .lawyer {
-                    LawyerHomeView()
-                } else {
-                    ClientHomeView()
-                }
-            } else {
-                LoginView()
-                    .overlay(alignment: .bottom) {
-                        Button("Developer: Seed Data") {
-                            FirestoreManager.shared.seedInitialLawyers()
-                            showSeedAlert = true
-                        }
-                        .font(.lmCaption)
-                        .foregroundColor(.gray)
-                        .padding(.bottom, 20)
-                    }
-                    .alert("Database Seeded", isPresented: $showSeedAlert) {
-                        Button("OK", role: .cancel) { }
-                    } message: {
-                        Text("Mock lawyers have been added to your Firestore. You can now login or sign up.")
-                    }
+        ZStack(alignment: .top) {
+            Group {
+                // Main app content
+                mainContent
             }
+            .dynamicTypeSize(acc.dynamicTypeSize)
+            .id(acc.highContrast) // Forces redraw when colors change
+            
+            ToastView()
+        }
+    }
+    
+    @ViewBuilder
+    private var mainContent: some View {
+        if showSplash {
+            SplashView(onComplete: {
+                withAnimation { showSplash = false }
+            })
+        } else if auth.isAuthenticated {
+            if auth.currentUser?.role == .lawyer {
+                LawyerHomeView()
+            } else {
+                ClientHomeView()
+            }
+        } else {
+            LoginView()
         }
     }
 }

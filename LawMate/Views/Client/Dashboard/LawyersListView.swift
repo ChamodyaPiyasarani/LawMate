@@ -58,7 +58,7 @@ struct LawyersListView: View {
                 casesWon: "N/A",
                 rating: 4.5, // Default rating for now
                 location: "Colombo, Sri Lanka", // Default location
-                image: "person.fill",
+                image: user.profileImage ?? "",
                 coordinate: CLLocationCoordinate2D(latitude: 6.9271, longitude: 79.8612) // Default coord
             )
         }
@@ -341,15 +341,7 @@ struct LawyerRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 14) {
-                // Profile Image Placeholder
-                ZStack {
-                    Circle()
-                        .fill(Color.lmLightGreen.opacity(0.5))
-                        .frame(width: 56, height: 56)
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.lmPrimary.opacity(0.6))
-                }
+                LawMateAvatar(url: lawyer.image, name: lawyer.name, size: 56)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {

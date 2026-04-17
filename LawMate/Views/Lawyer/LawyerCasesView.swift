@@ -95,7 +95,7 @@ struct LawyerCasesView: View {
             .ignoresSafeArea(edges: .top)
             .onAppear {
                 if let currentUser = AuthService.shared.currentUser {
-                    firestore.listenForCases(role: currentUser.role, userFullName: currentUser.fullName)
+                    firestore.listenForCases(role: currentUser.role, userId: currentUser.id)
                 }
             }
         }
@@ -118,15 +118,7 @@ struct LawyerCaseCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 16) {
-                // Client Avatar
-                ZStack {
-                    Circle()
-                        .fill(Color.lmPrimary.opacity(0.1))
-                        .frame(width: 64, height: 64)
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(.lmPrimary.opacity(0.3))
-                }
+                LawMateAvatar(url: lawyerCase.clientImage, name: lawyerCase.clientName, size: 64)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .top) {
@@ -325,15 +317,7 @@ struct LawyerCaseDetailView: View {
     private var caseProfileHeader: some View {
         VStack(spacing: 20) {
             HStack(alignment: .top, spacing: 16) {
-                // Client Avatar
-                ZStack {
-                    Circle()
-                        .fill(Color.lmPrimary.opacity(0.1))
-                        .frame(width: 72, height: 72)
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(.lmPrimary.opacity(0.3))
-                }
+                LawMateAvatar(url: legalCase.clientImage, name: legalCase.clientName, size: 72)
                 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
@@ -511,7 +495,7 @@ struct LawyerCaseDetailView: View {
         }
     }
     
-    private func caseDocumentRow(_ doc: CDDocument) -> some View {
+    private func caseDocumentRow(_ doc: FBDocument) -> some View {
         HStack(spacing: 16) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12)

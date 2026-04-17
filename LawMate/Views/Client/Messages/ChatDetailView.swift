@@ -8,24 +8,22 @@ struct ChatMessage: Identifiable, Hashable {
 }
 
 struct ChatDetailView: View {
-    let chat: ChatPreview
+    let conversation: FBConversation
     @Environment(\.dismiss) private var dismiss
     @State private var messageText: String = ""
+    @StateObject private var firestore = FirestoreManager.shared
+    @StateObject private var auth = AuthService.shared
     
-    let mockMessages = [
-        ChatMessage(text: "Good morning Emily. I wanted to update you on the discovery process.", time: "9:30 AM", isMe: false),
-        ChatMessage(text: "We received the documents from the opposing counsel yesterday.", time: "9:31 AM", isMe: false),
-        ChatMessage(text: "That's great news! Were there any surprises?", time: "9:35 AM", isMe: true),
-        ChatMessage(text: "Nothing unexpected. I'll prepare a summary for our meeting next week.", time: "9:38 AM", isMe: false),
-        ChatMessage(text: "Perfect, thank you for the update!", time: "9:41 AM", isMe: true)
-    ]
+    var partner: (id: String, name: String, image: String?) {
+        conversation.partnerInfo(for: auth.currentUser?.id ?? "")
+    }
     
     var body: some View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
             
-            // Green blob top-left
-            GreenBlobBackground(style: .client)
+            // blob style based on role
+            GreenBlobBackground(style: auth.currentUser?.role == .lawyer ? .lawyer : .client)
                 .frame(height: 300)
             
             VStack(spacing: 0) {
@@ -37,24 +35,28 @@ struct ChatDetailView: View {
                     .zIndex(10)
                 
                 // MARK: Messages List
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 16) {
-                        // Date Separator
-                        Text("Today")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.gray)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 6)
-                            .background(Color.black.opacity(0.04))
-                            .clipShape(Capsule())
-                            .padding(.vertical, 8)
-                        
-                        ForEach(mockMessages) { message in
-                            MessageBubble(message: message)
+                ScrollViewReader { proxy in
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 16) {
+                            if firestore.messages.isEmpty {
+                                emptyState
+                            } else {
+                                ForEach(firestore.messages) { message in
+                                    MessageBubble(message: message, currentUserId: auth.currentUser?.id ?? "")
+                                        .id(message.id)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 100) // Padding for input area
+                    }
+                    .onChange(of: firestore.messages) { _ in
+                        if let lastId = firestore.messages.last?.id {
+                            withAnimation {
+                                proxy.scrollTo(lastId, anchor: .bottom)
+                            }
                         }
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 100) // Padding for input area
                 }
             }
             .ignoresSafeArea(edges: .top)
@@ -74,8 +76,7 @@ struct ChatDetailView: View {
                         .padding(.vertical, 14)
                     
                     Button(action: {
-                        // Send action
-                        messageText = ""
+                        sendCurrentMessage()
                     }) {
                         Circle()
                             .fill(Color.lmPrimary)
@@ -98,24 +99,34 @@ struct ChatDetailView: View {
                 .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 30) // Floating above bottom edge
-                .background(
-                    Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.lmBackground, Color.lmBackground.opacity(0)],
-                                startPoint: .bottom,
-                                endPoint: .top
-                            )
-                        )
-                        .frame(height: 140)
-                        .offset(y: 20)
-                        .allowsHitTesting(false)
-                        .ignoresSafeArea(edges: .bottom)
-                )
             }
-            // Safely removing .ignoresSafeArea(edges: .bottom) here allows keyboard to push it up!
         }
         .navigationBarBackButtonHidden(true)
+        .onAppear {
+            if let conversationId = conversation.id {
+                firestore.listenForMessages(conversationId: conversationId)
+            }
+        }
+    }
+    
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Spacer().frame(height: 100)
+            Text("No messages yet")
+                .font(.lmHeading)
+                .foregroundColor(.lmPrimary.opacity(0.3))
+            Text("Send a message to start the conversation.")
+                .font(.lmCaption)
+                .foregroundColor(.lmTextSecondary)
+        }
+    }
+    
+    private func sendCurrentMessage() {
+        guard !messageText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        guard let conversationId = conversation.id, let userId = auth.currentUser?.id else { return }
+        
+        firestore.sendMessage(to: conversationId, text: messageText, senderId: userId)
+        messageText = ""
     }
     
     // MARK: - Header
@@ -126,30 +137,22 @@ struct ChatDetailView: View {
             
             // Avatar
             ZStack(alignment: .bottomTrailing) {
+                LawMateAvatar(url: partner.image, name: partner.name, size: 44)
+                
                 Circle()
-                    .fill(Color.lmPrimary.opacity(0.15))
-                    .frame(width: 44, height: 44)
-                
-                Text(chat.partnerInitials)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.lmPrimary)
-                
-                if chat.isOnline {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 10, height: 10)
-                        .overlay(Circle().stroke(Color.lmBackground, lineWidth: 2))
-                        .offset(x: -2, y: -2)
-                }
+                    .fill(Color.green)
+                    .frame(width: 10, height: 10)
+                    .overlay(Circle().stroke(Color.lmBackground, lineWidth: 2))
+                    .offset(x: -2, y: -2)
             }
             
             // Name Info
             VStack(alignment: .leading, spacing: 2) {
-                Text(chat.partnerName)
+                Text(partner.name)
                     .font(.lmHeading)
                     .foregroundColor(.lmPrimary)
                 
-                Text(chat.isOnline ? "Online" : "Offline")
+                Text("Online")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.lmTextSecondary)
             }
@@ -161,37 +164,49 @@ struct ChatDetailView: View {
 
 // MARK: - Message Bubble Component
 struct MessageBubble: View {
-    let message: ChatMessage
+    let message: FBMessage
+    let currentUserId: String
+    
+    var isMe: Bool {
+        message.senderId == currentUserId
+    }
     
     var body: some View {
         HStack {
-            if message.isMe {
+            if isMe {
                 Spacer(minLength: 40)
             }
             
-            VStack(alignment: message.isMe ? .trailing : .leading, spacing: 6) {
+            VStack(alignment: isMe ? .trailing : .leading, spacing: 6) {
                 Text(message.text)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(message.isMe ? .white : .lmTextPrimary)
+                    .foregroundColor(isMe ? .white : .lmTextPrimary)
                     .lineSpacing(4)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 14)
-                    .background(message.isMe ? Color.lmPrimary.opacity(0.85) : Color.white)
-                    .clipShape(BubbleShape(isMe: message.isMe))
+                    .background(isMe ? Color.lmPrimary.opacity(0.85) : Color.white)
+                    .clipShape(BubbleShape(isMe: isMe))
                     .shadow(color: Color.black.opacity(0.04), radius: 5, x: 0, y: 2)
                 
-                Text(message.time)
+                Text(formatTime(message.timestamp))
                     .font(.system(size: 10, weight: .medium))
                     .foregroundColor(.lmTextSecondary)
                     .padding(.horizontal, 6)
             }
             
-            if !message.isMe {
+            if !isMe {
                 Spacer(minLength: 40)
             }
         }
     }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
+    }
 }
+
 
 // Custom shape for chat bubbles
 struct BubbleShape: Shape {
@@ -213,13 +228,13 @@ struct BubbleShape: Shape {
 }
 
 #Preview {
-    ChatDetailView(chat: ChatPreview(
+    ChatDetailView(conversation: FBConversation(
         id: "1",
-        partnerName: "Nimal Perera",
-        partnerInitials: "NP",
-        lastMessageTime: "9:41 AM",
+        participants: ["U1", "U2"],
         lastMessage: "I've reviewed the documents...",
-        unreadCount: 2,
-        isOnline: true
+        lastMessageAt: Date(),
+        memberNames: ["U1": "Emily", "U2": "Nimal Perera"],
+        memberImages: ["U1": nil, "U2": nil]
     ))
 }
+

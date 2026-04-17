@@ -156,6 +156,8 @@ struct UploadAdvisoryView: View {
 
                         // MARK: Publish Button
                         LawMatePrimaryButton(title: "Publish Document") {
+                            ToastManager.shared.show(title: "Publishing...", message: "Uploading your document.", type: .info)
+                            
                             if let url = selectedFile {
                                 DocumentManager.shared.saveDocument(
                                     title: title,
@@ -165,6 +167,9 @@ struct UploadAdvisoryView: View {
                                     lawyerName: User.mockLawyer.fullName,
                                     tempURL: url
                                 )
+                                
+                                ToastManager.shared.show(title: "Document Published", message: "Your advisory document is now live.", type: .success)
+                                NotificationManager.shared.scheduleNotification(title: "Document Published", body: "Successfully published \(title)")
                                 dismiss()
                             } else if let image = selectedImage {
                                 // Save image to temporary file first
@@ -179,6 +184,9 @@ struct UploadAdvisoryView: View {
                                         lawyerName: User.mockLawyer.fullName,
                                         tempURL: tempURL
                                     )
+                                    
+                                    ToastManager.shared.show(title: "Document Published", message: "Your advisory document is now live.", type: .success)
+                                    NotificationManager.shared.scheduleNotification(title: "Document Published", body: "Successfully published \(title)")
                                     dismiss()
                                 }
                             }

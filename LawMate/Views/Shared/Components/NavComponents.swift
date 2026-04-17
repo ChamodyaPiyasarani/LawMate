@@ -427,7 +427,7 @@ struct PDFKitViewerSheet: View {
 // MARK: - Timeline Component
 struct TimelineNode: View {
     let index: Int
-    let stage: CaseStage
+    let stage: FBCaseStage
     let isLast: Bool
     let isActive: Bool
     let canEdit: Bool
@@ -549,5 +549,89 @@ struct TimelineNode: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM dd"
         return formatter.string(from: date)
+    }
+}
+
+// MARK: - LawMate Avatar
+struct LawMateAvatar: View {
+    let url: String?
+    let name: String
+    let size: CGFloat
+    
+    var body: some View {
+        Group {
+            if let urlString = url, let imageURL = URL(string: urlString) {
+                AsyncImage(url: imageURL) { phase in
+                    switch phase {
+                    case .empty:
+                        ProgressView()
+                            .frame(width: size, height: size)
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: size, height: size)
+                    case .failure:
+                        fallbackView
+                    @unknown default:
+                        fallbackView
+                    }
+                }
+            } else {
+                fallbackView
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+    }
+    
+    private var fallbackView: some View {
+        Circle()
+            .fill(Color.lmPrimary)
+            .overlay(
+                Text(initials(for: name))
+                    .font(.system(size: size * 0.4, weight: .bold))
+                    .foregroundColor(.white)
+            )
+    }
+    
+    private func initials(for name: String) -> String {
+        let components = name.components(separatedBy: " ")
+        if components.count >= 2 {
+            let first = components[0].prefix(1)
+            let last = components[1].prefix(1)
+            return "\(first)\(last)".uppercased()
+        } else {
+            return String(name.prefix(2)).uppercased()
+        }
+    }
+}
+
+// MARK: - Plus Button
+struct LawMatePlusButton: View {
+    var action: () -> Void = {}
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                // Liquid glass background
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 44, height: 44)
+                    .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 4)
+                
+                // Rim highlight
+                Circle()
+                    .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                    .frame(width: 44, height: 44)
+
+                Image(systemName: "plus")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.lmPrimary)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add New Chat")
     }
 }

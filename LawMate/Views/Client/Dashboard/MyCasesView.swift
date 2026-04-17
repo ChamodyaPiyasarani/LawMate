@@ -59,7 +59,7 @@ struct MyCasesView: View {
         .navigationBarBackButtonHidden(true)
         .onAppear {
             if let currentUser = AuthService.shared.currentUser {
-                firestore.listenForCases(role: currentUser.role, userFullName: currentUser.fullName)
+                firestore.listenForCases(role: currentUser.role, userId: currentUser.id)
             }
         }
     }
@@ -81,15 +81,7 @@ struct MyCaseCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 16) {
-                // Profile Avatar Placeholder
-                ZStack {
-                    Circle()
-                        .fill(Color.lmPrimary.opacity(0.1))
-                        .frame(width: 56, height: 56)
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.lmPrimary.opacity(0.7))
-                }
+                LawMateAvatar(url: clientCase.lawyerImage, name: clientCase.lawyerName, size: 56)
                 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .top) {

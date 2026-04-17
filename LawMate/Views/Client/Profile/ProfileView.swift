@@ -9,18 +9,21 @@ enum ProfileRoute: Hashable {
     case termsOfService
     case privacyPolicy
     case myUploads
+    case accessibility
 }
 
 struct ProfileView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = true
     @AppStorage("userRole") private var userRole: UserRole = .client
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var authService = AuthService.shared
     
     // Photo Selection State
     @State private var selectedImage: UIImage? = nil
     @State private var showImagePicker = false
     @State private var imageSource: UIImagePickerController.SourceType = .photoLibrary
     @State private var showSourceSelection = false
+    @State private var isUploading = false
     
     var onBack: () -> Void = {}
     
@@ -59,7 +62,8 @@ struct ProfileView: View {
                             
                             // MARK: Other Sections
                             menuSection(title: "Preferences", items: [
-                                ("bell", "Notifications", ProfileRoute.profileNotifications)
+                                ("bell", "Notifications", ProfileRoute.profileNotifications),
+                                ("accessibility", "Accessibility", ProfileRoute.accessibility)
                             ])
                             
                             menuSection(title: "Legal", items: [
@@ -75,7 +79,7 @@ struct ProfileView: View {
                                     .padding(.horizontal, 8)
                                 
                                 Button(action: {
-                                    isLoggedIn = false
+                                    authService.logout()
                                 }) {
                                     HStack(spacing: 16) {
                                         Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -129,6 +133,26 @@ struct ProfileView: View {
         .sheet(isPresented: $showImagePicker) {
             ImagePicker(sourceType: imageSource, selectedImage: $selectedImage)
         }
+        .onChange(of: selectedImage) { newImage in
+            if let img = newImage {
+                uploadImage(img)
+            }
+        }
+    }
+    
+    private func uploadImage(_ image: UIImage) {
+        isUploading = true
+        authService.uploadProfileImage(image) { result in
+            DispatchQueue.main.async {
+                isUploading = false
+                switch result {
+                case .success:
+                    ToastManager.shared.show(title: "Success", message: "Profile picture updated.", type: .success)
+                case .failure(let error):
+                    ToastManager.shared.show(title: "Error", message: error.localizedDescription, type: .error)
+                }
+            }
+        }
     }
     
     private var accountItems: [(String, String, ProfileRoute)] {
@@ -153,22 +177,19 @@ struct ProfileView: View {
             } label: {
                 ZStack(alignment: .bottomTrailing) {
                     Group {
-                        if let image = selectedImage {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
+                        if isUploading {
+                            ProgressView()
+                                .frame(width: 96, height: 96)
+                                .background(Color.lmPrimary.opacity(0.1))
+                                .clipShape(Circle())
                         } else {
-                            Circle()
-                                .fill(Color.lmPrimary)
-                                .overlay(
-                                    Text(userRole == .lawyer ? "NP" : "EJ")
-                                        .font(.system(size: 32, weight: .bold))
-                                        .foregroundColor(.white)
-                                )
+                            LawMateAvatar(
+                                url: authService.currentUser?.profileImage,
+                                name: authService.currentUser?.fullName ?? "User",
+                                size: 96
+                            )
                         }
                     }
-                    .frame(width: 96, height: 96)
-                    .clipShape(Circle())
                     .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
                     
                     // Camera Badge
@@ -187,11 +208,11 @@ struct ProfileView: View {
             .buttonStyle(.plain)
             
             VStack(spacing: 4) {
-                Text(userRole == .lawyer ? "Nimal Perera" : "Emily Johnson")
+                Text(authService.currentUser?.fullName ?? (userRole == .lawyer ? "Nimal Perera" : "Emily Johnson"))
                     .font(.lmHeading)
                     .foregroundColor(.lmPrimary)
                 
-                Text(userRole == .lawyer ? "perera.nimal@lawmate.com" : "emily.johnson@email.com")
+                Text(authService.currentUser?.email ?? (userRole == .lawyer ? "perera.nimal@lawmate.com" : "emily.johnson@email.com"))
                     .font(.lmCaption)
                     .foregroundColor(.lmTextSecondary)
             }
@@ -254,6 +275,19 @@ struct ProfileView: View {
                     .stroke(Color.white.opacity(0.5), lineWidth: 1)
             )
             .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
+        }
+    }
+    
+    // MARK: - Helpers
+    private func initials(for name: String?) -> String? {
+        guard let name = name, !name.isEmpty else { return nil }
+        let components = name.components(separatedBy: " ")
+        if components.count >= 2 {
+            let first = components[0].prefix(1)
+            let last = components[1].prefix(1)
+            return "\(first)\(last)".uppercased()
+        } else {
+            return String(name.prefix(2)).uppercased()
         }
     }
 }

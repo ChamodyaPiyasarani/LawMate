@@ -8,9 +8,15 @@ class FirestoreManager: ObservableObject {
     
     @Published var cases: [FBLegalCase] = []
     @Published var lawyers: [User] = []
+    @Published var clients: [User] = []
+    @Published var conversations: [FBConversation] = []
+    @Published var messages: [FBMessage] = []
     
     private var casesListener: ListenerRegistration?
     private var lawyersListener: ListenerRegistration?
+    private var clientsListener: ListenerRegistration?
+    private var conversationsListener: ListenerRegistration?
+    private var messagesListener: ListenerRegistration?
     
     // MARK: - Lawyers
     
@@ -23,6 +29,18 @@ class FirestoreManager: ObservableObject {
                     return
                 }
                 self?.lawyers = documents.compactMap { try? $0.data(as: User.self) }
+            }
+    }
+    
+    func listenForClients() {
+        clientsListener = db.collection("users")
+            .whereField("role", isEqualTo: "Client")
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let documents = snapshot?.documents else {
+                    print("Error fetching clients: \(error?.localizedDescription ?? "Unknown")")
+                    return
+                }
+                self?.clients = documents.compactMap { try? $0.data(as: User.self) }
             }
     }
     
@@ -41,34 +59,43 @@ class FirestoreManager: ObservableObject {
     
     // MARK: - Cases
     
-    func listenForCases(role: UserRole, userFullName: String) {
+    func listenForCases(role: UserRole, userId: String) {
         // Query cases where user is either client or lawyer depending on role
         var query: Query = db.collection("cases")
         
         switch role {
         case .lawyer:
-            query = query.whereField("lawyerName", isEqualTo: userFullName)
+            query = query.whereField("lawyerId", isEqualTo: userId)
         case .client:
-            query = query.whereField("clientName", isEqualTo: userFullName)
+            query = query.whereField("clientId", isEqualTo: userId)
         default:
             return
         }
         
-        casesListener = query.order(by: "createdDate", descending: true)
-            .addSnapshotListener { [weak self] snapshot, error in
-                guard let documents = snapshot?.documents else {
-                    print("Error fetching cases: \(error?.localizedDescription ?? "Unknown")")
-                    return
-                }
-                
-                self?.cases = documents.compactMap { doc -> FBLegalCase? in
-                    try? doc.data(as: FBLegalCase.self)
-                }
+        // Remove existing listener before re-subscribing
+        casesListener?.remove()
+        
+        casesListener = query.addSnapshotListener { [weak self] snapshot, error in
+            guard let documents = snapshot?.documents else {
+                print("Error fetching cases: \(error?.localizedDescription ?? "Unknown")")
+                return
             }
+            
+            let fetchedCases = documents.compactMap { doc -> FBLegalCase? in
+                try? doc.data(as: FBLegalCase.self)
+            }
+            
+            // Sort manually in Swift to avoid index requirements and missing field exclusions
+            self?.cases = fetchedCases.sorted { ($0.createdDate ?? Date.distantPast) > ($1.createdDate ?? Date.distantPast) }
+        }
     }
     
     func stopListening() {
         casesListener?.remove()
+        lawyersListener?.remove()
+        clientsListener?.remove()
+        conversationsListener?.remove()
+        messagesListener?.remove()
     }
     
     func addCase(_ newCase: FBLegalCase) {
@@ -118,4 +145,93 @@ class FirestoreManager: ObservableObject {
                 completion(documents)
             }
     }
+    
+    // MARK: - Messaging
+    
+    func listenForConversations(userId: String) {
+        conversationsListener?.remove()
+        
+        conversationsListener = db.collection("conversations")
+            .whereField("participants", arrayContains: userId)
+            .order(by: "lastMessageAt", descending: true)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let documents = snapshot?.documents else {
+                    print("Error fetching conversations: \(error?.localizedDescription ?? "Unknown")")
+                    return
+                }
+                self?.conversations = documents.compactMap { try? $0.data(as: FBConversation.self) }
+            }
+    }
+    
+    func listenForMessages(conversationId: String) {
+        messagesListener?.remove()
+        
+        messagesListener = db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
+            .order(by: "timestamp", descending: false)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let documents = snapshot?.documents else {
+                    print("Error fetching messages: \(error?.localizedDescription ?? "Unknown")")
+                    return
+                }
+                self?.messages = documents.compactMap { try? $0.data(as: FBMessage.self) }
+            }
+    }
+    
+    func sendMessage(to conversationId: String, text: String, senderId: String) {
+        let newMessage = FBMessage(senderId: senderId, text: text, timestamp: Date())
+        
+        do {
+            let _ = try db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .addDocument(from: newMessage)
+            
+            // Update last message in conversation
+            db.collection("conversations").document(conversationId).updateData([
+                "lastMessage": text,
+                "lastMessageAt": Timestamp(date: Date())
+            ])
+        } catch {
+            print("Error sending message: \(error)")
+        }
+    }
+    
+    func getOrCreateConversation(between user1: String, and user2: String, partnerInfo: (name: String, image: String?), currentUser: User, completion: @escaping (String) -> Void) {
+        // Sort participants to have consistent ID formation or querying
+        let sortedParticipants = [user1, user2].sorted()
+        
+        db.collection("conversations")
+            .whereField("participants", isEqualTo: sortedParticipants)
+            .getDocuments { [weak self] snapshot, error in
+                if let doc = snapshot?.documents.first {
+                    completion(doc.documentID)
+                } else {
+                    // Create new conversation
+                    var memberNames = [user1: partnerInfo.name, user2: partnerInfo.name]
+                    var memberImages = [user1: partnerInfo.image, user2: partnerInfo.image]
+                    
+                    // Correct the names/images for the current user
+                    memberNames[currentUser.id] = currentUser.fullName
+                    memberImages[currentUser.id] = currentUser.profileImage
+                    
+                    let newConversation = FBConversation(
+                        participants: sortedParticipants,
+                        lastMessage: "Start a conversation",
+                        lastMessageAt: Date(),
+                        memberNames: memberNames,
+                        memberImages: memberImages
+                    )
+                    
+                    do {
+                        let ref = try self?.db.collection("conversations").addDocument(from: newConversation)
+                        completion(ref?.documentID ?? "")
+                    } catch {
+                        print("Error creating conversation: \(error)")
+                    }
+                }
+            }
+    }
 }
+

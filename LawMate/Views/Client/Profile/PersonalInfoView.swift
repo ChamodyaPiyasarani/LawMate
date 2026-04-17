@@ -3,10 +3,18 @@ import SwiftUI
 struct PersonalInfoView: View {
     @Environment(\.dismiss) private var dismiss
     
-    @State private var firstName = "Emily"
-    @State private var lastName = "Johnson"
-    @State private var email = "emily.johnson@email.com"
-    @State private var phone = "+94 77 123 4567"
+    @StateObject private var authService = AuthService.shared
+    
+    @State private var fullName = ""
+    @State private var email = ""
+    @State private var phone = ""
+    @State private var specialty = ""
+    @State private var experience = ""
+    @State private var bio = ""
+    
+    // Validation Errors
+    @State private var fullNameError: String?
+    @State private var phoneError: String?
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -20,14 +28,61 @@ struct PersonalInfoView: View {
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
-                        ProfileInputRow(icon: "person.fill", title: "First Name", text: $firstName)
-                        ProfileInputRow(icon: "person.fill", title: "Last Name", text: $lastName)
+                        ProfileInputRow(icon: "person.fill", title: "Full Name", text: $fullName, errorMessage: fullNameError)
                         ProfileInputRow(icon: "envelope.fill", title: "Email Address", text: $email)
-                        ProfileInputRow(icon: "phone.fill", title: "Phone Number", text: $phone)
+                            .disabled(true)
+                            .opacity(0.6)
+                        ProfileInputRow(icon: "phone.fill", title: "Phone Number", text: $phone, errorMessage: phoneError)
+                        
+                        if authService.currentUser?.role == .lawyer {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Professional Details")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundColor(.lmPrimary)
+                                    .padding(.top, 8)
+                                    .padding(.bottom, 8)
+                                    .padding(.leading, 8)
+                                
+                                ProfileInputRow(icon: "briefcase.fill", title: "Specialty", text: $specialty)
+                                ProfileInputRow(icon: "star.fill", title: "Experience", text: $experience)
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Bio / Description")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(.lmTextSecondary)
+                                        .padding(.leading, 8)
+                                    
+                                    TextEditor(text: $bio)
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundColor(.lmTextPrimary)
+                                        .frame(height: 100)
+                                        .padding(12)
+                                        .background(Color.white.opacity(0.8))
+                                        .background(.ultraThinMaterial)
+                                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                                        )
+                                        .shadow(color: Color.black.opacity(0.02), radius: 5, x: 0, y: 2)
+                                }
+                            }
+                        }
                         
                         Button {
-                            // Save action
-                            dismiss()
+                            if validateForm() {
+                                authService.updateUserProfile(
+                                    fullName: fullName,
+                                    phoneNumber: phone,
+                                    specialty: specialty.isEmpty ? nil : specialty,
+                                    experience: experience.isEmpty ? nil : experience,
+                                    bio: bio.isEmpty ? nil : bio
+                                )
+                                ToastManager.shared.show(title: "Profile Updated", message: "Your changes have been saved.", type: .success)
+                                dismiss()
+                            } else {
+                                ToastManager.shared.show(title: "Update Failed", message: "Please resolve the errors.", type: .error)
+                            }
                         } label: {
                             Text("Save Changes")
                                 .font(.system(size: 16, weight: .bold))
@@ -44,8 +99,30 @@ struct PersonalInfoView: View {
                 }
             }
             .ignoresSafeArea(edges: .top)
+            .onAppear {
+                if let user = authService.currentUser {
+                    fullName = user.fullName
+                    email = user.email
+                    phone = user.phoneNumber
+                    specialty = user.specialty ?? ""
+                    experience = user.experience ?? ""
+                    bio = user.bio ?? ""
+                }
+            }
         }
         .navigationBarBackButtonHidden(true)
+    }
+    
+    private func validateForm() -> Bool {
+        var isValid = true
+        
+        fullNameError = fullName.trimmingCharacters(in: .whitespaces).isEmpty ? "Full name is required" : nil
+        if fullNameError != nil { isValid = false }
+        
+        phoneError = phone.count < 10 ? "Enter a valid phone number" : nil
+        if phoneError != nil { isValid = false }
+        
+        return isValid
     }
 }
 
@@ -53,9 +130,10 @@ struct ProfileInputRow: View {
     let icon: String
     let title: String
     @Binding var text: String
+    var errorMessage: String? = nil
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(.lmTextSecondary)
@@ -63,7 +141,7 @@ struct ProfileInputRow: View {
             
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .foregroundColor(.lmPrimary)
+                    .foregroundColor(errorMessage != nil ? .red : .lmPrimary)
                     .frame(width: 24)
                 
                 TextField(title, text: $text)
@@ -76,10 +154,19 @@ struct ProfileInputRow: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                    .stroke(errorMessage != nil ? Color.red : Color.white.opacity(0.5), lineWidth: 1)
             )
             .shadow(color: Color.black.opacity(0.02), radius: 5, x: 0, y: 2)
+            
+            if let error = errorMessage {
+                Text(error)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.red)
+                    .padding(.leading, 12)
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: errorMessage)
     }
 }
 

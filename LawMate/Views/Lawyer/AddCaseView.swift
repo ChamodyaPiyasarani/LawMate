@@ -26,10 +26,12 @@ struct AddCaseView: View {
     
     // MARK: Search State
     @State private var showClientSuggestions = false
-    let mockClients = ["Sanduni Fernando", "Nimal Perera", "Amara Silva", "Kamal de Silva", "Sunil Perera"]
+    @State private var selectedClientId: String = ""
+    @State private var selectedClientImage: String? = nil
+    @ObservedObject private var firestore = FirestoreManager.shared
     
-    var filteredClients: [String] {
-        mockClients.filter { $0.lowercased().contains(clientName.lowercased()) }
+    var filteredClients: [User] {
+        firestore.clients.filter { $0.fullName.lowercased().contains(clientName.lowercased()) }
     }
     
     let caseTypes = ["Family Law", "Criminal Law", "Civil Law", "Corporate Law", "Divorce", "Property Law"]
@@ -79,21 +81,30 @@ struct AddCaseView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 LawMateTextField(icon: "person.badge.shield.fill", placeholder: "Search Client Name", text: $clientName)
                                     .onChange(of: clientName) { _ in
-                                        showClientSuggestions = !clientName.isEmpty && !mockClients.contains(clientName)
+                                        // Hide suggestions if exact match found
+                                        let exactMatch = firestore.clients.contains(where: { $0.fullName.lowercased() == clientName.lowercased() })
+                                        showClientSuggestions = !clientName.isEmpty && !exactMatch
                                     }
                                 
                                 if showClientSuggestions && !filteredClients.isEmpty {
                                     VStack(alignment: .leading, spacing: 12) {
-                                        ForEach(filteredClients, id: \.self) { client in
+                                        ForEach(filteredClients) { client in
                                             Button {
-                                                clientName = client
+                                                clientName = client.fullName
+                                                selectedClientId = client.id
+                                                selectedClientImage = client.profileImage
                                                 showClientSuggestions = false
                                             } label: {
-                                                Text(client)
-                                                    .font(.lmBody)
-                                                    .foregroundColor(.lmPrimary)
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(client.fullName)
+                                                        .font(.lmBody)
+                                                        .foregroundColor(.lmPrimary)
+                                                    Text(client.email)
+                                                        .font(.system(size: 11))
+                                                        .foregroundColor(.lmTextSecondary)
+                                                }
                                             }
-                                            if client != filteredClients.last {
+                                            if client.id != filteredClients.last?.id {
                                                 Divider()
                                             }
                                         }
@@ -208,12 +219,20 @@ struct AddCaseView: View {
                         
                         // MARK: Save Button
                         LawMatePrimaryButton(title: "Save Case") {
-                            let lawyerName = AuthService.shared.currentUser?.fullName ?? "Atty. Placeholder"
+                            let currUser = AuthService.shared.currentUser
+                            let lawyerName = currUser?.fullName ?? "Atty. Placeholder"
+                            let lawyerId = currUser?.id ?? ""
+                            let lawyerImage = currUser?.profileImage
+                            
                             let newCase = FBLegalCase(
                                 caseNumber: "LAW-\(Int.random(in: 1000...9999))",
                                 title: caseTitle.isEmpty ? "Untitled Case" : caseTitle,
                                 clientName: clientName.isEmpty ? "Unknown Client" : clientName,
+                                clientId: selectedClientId,
+                                clientImage: selectedClientImage,
                                 lawyerName: lawyerName,
+                                lawyerId: lawyerId,
+                                lawyerImage: lawyerImage,
                                 type: caseType,
                                 status: status,
                                 priority: priority,
@@ -247,6 +266,9 @@ struct AddCaseView: View {
                 self.location = coord
                 reverseGeocode(coord)
             }
+        }
+        .onAppear {
+            firestore.listenForClients()
         }
     }
     

@@ -8,25 +8,52 @@
 import SwiftUI
 
 // MARK: - LawMate Color Design Tokens
+// MARK: - LawMate Color Design Tokens
 extension Color {
     // Primary brand green (dark) — buttons, active states, logo
-    static let lmPrimary       = Color(hex: "#1A4731")
+    static var lmPrimary: Color {
+        AccessibilityManager.shared.highContrast ? Color(hex: "#000000") : Color(hex: "#1A4731")
+    }
+    
     // Medium green — secondary accents
-    static let lmAccent        = Color(hex: "#2D6A4F")
+    static var lmAccent: Color {
+        AccessibilityManager.shared.highContrast ? Color(hex: "#1A4731") : Color(hex: "#2D6A4F") 
+    }
+    
     // Soft light green — background blobs, cards
-    static let lmLightGreen    = Color(hex: "#C8EDDA")
+    static var lmLightGreen: Color {
+        AccessibilityManager.shared.highContrast ? Color(hex: "#A0D8BB") : Color(hex: "#C8EDDA")
+    }
+    
     // Very pale green — wash backgrounds
-    static let lmPaleMint      = Color(hex: "#EEF8F2")
+    static var lmPaleMint: Color {
+        AccessibilityManager.shared.highContrast ? Color(hex: "#DDF2E8") : Color(hex: "#EEF8F2")
+    }
+    
     // Pure white — screen backgrounds
-    static let lmBackground    = Color(hex: "#FFFFFF")
+    static var lmBackground: Color {
+        Color(hex: "#FFFFFF")
+    }
+    
     // Input field fill
-    static let lmFieldBg       = Color(hex: "#F0F0F0")
+    static var lmFieldBg: Color {
+        AccessibilityManager.shared.highContrast ? Color(hex: "#E5E5E5") : Color(hex: "#F0F0F0")
+    }
+    
     // Primary text
-    static let lmTextPrimary   = Color(hex: "#1A1A1A")
+    static var lmTextPrimary: Color {
+        Color(hex: "#000000") // Always black for primary text in LawMate
+    }
+    
     // Secondary / muted text
-    static let lmTextSecondary = Color(hex: "#8A8A8A")
+    static var lmTextSecondary: Color {
+        AccessibilityManager.shared.highContrast ? Color(hex: "#4A4A4A") : Color(hex: "#8A8A8A")
+    }
+    
     // Divider / border
-    static let lmBorder        = Color(hex: "#E0E0E0")
+    static var lmBorder: Color {
+        AccessibilityManager.shared.highContrast ? Color(hex: "#B0B0B0") : Color(hex: "#E0E0E0")
+    }
 }
 
 // MARK: - Hex color initializer

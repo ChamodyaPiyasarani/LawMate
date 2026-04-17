@@ -104,14 +104,16 @@ struct LawyerHomeView: View {
                     } else if selectedTab == .calendar {
                         LawyerCalendarView(showBack: false)
                     } else if selectedTab == .messages {
-                        MessagesListView(onBack: { selectedTab = .home })
+                        MessagesListView(onBack: { selectedTab = .home }, onSelect: { conversation in
+                            navPath.append(conversation)
+                        })
                     } else {
                         ProfileView(onBack: { selectedTab = .home })
                     }
                 }
                 .navigationBarHidden(true)
-                .navigationDestination(for: ChatPreview.self) { chat in
-                    ChatDetailView(chat: chat)
+                .navigationDestination(for: FBConversation.self) { conversation in
+                    ChatDetailView(conversation: conversation)
                 }
                 .navigationDestination(for: LawyerRoute.self) { route in
                     switch route {
@@ -137,6 +139,8 @@ struct LawyerHomeView: View {
                         PrivacyView()
                     case .myUploads:
                         LawyerMyUploadsView()
+                    case .accessibility:
+                        AccessibilitySettingsView()
                     }
                 }
             }

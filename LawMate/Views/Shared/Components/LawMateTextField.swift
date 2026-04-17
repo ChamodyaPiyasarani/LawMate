@@ -16,55 +16,67 @@ struct LawMateTextField: View {
     @Binding var text: String
     var isSecure: Bool = false
     var keyboardType: UIKeyboardType = .default
+    var errorMessage: String? = nil
 
     @State private var isPasswordVisible: Bool = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(.lmTextSecondary)
-                .frame(width: 20)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .foregroundColor(errorMessage != nil ? .red : .lmTextSecondary)
+                    .frame(width: 20)
 
-            if isSecure && !isPasswordVisible {
-                SecureField(placeholder, text: $text)
-                    .font(.lmField)
-                    .foregroundColor(.lmTextPrimary)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-            } else {
-                TextField(placeholder, text: $text)
-                    .font(.lmField)
-                    .foregroundColor(.lmTextPrimary)
-                    .keyboardType(keyboardType)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-            }
+                if isSecure && !isPasswordVisible {
+                    SecureField(placeholder, text: $text)
+                        .font(.lmField)
+                        .foregroundColor(.lmTextPrimary)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                } else {
+                    TextField(placeholder, text: $text)
+                        .font(.lmField)
+                        .foregroundColor(.lmTextPrimary)
+                        .keyboardType(keyboardType)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
 
-            if isSecure {
-                Button {
-                    isPasswordVisible.toggle()
-                } label: {
-                    Image(systemName: isPasswordVisible ? "eye.slash" : "eye")
-                        .font(.system(size: 13))
-                        .foregroundColor(.lmTextSecondary)
-                        .frame(width: 15)
+                if isSecure {
+                    Button {
+                        isPasswordVisible.toggle()
+                    } label: {
+                        Image(systemName: isPasswordVisible ? "eye.slash" : "eye")
+                            .font(.system(size: 13))
+                            .foregroundColor(.lmTextSecondary)
+                            .frame(width: 15)
+                    }
                 }
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 100, style: .continuous)
+                    .fill(Color.white.opacity(0.1))
+            )
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 100, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 100, style: .continuous)
+                    .stroke(errorMessage != nil ? Color.red : Color.white.opacity(0.1), lineWidth: 1)
+            )
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(placeholder)
+            .accessibilityValue(isSecure && !text.isEmpty ? "Secured" : text)
+            
+            if let error = errorMessage {
+                Text(error)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.red)
+                    .padding(.leading, 12)
+                    .transition(.opacity)
+            }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 100, style: .continuous)
-                .fill(Color.white.opacity(0.1))
-        )
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 100, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 100, style: .continuous)
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-        )
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(placeholder)
-        .accessibilityValue(isSecure && !text.isEmpty ? "Secured" : text)
+        .animation(.easeInOut(duration: 0.2), value: errorMessage)
     }
 }
 
