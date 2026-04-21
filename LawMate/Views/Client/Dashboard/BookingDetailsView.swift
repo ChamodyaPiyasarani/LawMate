@@ -1,55 +1,24 @@
 import SwiftUI
 
-// MARK: - Booking Model
-struct Booking: Identifiable, Hashable {
-    let id: String
-    let lawyerName: String
-    let date: String
-    let time: String
-    let category: String
-    let method: String
-    let status: BookingStatus
-    
-    // Conform to Hashable for navigation
-    func hash(into hasher: inout Hasher) { hasher.combine(id) }
-    static func == (lhs: Booking, rhs: Booking) -> Bool { lhs.id == rhs.id }
-}
-
-enum BookingStatus {
-    case confirmed, pending, inProgress, done
-    
-    var title: String {
-        switch self {
-        case .confirmed: return "Confirmed"
-        case .pending: return "Pending"
-        case .inProgress: return "In Progress"
-        case .done: return "Done"
-        }
-    }
-    
-    var color: Color {
-        switch self {
-        case .confirmed: return .green
-        case .pending: return .red
-        case .inProgress: return .orange
-        case .done: return .gray
-        }
-    }
-}
+// FBAppointment is now used as the source of truth from FirebaseModels.swift
 
 // MARK: - Booking Details View
 struct BookingDetailsView: View {
     var onBack: () -> Void = {}
     
+    @StateObject private var firestore = FirestoreManager.shared
     @State private var searchQuery = ""
     @State private var selectedFilter = "Confirmed"
     
     private let filters = ["Confirmed", "Pending", "In progress", "Done"]
-    private let bookings = [
-        Booking(id: "B1", lawyerName: "Nimal Perera", date: "Apr 15, 2026", time: "10:00 AM - 11:00 AM", category: "Criminal Law", method: "In Person", status: .confirmed),
-        Booking(id: "B2", lawyerName: "Sanduni Fernando", date: "Apr 30, 2026", time: "02:00 PM - 03:00 PM", category: "Family Law", method: "Video Call", status: .pending),
-        Booking(id: "B3", lawyerName: "Sanduni Fernando", date: "Apr 30, 2026", time: "02:00 PM - 03:00 PM", category: "Family Law", method: "Video Call", status: .inProgress)
-    ]
+    
+    var filteredBookings: [FBAppointment] {
+        firestore.appointments.filter { booking in
+            let matchesSearch = searchQuery.isEmpty || booking.lawyerName.localizedCaseInsensitiveContains(searchQuery)
+            let matchesFilter = booking.status.lowercased() == selectedFilter.lowercased()
+            return matchesSearch && matchesFilter
+        }
+    }
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -76,7 +45,9 @@ struct BookingDetailsView: View {
                         bio: "Criminal specialist",
                         description: "Bio",
                         experience: "14 YEARS",
+                        experienceYears: 14,
                         casesWon: "250 +",
+                        wonCount: 250,
                         rating: 4.8,
                         location: "Colombo",
                         image: "person",
@@ -120,12 +91,16 @@ struct BookingDetailsView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 16) { // Match Lawyers List
                         // MARK: Booking List
-                        VStack(spacing: 16) { // Match Lawyers List
-                            ForEach(bookings) { booking in
-                                NavigationLink(value: booking) {
+                        VStack(spacing: 16) {
+                            if filteredBookings.isEmpty {
+                                Text("No \(selectedFilter.lowercased()) bookings found")
+                                    .font(.lmCaption)
+                                    .foregroundColor(.lmTextSecondary.opacity(0.5))
+                                    .padding(.top, 40)
+                            } else {
+                                ForEach(filteredBookings) { booking in
                                     BookingCard(booking: booking)
                                 }
-                                .buttonStyle(.plain)
                             }
                         }
                         
@@ -145,7 +120,7 @@ struct BookingDetailsView: View {
 // MARK: - Subcomponents
 
 private struct BookingCard: View {
-    let booking: Booking
+    let booking: FBAppointment
     
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -168,13 +143,13 @@ private struct BookingCard: View {
                         
                         Spacer()
                         
-                        // Status Badge (Standardized with Lawyer Specialty style)
-                        Text(booking.status.title)
+                        // Status Badge
+                        Text(booking.status)
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(booking.status.color)
+                            .foregroundColor(statusColor(for: booking.status))
                     }
                     
-                    Text(booking.date)
+                    Text(formatDate(booking.date))
                         .font(.lmCaption)
                         .foregroundColor(.lmTextSecondary)
                     
@@ -185,7 +160,7 @@ private struct BookingCard: View {
             }
             
             HStack {
-                Text(booking.category)
+                Text(booking.service)
                     .font(.lmCaption.weight(.semibold))
                     .foregroundColor(.lmTextSecondary)
                 
@@ -205,6 +180,22 @@ private struct BookingCard: View {
                 .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
         )
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+    
+    private func statusColor(for status: String) -> Color {
+        switch status.lowercased() {
+        case "confirmed": return .green
+        case "pending": return .red
+        case "in progress": return .orange
+        case "done": return .gray
+        default: return .gray
+        }
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "MMM dd, yyyy"
+        return f.string(from: date)
     }
 }
 

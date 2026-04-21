@@ -6,25 +6,54 @@ import Combine
 class CalendarViewModel: ObservableObject {
     @Published var selectedDate: Date = Date()
     @Published var currentMonth: Date = Date()
-    @Published var eventsForSelectedDate: [EKEvent] = []
+    @Published var eventsForSelectedDate: [EKEvent] = [] // System events
+    @Published var appointmentsForSelectedDate: [FBAppointment] = [] // LawMate events
     @Published var monthEventsMap: [Date: [EKEvent]] = [:]
+    @Published var monthAppointmentsMap: [Date: [FBAppointment]] = [:]
     @Published var isAuthorized = false
     @Published var errorMessage: String? = nil
     
+    // Computed categorizations
+    var upcomingAppointments: [FBAppointment] {
+        appointmentsForSelectedDate.filter { 
+            let s = $0.status.lowercased()
+            return s == "confirmed" || s == "pending" || s == "in progress"
+        }
+    }
+    
+    var completedAppointments: [FBAppointment] {
+        appointmentsForSelectedDate.filter {
+            let s = $0.status.lowercased()
+            return s == "done" || s == "cancelled"
+        }
+    }
+    
     private let service = EventKitService.shared
+    private let firestore = FirestoreManager.shared
     private var cancellables = Set<AnyCancellable>()
     
     init() {
+        // Observe System Calendar Authorization
         service.$isAuthorized
             .receive(on: DispatchQueue.main)
             .sink { [weak self] authorized in
                 self?.isAuthorized = authorized
                 if authorized {
                     self?.refreshMonthData()
-                    self?.refreshSelectedDateEvents()
                 }
             }
             .store(in: &cancellables)
+            
+        // Observe Firestore Appointments (Reactive Sync)
+        firestore.$appointments
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshFirestoreAppointments()
+            }
+            .store(in: &cancellables)
+            
+        // Initial Refresh
+        refreshMonthData()
     }
     
     func requestAccess() {
@@ -39,13 +68,47 @@ class CalendarViewModel: ObservableObject {
     }
     
     func refreshMonthData() {
-        guard isAuthorized else { return }
-        monthEventsMap = service.fetchEventsForMonth(date: currentMonth)
+        // 1. Fetch system events if authorized
+        if isAuthorized {
+            monthEventsMap = service.fetchEventsForMonth(date: currentMonth)
+        }
+        
+        // 2. Fetch LawMate appointments (Always sync via Firestore)
+        refreshFirestoreAppointments()
+    }
+    
+    private func refreshFirestoreAppointments() {
+        let calendar = Calendar.current
+        var map: [Date: [FBAppointment]] = [:]
+        
+        for appointment in firestore.appointments {
+            let day = calendar.startOfDay(for: appointment.date)
+            if map[day] != nil {
+                map[day]?.append(appointment)
+            } else {
+                map[day] = [appointment]
+            }
+        }
+        
+        DispatchQueue.main.async {
+            self.monthAppointmentsMap = map
+            self.refreshSelectedDateEvents()
+        }
     }
     
     func refreshSelectedDateEvents() {
-        guard isAuthorized else { return }
-        eventsForSelectedDate = service.fetchEvents(for: selectedDate)
+        let calendar = Calendar.current
+        
+        // 1. Filter system events
+        if isAuthorized {
+            eventsForSelectedDate = service.fetchEvents(for: selectedDate)
+        }
+        
+        // 2. Filter LawMate appointments
+        let startOfDay = calendar.startOfDay(for: selectedDate)
+        appointmentsForSelectedDate = firestore.appointments.filter {
+            calendar.startOfDay(for: $0.date) == startOfDay
+        }
     }
     
     func selectDate(_ date: Date) {
@@ -81,14 +144,27 @@ class CalendarViewModel: ObservableObject {
         }
     }
     
+    func addAppointment(_ appointment: FBAppointment) {
+        firestore.addAppointment(appointment) { [weak self] success in
+            DispatchQueue.main.async {
+                if success {
+                    self?.refreshMonthData()
+                    self?.refreshSelectedDateEvents()
+                } else {
+                    self?.errorMessage = "Failed to save appointment to the database."
+                }
+            }
+        }
+    }
+    
     func getColor(for date: Date) -> Color {
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
-        let count = monthEventsMap[day]?.count ?? 0
+        let firestoreCount = monthAppointmentsMap[day]?.count ?? 0
         
-        if count == 0 {
+        if firestoreCount == 0 {
             return .clear
-        } else if count < 3 {
+        } else if firestoreCount < 3 {
             return .yellow.opacity(0.3)
         } else {
             return Color.lmPrimary 
@@ -98,7 +174,7 @@ class CalendarViewModel: ObservableObject {
     func getStatusColor(for date: Date) -> Color {
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
-        let count = monthEventsMap[day]?.count ?? 0
+        let count = monthAppointmentsMap[day]?.count ?? 0
         
         if count == 0 {
             return .clear
@@ -112,7 +188,7 @@ class CalendarViewModel: ObservableObject {
     func getTextColor(for date: Date) -> Color {
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
-        let count = monthEventsMap[day]?.count ?? 0
+        let count = monthAppointmentsMap[day]?.count ?? 0
         
         if count >= 3 {
             return .white

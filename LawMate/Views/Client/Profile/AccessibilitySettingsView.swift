@@ -155,8 +155,8 @@ struct AccessibilitySettingsView: View {
         .navigationBarBackButtonHidden(true)
         .onAppear {
             if let user = authService.currentUser {
-                textScale = user.textScale
-                highContrast = user.highContrast
+                textScale = user.textScale ?? 1.0
+                highContrast = user.highContrast ?? false
             }
         }
     }

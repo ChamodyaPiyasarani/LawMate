@@ -105,6 +105,9 @@ struct ChatDetailView: View {
         .onAppear {
             if let conversationId = conversation.id {
                 firestore.listenForMessages(conversationId: conversationId)
+                if let userId = auth.currentUser?.id {
+                    firestore.markConversationAsRead(id: conversationId, userId: userId)
+                }
             }
         }
     }

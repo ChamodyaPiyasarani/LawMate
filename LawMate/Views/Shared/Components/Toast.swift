@@ -29,7 +29,7 @@ public struct Toast: Equatable {
     public var title: String
     public var message: String?
     public var type: ToastType
-    public var duration: TimeInterval = 3
+    public var duration: TimeInterval = 60
     
     public static func == (lhs: Toast, rhs: Toast) -> Bool {
         lhs.title == rhs.title && lhs.message == rhs.message && lhs.type == rhs.type
@@ -46,7 +46,7 @@ public class ToastManager: ObservableObject {
     
     private init() {}
     
-    public func show(title: String, message: String? = nil, type: ToastType, duration: TimeInterval = 3) {
+    public func show(title: String, message: String? = nil, type: ToastType, duration: TimeInterval = 60) {
         // Cancel any pending dismiss
         dismissWorkItem?.cancel()
         

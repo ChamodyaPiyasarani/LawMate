@@ -53,42 +53,54 @@ struct LawyerCalendarView: View {
     // MARK: - Subviews
     
     private var permissionView: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 32) {
             Spacer()
-            Image(systemName: "calendar.badge.shield.half.filled")
-                .font(.system(size: 80))
-                .foregroundColor(.lmPrimary.opacity(0.3))
             
-            Text("Calendar Access Required")
-                .font(.system(size: 22, weight: .bold))
-                .foregroundColor(.lmPrimary)
-            
-            Text("To manage your hearings and appointments, LawMate needs access to your iOS Calendar.")
-                .font(.system(size: 15))
-                .foregroundColor(.lmTextSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+            VStack(spacing: 16) {
+                Text("Calendar Access Required")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(Color(hex: "0F4D33")) // LawMate Dark Green
+                    .multilineTextAlignment(.center)
+                
+                Text("To manage your hearings and appointments, LawMate needs access to your iOS Calendar.")
+                    .font(.system(size: 16))
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+                    .lineSpacing(4)
+            }
             
             Button {
                 viewModel.requestAccess()
             } label: {
                 Text("Grant Access")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.white)
-                    .frame(width: 200, height: 50)
-                    .background(Color.lmPrimary)
+                    .frame(width: 260, height: 64)
+                    .background(Color(hex: "1A4331")) // Dark variant for button
                     .clipShape(Capsule())
+                    .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
             }
             .padding(.top, 20)
             
             if let error = viewModel.errorMessage {
                 Text(error)
-                    .font(.system(size: 12))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.red)
-                    .padding(.top, 10)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+            } else {
+                // Placeholder to keep layout stable if needed, or just let it expand
+                Text("Calendar access is required to manage your appointments.")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
             }
+            
             Spacer()
         }
+        .padding(.bottom, 60)
     }
     
     private var calendarCard: some View {

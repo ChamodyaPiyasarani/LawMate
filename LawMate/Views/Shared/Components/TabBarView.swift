@@ -51,6 +51,7 @@ enum LawMateTab: String, CaseIterable {
 struct TabBarView: View {
     @Binding var selectedTab: LawMateTab
     var role: UserRole = .client
+    @StateObject private var firestore = FirestoreManager.shared
 
     var body: some View {
         HStack(spacing: 0) {
@@ -70,6 +71,21 @@ struct TabBarView: View {
                             Image(systemName: tab.icon(for: role))
                                 .font(.system(size: 20))
                                 .foregroundColor(selectedTab == tab ? .lmPrimary : .lmTextSecondary)
+                                .overlay(
+                                    Group {
+                                        if tab == .messages && firestore.totalUnreadCount > 0 {
+                                            ZStack {
+                                                Circle()
+                                                    .fill(Color.red)
+                                                    .frame(width: 16, height: 16)
+                                                Text("\(min(firestore.totalUnreadCount, 99))")
+                                                    .font(.system(size: 8, weight: .bold))
+                                                    .foregroundColor(.white)
+                                            }
+                                            .offset(x: 10, y: -10)
+                                        }
+                                    }
+                                )
                         }
 
                         Text(tab.title(for: role))

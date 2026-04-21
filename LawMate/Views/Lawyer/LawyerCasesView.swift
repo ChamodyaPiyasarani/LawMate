@@ -294,21 +294,47 @@ struct LawyerCaseDetailView: View {
         case .success(let urls):
             guard let url = urls.first else { return }
             
-            // In a real app, you'd upload the file to Firebase Storage here.
-            // For now, we'll just track the metadata in Firestore.
-            FirestoreManager.shared.addDocument(
-                toCaseId: legalCase.id ?? "",
-                fileName: url.lastPathComponent,
-                fileType: url.pathExtension.uppercased()
-            )
+            // Start security access
+            let started = url.startAccessingSecurityScopedResource()
+            defer { if started { url.stopAccessingSecurityScopedResource() } }
             
-            // Optionally update the stage to indicate a file was uploaded
-            var updatedCase = legalCase
-            updatedCase.stages[stageIndex].description += " (File attached)"
-            FirestoreManager.shared.updateCase(updatedCase)
+            do {
+                let data = try Data(contentsOf: url)
+                let fileName = url.lastPathComponent
+                let fileType = url.pathExtension.uppercased()
+                let path = "cases/\(legalCase.id ?? "unknown")"
+                
+                ToastManager.shared.show(title: "Uploading", message: "Starting file upload...", type: .info)
+                
+                FirestoreManager.shared.uploadFile(data: data, path: path, fileName: fileName) { uploadResult in
+                    switch uploadResult {
+                    case .success(let downloadURL):
+                        // Track the metadata in Firestore with the actual URL
+                        FirestoreManager.shared.addDocument(
+                            toCaseId: legalCase.id ?? "",
+                            fileName: fileName,
+                            fileType: fileType,
+                            fileURL: downloadURL,
+                            stageIndex: stageIndex
+                        )
+                        
+                        // Update the stage to indicate a file was uploaded
+                        var updatedCase = legalCase
+                        updatedCase.stages[stageIndex].description += " (File attached)"
+                        FirestoreManager.shared.updateCase(updatedCase)
+                        
+                        ToastManager.shared.show(title: "Success", message: "File uploaded successfully.", type: .success)
+                        
+                    case .failure(let error):
+                        ToastManager.shared.show(title: "Upload Failed", message: error.localizedDescription, type: .error)
+                    }
+                }
+            } catch {
+                ToastManager.shared.show(title: "Access Error", message: "Could not read file data.", type: .error)
+            }
             
         case .failure(let error):
-            print("Error selecting file: \(error.localizedDescription)")
+            ToastManager.shared.show(title: "Error", message: error.localizedDescription, type: .error)
         }
     }
     

@@ -11,13 +11,13 @@ struct BookingView: View {
     @State private var isVideoCall = false
     @State private var caseDescription = ""
     
-    // Validation Errors
+    // Validation & Loading State
     @State private var descriptionError: String?
+    @State private var isBooking = false
     
     let services = ["Case Review (1 hour)", "Legal Consultation (30 mins)", "Document Drafting", "Court Representation"]
     let timeSlots = ["09:00 AM", "10:30 AM", "01:00 PM", "02:30 PM"]
-    let bookedDays = [1, 5, 8, 12, 19, 24, 28] // Example booked days for this month
-    
+                             
     var body: some View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
@@ -159,33 +159,43 @@ struct BookingView: View {
                         .padding(.horizontal, 24)
 
                         // MARK: Confirm Button
-                        LawMatePrimaryButton(title: "Confirm Appointment") {
+                        Button {
                             if validateForm() {
-                                EventKitManager.shared.createEvent(
-                                    title: "Consultation with \(lawyer.name)",
-                                    startDate: selectedDate,
-                                    endDate: selectedDate.addingTimeInterval(3600), // 1 hour consultation
-                                    location: isVideoCall ? "Video Call" : lawyer.location,
-                                    notes: caseDescription
-                                ) { success, error in
+                                guard let time = selectedTime, !time.isEmpty else {
+                                    ToastManager.shared.show(title: "Select Time", message: "Please select a time slot before confirming.", type: .error)
+                                    return
+                                }
+                                isBooking = true
+                                FirestoreManager.shared.validateAppointmentSlot(lawyerId: lawyer.id, date: selectedDate, time: time) { canBook, reason in
                                     DispatchQueue.main.async {
-                                        if success {
-                                            ToastManager.shared.show(title: "Booking Confirmed", message: "Your appointment is set.", type: .success)
-                                            NotificationManager.shared.scheduleNotification(
-                                                title: "Booking Confirmed",
-                                                body: "Your appointment with \(lawyer.name) has been booked successfully."
-                                            )
-                                            dismiss()
+                                        if canBook {
+                                            performBooking()
                                         } else {
-                                            ToastManager.shared.show(title: "Booking Failed", message: error?.localizedDescription ?? "Could not save to calendar.", type: .warning)
-                                            dismiss()
+                                            isBooking = false
+                                            ToastManager.shared.show(title: "Booking Unavailable", message: reason ?? "This slot is not available.", type: .error)
                                         }
                                     }
                                 }
                             } else {
                                 ToastManager.shared.show(title: "Validation Error", message: "Please enter a case description.", type: .error)
                             }
+                        } label: {
+                            Group {
+                                if isBooking {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Text("Confirm Appointment")
+                                        .font(.system(size: 16, weight: .bold))
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(Color.lmPrimary)
+                            .foregroundColor(.white)
+                            .clipShape(Capsule())
                         }
+                        .disabled(isBooking)
                         .padding(.horizontal, 40)
                         .padding(.top, 20)
                         .padding(.bottom, 220) // Space for global TabBar
@@ -196,6 +206,83 @@ struct BookingView: View {
             .ignoresSafeArea(edges: .top)
         }
         .navigationBarBackButtonHidden(true)
+    }
+    
+    private func performBooking() {
+        isBooking = true
+        let client = AuthService.shared.currentUser
+        
+        // Merge date and time string into a single Date object
+        var bookingDate = selectedDate
+        if let timeString = selectedTime {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "hh:mm a"
+            if let timeDate = formatter.date(from: timeString) {
+                let calendar = Calendar.current
+                var components = calendar.dateComponents([.year, .month, .day], from: selectedDate)
+                let timeComponents = calendar.dateComponents([.hour, .minute], from: timeDate)
+                components.hour = timeComponents.hour
+                components.minute = timeComponents.minute
+                if let combined = calendar.date(from: components) {
+                    bookingDate = combined
+                }
+            }
+        }
+        
+        var appointment = FBAppointment(
+            clientId: client?.id ?? "",
+            clientName: client?.fullName ?? "Unknown Client",
+            lawyerId: lawyer.id,
+            lawyerName: lawyer.name,
+            service: selectedService,
+            date: bookingDate,
+            time: selectedTime ?? "TBD",
+            method: isVideoCall ? "Video Call" : "In Person",
+            description: caseDescription,
+            status: "Confirmed"
+        )
+        
+        // Step 1: Save to Firestore
+        FirestoreManager.shared.addAppointment(appointment) { success in
+            guard success else {
+                DispatchQueue.main.async {
+                    isBooking = false
+                    ToastManager.shared.show(title: "Booking Failed", message: "We couldn't save your appointment. Please try again.", type: .error)
+                }
+                return
+            }
+            
+            // Step 2: Send Notification to Lawyer
+            let lawyerNotification = FBNotification(
+                title: "New Booking Request",
+                body: "A new consultation has been scheduled by \(client?.fullName ?? "a client").",
+                type: "appointment",
+                timestamp: Date(),
+                relatedId: appointment.id
+            )
+            FirestoreManager.shared.addNotification(lawyerNotification, toUserId: lawyer.id)
+            
+            // Step 3: Local Calendar Sync
+            EventKitManager.shared.createEvent(
+                title: "Consultation with \(lawyer.name)",
+                startDate: selectedDate,
+                endDate: selectedDate.addingTimeInterval(3600),
+                location: isVideoCall ? "Video Call" : lawyer.location,
+                notes: caseDescription
+            ) { calSuccess, calError in
+                DispatchQueue.main.async {
+                    isBooking = false
+                    if calSuccess {
+                        ToastManager.shared.show(title: "Booking Confirmed", message: "Your appointment is set.", type: .success)
+                        dismiss()
+                    } else {
+                        let errorMsg = calError?.localizedDescription ?? "Calendar access denied."
+                        ToastManager.shared.show(title: "Booking Issue", message: "Database saved, but failed to sync to calendar: \(errorMsg)", type: .warning)
+                        dismiss() // Still dismiss because database save worked
+                    }
+                }
+            }
+        }
     }
     
     private func validateForm() -> Bool {
@@ -255,7 +342,9 @@ struct ServiceTypeButton: View {
         bio: "Criminal specialist",
         description: "Bio",
         experience: "14 YEARS",
+        experienceYears: 14,
         casesWon: "250 +",
+        wonCount: 250,
         rating: 4.8,
         location: "Colombo",
         image: "person",

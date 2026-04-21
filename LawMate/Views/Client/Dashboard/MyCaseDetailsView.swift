@@ -2,7 +2,7 @@ import SwiftUI
 import MapKit
 
 struct MyCaseDetailsView: View {
-    let booking: Booking
+    let appointment: FBAppointment
     @Environment(\.dismiss) private var dismiss
     @State private var showRescheduleSheet = false
     @State private var showCancelSheet = false
@@ -40,7 +40,7 @@ struct MyCaseDetailsView: View {
                         appointmentCard
                         
                         // MARK: Video/Map Placeholder Area
-                        if booking.method == "In Person" {
+                        if appointment.method == "In Person" {
                             Map(initialPosition: .automatic) {
                                 Marker("You", coordinate: userLocation)
                                 Marker("Lawyer", coordinate: lawyerLocation)
@@ -74,7 +74,7 @@ struct MyCaseDetailsView: View {
                         } label: {
                             HStack {
                                 Spacer()
-                                Text(booking.method == "In Person" ? "Get Directions" : "Join the Meeting")
+                                Text(appointment.method == "In Person" ? "Get Directions" : "Join the Meeting")
                                     .font(.system(size: 16, weight: .bold))
                                     .foregroundColor(.white)
                                 Spacer()
@@ -151,59 +151,76 @@ struct MyCaseDetailsView: View {
     
     // MARK: - Subcomponents
     private var appointmentCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 16) {
-                // Profile Avatar Placeholder
-                ZStack {
-                    Circle()
-                        .fill(Color.lmLightGreen.opacity(0.5))
-                        .frame(width: 60, height: 60)
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(.lmPrimary.opacity(0.6))
+        VStack(alignment: .leading, spacing: 20) {
+            // MARK: Card Header (Specialty Badge)
+            HStack {
+                HStack(spacing: 6) {
+                    Image(systemName: appointment.specialtyIcon)
+                        .font(.system(size: 14))
+                    Text(appointment.lawyerSpecialty ?? "Legal Advice")
+                        .font(.system(size: 12, weight: .bold))
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.lmPrimary.opacity(0.1))
+                .foregroundColor(.lmPrimary)
+                .clipShape(Capsule())
                 
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .top) {
-                        Text(booking.lawyerName)
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.lmPrimary)
-                        
-                        Spacer()
-                        
-                        // Status Badge
-                        Text(booking.status.title)
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(booking.status.color)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(booking.status.color.opacity(0.1))
-                            .clipShape(Capsule())
+                Spacer()
+                
+                // Status Badge (Right)
+                Text(appointment.statusTitle)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(appointment.statusColor)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(appointment.statusColor.opacity(0.12))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(appointment.statusColor.opacity(0.3), lineWidth: 1))
+            }
+            
+            HStack(alignment: .top, spacing: 16) {
+                // Profile Avatar (LawMate Consistent)
+                LawMateAvatar(url: appointment.lawyerImage, name: appointment.lawyerName, size: 66)
+                    .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(appointment.lawyerName)
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.lmPrimary)
+                    
+                    Text(appointment.service)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.lmTextSecondary)
+                    
+                    HStack(spacing: 12) {
+                        Label(formatDate(appointment.date), systemImage: "calendar")
+                        Label(appointment.time, systemImage: "clock")
                     }
-                    
-                    Text(booking.date)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.lmTextSecondary)
-                    
-                    Text(booking.time)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.lmTextSecondary)
+                    .font(.system(size: 12))
+                    .foregroundColor(.lmTextSecondary.opacity(0.7))
+                    .padding(.top, 4)
                 }
             }
             
             Divider()
                 .background(Color.lmPrimary.opacity(0.1))
             
+            // Meeting Details
             HStack {
-                Text(booking.category)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.lmPrimary.opacity(0.8))
+                HStack(spacing: 8) {
+                    Image(systemName: appointment.method == "Video Call" ? "video.fill" : "building.2.fill")
+                        .foregroundColor(.lmPrimary)
+                    Text(appointment.method)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.lmPrimary)
+                }
                 
                 Spacer()
                 
-                Text(booking.method)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.lmPrimary.opacity(0.8))
+                Text(appointment.method == "In Person" ? "Location: Colombo 07" : "Link: join.lawmate.sh")
+                    .font(.system(size: 12))
+                    .foregroundColor(.lmTextSecondary)
             }
         }
         .padding(24)
@@ -214,10 +231,27 @@ struct MyCaseDetailsView: View {
             RoundedRectangle(cornerRadius: 30)
                 .stroke(Color.white.opacity(0.5), lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+        .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 5)
+    }
+    private func formatDate(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "MMM dd, yyyy"
+        return f.string(from: date)
     }
 }
 
 #Preview {
-    MyCaseDetailsView(booking: Booking(id: "B1", lawyerName: "Sanduni Fernando", date: "Apr 30, 2026", time: "02:00 PM - 03:00 PM", category: "Family Law", method: "Video Call", status: .inProgress))
+    MyCaseDetailsView(appointment: FBAppointment(
+        id: "B1",
+        clientId: "C1",
+        clientName: "John Doe",
+        lawyerId: "L1",
+        lawyerName: "Sanduni Fernando",
+        service: "Family Law",
+        date: Date(),
+        time: "02:00 PM - 03:00 PM",
+        method: "Video Call",
+        description: "Consultation about divorce",
+        status: "In Progress"
+    ))
 }

@@ -13,28 +13,14 @@ struct NotificationModel: Identifiable, Hashable {
 
 struct NotificationsView: View {
     @Environment(\.dismiss) private var dismiss
-    
-    let todayAlerts = [
-        NotificationModel(iconInitials: "SM", iconSystemName: nil, iconColor: .teal, title: "Sarah Mitchell, Esq.", time: "25 min ago", message: "Your case documents for Johnson v. Smith have been filed with the court. Please review the confirmation.", isUnread: true),
-        NotificationModel(iconInitials: nil, iconSystemName: "building.columns.fill", iconColor: .lmPrimary, title: "Lawmate Team", time: "2h ago", message: "Reminder: Your consultation with Atty. David Park is scheduled for tomorrow at 2:00 PM.", isUnread: true)
-    ]
-    
-    let weekAlerts = [
-        NotificationModel(iconInitials: "DP", iconSystemName: nil, iconColor: .blue, title: "David Park, Esq.", time: "Yesterday", message: "I've reviewed the settlement offer. Let's discuss your options — I recommend we schedule a call.", isUnread: false),
-        NotificationModel(iconInitials: nil, iconSystemName: "list.clipboard.fill", iconColor: .lmPrimary, title: "Lawmate Billing", time: "2 days ago", message: "Invoice #LM-4821 for legal services ($1,250.00) is now available. Payment due by April 15.", isUnread: false),
-        NotificationModel(iconInitials: "SM", iconSystemName: nil, iconColor: .teal, title: "Sarah Mitchell, Esq.", time: "3 days ago", message: "New evidence has been submitted by the opposing counsel. I'll prepare our response by Friday.", isUnread: true)
-    ]
-    
-    let earlierAlerts = [
-        NotificationModel(iconInitials: "MC", iconSystemName: nil, iconColor: .purple, title: "Maria Chen, Paralegal", time: "Mar 25", message: "Please sign the attached affidavit and return it at your earliest convenience.", isUnread: false)
-    ]
+    @StateObject private var firestore = FirestoreManager.shared
     
     var body: some View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
             
-            // Green blob top-left
-            GreenBlobBackground(style: .client)
+            // Background blob based on role
+            GreenBlobBackground(style: AuthService.shared.currentUser?.role == .lawyer ? .lawyer : .client)
                 .frame(height: 300)
             
             VStack(spacing: 0) {
@@ -48,27 +34,73 @@ struct NotificationsView: View {
                 .padding(.top, 64)
                 .zIndex(10)
                 
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 24) {
-                        NotificationSection(title: "Today", notifications: todayAlerts)
-                        NotificationSection(title: "This Week", notifications: weekAlerts)
-                        NotificationSection(title: "Earlier", notifications: earlierAlerts)
+                if firestore.notifications.isEmpty {
+                    VStack(spacing: 20) {
+                        Spacer()
+                        Image(systemName: "bell.slash")
+                            .font(.system(size:60))
+                            .foregroundColor(.lmPrimary.opacity(0.3))
+                        Text("No notifications yet")
+                            .font(.lmBody)
+                            .foregroundColor(.lmTextSecondary)
+                        Spacer()
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 24)
-                    .padding(.bottom, 120)
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 24) {
+                            let (today, week, earlier) = groupedNotifications
+                            
+                            if !today.isEmpty {
+                                NotificationSection(title: "Today", notifications: today)
+                            }
+                            if !week.isEmpty {
+                                NotificationSection(title: "This Week", notifications: week)
+                            }
+                            if !earlier.isEmpty {
+                                NotificationSection(title: "Earlier", notifications: earlier)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 120)
+                    }
                 }
             }
             .ignoresSafeArea(edges: .top)
         }
         .navigationBarBackButtonHidden(true)
+        .onAppear {
+            if let user = AuthService.shared.currentUser {
+                firestore.listenForNotifications(userId: user.id)
+            }
+        }
+    }
+    
+    private var groupedNotifications: ([FBNotification], [FBNotification], [FBNotification]) {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        var today: [FBNotification] = []
+        var week: [FBNotification] = []
+        var earlier: [FBNotification] = []
+        
+        for notification in firestore.notifications {
+            if calendar.isDateInToday(notification.timestamp) {
+                today.append(notification)
+            } else if let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: now), notification.timestamp > sevenDaysAgo {
+                week.append(notification)
+            } else {
+                earlier.append(notification)
+            }
+        }
+        return (today, week, earlier)
     }
 }
 
 // MARK: - Notification Section
 struct NotificationSection: View {
     let title: String
-    let notifications: [NotificationModel]
+    let notifications: [FBNotification]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -78,7 +110,7 @@ struct NotificationSection: View {
                 .padding(.horizontal, 8)
             
             VStack(spacing: 0) {
-                ForEach(Array(notifications.enumerated()), id: \.offset) { index, item in
+                ForEach(Array(notifications.enumerated()), id: \.element.id) { index, item in
                     NotificationRow(notification: item)
                     
                     if index < notifications.count - 1 {
@@ -97,31 +129,25 @@ struct NotificationSection: View {
 
 // MARK: - Notification Row
 struct NotificationRow: View {
-    let notification: NotificationModel
+    let notification: FBNotification
     
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             // Unread Dot
             Circle()
-                .fill(notification.isUnread ? Color.green : Color.clear)
+                .fill(!notification.isRead ? Color.red : Color.clear)
                 .frame(width: 8, height: 8)
                 .padding(.top, 16)
             
             // Icon
             ZStack {
                 Circle()
-                    .fill(notification.iconColor)
+                    .fill(Color.lmPrimary.opacity(0.1))
                     .frame(width: 44, height: 44)
                 
-                if let initials = notification.iconInitials {
-                    Text(initials)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                } else if let iconName = notification.iconSystemName {
-                    Image(systemName: iconName)
-                        .font(.system(size: 18))
-                        .foregroundColor(.white)
-                }
+                Image(systemName: iconName)
+                    .font(.system(size: 18))
+                    .foregroundColor(.lmPrimary)
             }
             
             // Text Content
@@ -133,12 +159,12 @@ struct NotificationRow: View {
                     
                     Spacer()
                     
-                    Text(notification.time)
+                    Text(timeAgo(notification.timestamp))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.lmTextSecondary)
                 }
                 
-                Text(notification.message)
+                Text(notification.body)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.lmTextSecondary.opacity(0.9))
                     .lineSpacing(4)
@@ -147,6 +173,21 @@ struct NotificationRow: View {
         }
         .padding(.vertical, 16)
         .padding(.trailing, 16)
+    }
+    
+    private var iconName: String {
+        switch notification.type {
+        case "message": return "message.fill"
+        case "case": return "doc.text.fill"
+        case "booking": return "calendar"
+        default: return "bell.fill"
+        }
+    }
+    
+    private func timeAgo(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
 

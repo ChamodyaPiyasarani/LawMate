@@ -7,7 +7,7 @@ struct ClientHomeView: View {
     
     // Simple routes for screens without complex data models
     enum AppRoute: Hashable {
-        case myCases, documents, notifications, booking(Lawyer)
+        case myCases, documents, notifications, booking(Lawyer), allAppointments
     }
 
     var body: some View {
@@ -48,7 +48,159 @@ struct ClientHomeView: View {
                                         })
                                     }
                                     .padding(.horizontal, 24)
-                                    .padding(.top, 64)
+                .padding(.top, 64)
+                
+                // MARK: Upcoming Appointments Section
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Text("Upcoming Appointments")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                        
+                        Spacer()
+                        
+                        NavigationLink(value: AppRoute.allAppointments) {
+                            Text("See All")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.lmPrimary.opacity(0.8))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 24)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 16) {
+                            let upcoming = FirestoreManager.shared.appointments.filter { 
+                               $0.status.lowercased() == "confirmed" || $0.status.lowercased() == "pending" 
+                            }.prefix(5)
+                            
+                            ForEach(upcoming) { appointment in
+                                NavigationLink(value: appointment) {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        HStack {
+                                            Label(appointment.time, systemImage: "clock.fill")
+                                                .font(.system(size: 10, weight: .bold))
+                                                .foregroundColor(.lmPrimary)
+                                            
+                                            Spacer()
+                                            
+                                            Image(systemName: appointment.specialtyIcon)
+                                                .font(.system(size: 12))
+                                                .foregroundColor(.lmPrimary.opacity(0.3))
+                                        }
+                                        
+                                        Text(appointment.lawyerName)
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(.lmPrimary)
+                                        
+                                        Text(appointment.service)
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.lmTextSecondary)
+                                    }
+                                    .padding(16)
+                                    .frame(width: 160)
+                                    .background(Color.white)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            
+                            if upcoming.isEmpty {
+                                Text("No upcoming sessions.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.lmTextSecondary)
+                                    .frame(width: 160, height: 100)
+                                    .background(Color.white.opacity(0.4))
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 2)
+                    }
+                }
+                .padding(.top, 10)
+                
+                // MARK: Nearby Lawyers Section
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Text("Nearby Lawyers")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                        
+                        Spacer()
+                        
+                        Button {
+                            withAnimation(.spring()) {
+                                selectedTab = .lawyers
+                            }
+                        } label: {
+                            Text("See All")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.lmPrimary.opacity(0.8))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 24)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 16) {
+                            ForEach(FirestoreManager.shared.lawyers.prefix(5), id: \.id) { lawyer in
+                                NavigationLink(value: lawyer) {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        HStack(alignment: .top) {
+                                            LawMateAvatar(url: lawyer.profileImage, name: lawyer.fullName, size: 44)
+                                            
+                                            Spacer()
+                                            
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "star.fill")
+                                                    .font(.system(size: 8))
+                                                    .foregroundColor(.orange)
+                                                Text("4.8")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .foregroundColor(.lmPrimary)
+                                            }
+                                        }
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(lawyer.fullName)
+                                                .font(.system(size: 13, weight: .bold))
+                                                .foregroundColor(.lmPrimary)
+                                                .lineLimit(1)
+                                            
+                                            Text(lawyer.specialty ?? "Legal Expert")
+                                                .font(.system(size: 10))
+                                                .foregroundColor(.lmTextSecondary)
+                                                .lineLimit(1)
+                                        }
+                                        
+                                        HStack {
+                                            Label("Colombo", systemImage: "mappin.circle.fill")
+                                                .font(.system(size: 9, weight: .semibold))
+                                                .foregroundColor(.lmPrimary.opacity(0.6))
+                                            
+                                            Spacer()
+                                            
+                                            Image(systemName: "chevron.right")
+                                                .font(.system(size: 10, weight: .bold))
+                                                .foregroundColor(.lmPrimary.opacity(0.3))
+                                        }
+                                    }
+                                    .padding(16)
+                                    .frame(width: 150)
+                                    .background(Color.white)
+                                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 2)
+                    }
+                }
+                .padding(.top, 24)
 
                                     // MARK: Find My Lawyer card
                                     FindLawyerCard(searchQuery: $searchQuery, selectedTab: $selectedTab)
@@ -105,10 +257,10 @@ struct ClientHomeView: View {
                     }
                 }
                 .navigationDestination(for: Lawyer.self) { lawyer in
-                    LawyerDetailView(lawyer: lawyer)
+                    LawyerDetailView(lawyer: lawyer, navPath: $navPath)
                 }
-                .navigationDestination(for: Booking.self) { booking in
-                    MyCaseDetailsView(booking: booking)
+                .navigationDestination(for: FBAppointment.self) { appointment in
+                    MyCaseDetailsView(appointment: appointment)
                 }
                 .navigationDestination(for: AppRoute.self) { route in
                     switch route {
@@ -120,6 +272,8 @@ struct ClientHomeView: View {
                         NotificationsView()
                     case .booking(let lawyer):
                         BookingView(lawyer: lawyer)
+                    case .allAppointments:
+                        ClientAllAppointmentsListView()
                     }
                 }
                 .navigationDestination(for: AdvisoryDocument.self) { doc in
@@ -168,6 +322,11 @@ struct ClientHomeView: View {
         .animation(.easeInOut(duration: 0.2), value: navPath.isEmpty)
         .onChange(of: selectedTab) { _ in
             navPath = NavigationPath()
+        }
+        .onAppear {
+            if let user = AuthService.shared.currentUser {
+                FirestoreManager.shared.startSync(role: user.role, userId: user.id)
+            }
         }
     }
 }
@@ -273,4 +432,96 @@ private struct HomeFeatureCard: View {
 
 #Preview {
     ClientHomeView()
+}
+
+
+// MARK: - Client All Appointments List View
+public struct ClientAllAppointmentsListView: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var firestore = FirestoreManager.shared
+    @State private var selectedTab = 0 // 0: Upcoming, 1: Completed
+    
+    public init() {}
+    
+    var upcomingAppointments: [FBAppointment] {
+        firestore.appointments.filter { 
+            let s = $0.status.lowercased()
+            return s == "confirmed" || s == "pending" || s == "in progress"
+        }.sorted { $0.date > $1.date }
+    }
+    
+    var completedAppointments: [FBAppointment] {
+        firestore.appointments.filter {
+            let s = $0.status.lowercased()
+            return s == "done" || s == "cancelled"
+        }.sorted { $0.date > $1.date }
+    }
+    
+    public var body: some View {
+        ZStack(alignment: .top) {
+            Color.lmBackground.ignoresSafeArea()
+            
+            // Green blob top-left (Client Style)
+            GreenBlobBackground(style: .client)
+                .frame(height: 300)
+            
+            VStack(spacing: 0) {
+                // MARK: Custom Header
+                LawMateNavigationBar(
+                    title: "My Appointments",
+                    showBack: true,
+                    showNotification: true,
+                    onBack: { dismiss() }
+                )
+                .padding(.top, 64)
+                .zIndex(10)
+                
+                // MARK: Tab Switcher
+                HStack(spacing: 0) {
+                    TabButton(title: "Upcoming", isSelected: selectedTab == 0) {
+                        withAnimation(.spring()) { selectedTab = 0 }
+                    }
+                    TabButton(title: "Completed", isSelected: selectedTab == 1) {
+                        withAnimation(.spring()) { selectedTab = 1 }
+                    }
+                }
+                .padding(4)
+                .background(Color.black.opacity(0.05))
+                .clipShape(Capsule())
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+                
+                // MARK: List Content
+                ScrollView(showsIndicators: false) {
+                    let displayList = selectedTab == 0 ? upcomingAppointments : completedAppointments
+                    
+                    if displayList.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: selectedTab == 0 ? "calendar.badge.plus" : "clock.arrow.circlepath")
+                                .font(.system(size: 60))
+                                .foregroundColor(.lmPrimary.opacity(0.2))
+                                .padding(.top, 100)
+                            
+                            Text(selectedTab == 0 ? "No upcoming appointments." : "No completed records found.")
+                                .font(.lmBody)
+                                .foregroundColor(.lmTextSecondary)
+                        }
+                    } else {
+                        VStack(spacing: 16) {
+                            ForEach(displayList) { appointment in
+                                NavigationLink(value: appointment) {
+                                    AppointmentRowView(appointment: appointment)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(24)
+                        .padding(.bottom, 120)
+                    }
+                }
+            }
+            .ignoresSafeArea(edges: .top)
+        }
+        .navigationBarBackButtonHidden(true)
+    }
 }

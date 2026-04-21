@@ -8,15 +8,22 @@ struct Lawyer: Identifiable, Hashable {
     let bio: String
     let description: String
     let experience: String
+    let experienceYears: Int // For sorting
     let casesWon: String
+    let wonCount: Int // For sorting
     let rating: Double
     let location: String
     let image: String
     let coordinate: CLLocationCoordinate2D
     
-    // Conform to Hashable for navigation
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
     static func == (lhs: Lawyer, rhs: Lawyer) -> Bool { lhs.id == rhs.id }
+}
+
+enum SortingOption: String, CaseIterable {
+    case alphabetical = "Name (A-Z)"
+    case casesWon = "Most Cases Won"
+    case experience = "Most Experience"
 }
 
 struct LawyersListView: View {
@@ -29,11 +36,25 @@ struct LawyersListView: View {
     @State private var isMapViewActive = false
     @State private var selectedLawyerId: String? = nil
     @State private var route: MKRoute? = nil
+    @State private var sortOption: SortingOption = .alphabetical
+    @State private var showSuggestions = false
+    
+    private var suggestions: [String] {
+        if searchText.isEmpty { return [] }
+        var combined: [String] = []
+        
+        let matchesNames = lawyers.filter { $0.name.localizedCaseInsensitiveContains(searchText) }.map { $0.name }
+        let matchesSpecialties = allSpecialties.filter { $0.localizedCaseInsensitiveContains(searchText) }
+        
+        combined.append(contentsOf: matchesNames)
+        combined.append(contentsOf: matchesSpecialties)
+        
+        return Array(Set(combined)).prefix(5).sorted()
+    }
     
     // Mock user location for routing
     private let userLocation = CLLocationCoordinate2D(latitude: 6.9147, longitude: 79.8773)
     
-    // Initial camera position centered on Sri Lanka
     @State private var cameraPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 7.8731, longitude: 80.7718),
@@ -43,38 +64,54 @@ struct LawyersListView: View {
     
     @Environment(\.dismiss) private var dismiss
     
-    private let allSpecialties = ["Criminal Law", "Family Law", "Corporate Law", "Property Law", "Civil Law"]
+    private let allSpecialties = ["Family Law", "Criminal Law", "Civil Law", "Business Law"]
     private let allLocations = ["Colombo", "Gampaha", "Kandy", "Negombo", "Galle"]
 
     var lawyers: [Lawyer] {
         firestore.lawyers.map { user in
-            Lawyer(
+            // Parse experience and cases won for sorting
+            let expValue = Int(user.experience?.components(separatedBy: CharacterSet.decimalDigits.inverted).filter { !$0.isEmpty }.first ?? "0") ?? 0
+            let wonValue = Int(user.casesWon?.components(separatedBy: CharacterSet.decimalDigits.inverted).filter { !$0.isEmpty }.first ?? "0") ?? 0
+            
+            return Lawyer(
                 id: user.id,
                 name: user.fullName,
                 specialty: user.specialty ?? "General Practice",
                 bio: user.bio ?? "Professional Lawyer",
                 description: user.bio ?? "",
-                experience: user.experience ?? "5+ YEARS",
-                casesWon: "N/A",
-                rating: 4.5, // Default rating for now
-                location: "Colombo, Sri Lanka", // Default location
+                experience: user.experience ?? "5 YEARS",
+                experienceYears: expValue,
+                casesWon: user.casesWon ?? "0",
+                wonCount: wonValue,
+                rating: 4.8, // Default rating for now
+                location: "Colombo, Sri Lanka",
                 image: user.profileImage ?? "",
-                coordinate: CLLocationCoordinate2D(latitude: 6.9271, longitude: 79.8612) // Default coord
+                coordinate: CLLocationCoordinate2D(latitude: 6.9271, longitude: 79.8612)
             )
         }
     }
 
     var filteredLawyers: [Lawyer] {
-        lawyers.filter { lawyer in
+        let filtered = lawyers.filter { lawyer in
             let matchesSearch = searchText.isEmpty || 
                                lawyer.name.localizedCaseInsensitiveContains(searchText) || 
-                               lawyer.specialty.localizedCaseInsensitiveContains(searchText)
+                               lawyer.specialty.localizedCaseInsensitiveContains(searchText) ||
+                               lawyer.bio.localizedCaseInsensitiveContains(searchText)
             
-            let matchesSpecialty = selectedSpecialty == nil || lawyer.specialty == selectedSpecialty
+            let matchesSpecialty = selectedSpecialty == nil || lawyer.specialty.contains(selectedSpecialty!)
             let matchesRating = lawyer.rating >= minRating
             let matchesLocation = selectedLocation == nil || lawyer.location.contains(selectedLocation!)
             
             return matchesSearch && matchesSpecialty && matchesRating && matchesLocation
+        }
+        
+        switch sortOption {
+        case .alphabetical:
+            return filtered.sorted { $0.name < $1.name }
+        case .casesWon:
+            return filtered.sorted { $0.wonCount > $1.wonCount }
+        case .experience:
+            return filtered.sorted { $0.experienceYears > $1.experienceYears }
         }
     }
 
@@ -102,9 +139,48 @@ struct LawyersListView: View {
                 .zIndex(10)
                 
                 // MARK: Search Bar
-                LawMateSearchBar(text: $searchText, placeholder: "Search lawyers or legal fields")
-                    .padding(.horizontal, 24)
-                    .padding(.top, 10)
+                VStack(spacing: 0) {
+                    LawMateSearchBar(text: $searchText, placeholder: "Search lawyers or legal fields")
+                        .onChange(of: searchText) { _ in
+                            showSuggestions = !searchText.isEmpty && !suggestions.isEmpty
+                        }
+                    
+                    if showSuggestions {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(suggestions, id: \.self) { suggestion in
+                                Button {
+                                    searchText = suggestion
+                                    showSuggestions = false
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "magnifyingglass")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.lmPrimary.opacity(0.3))
+                                        Text(suggestion)
+                                            .font(.system(size: 14))
+                                            .foregroundColor(.lmPrimary)
+                                        Spacer()
+                                    }
+                                    .padding(.vertical, 12)
+                                    .padding(.horizontal, 16)
+                                }
+                                .buttonStyle(.plain)
+                                
+                                if suggestion != suggestions.last {
+                                    Divider().padding(.horizontal, 16)
+                                }
+                            }
+                        }
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .shadow(color: Color.black.opacity(0.1), radius: 10, y: 5)
+                        .padding(.top, 4)
+                        .transition(.opacity)
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 10)
+                .zIndex(100) // Ensure suggestions are above EVERYTHING
                 
                 // MARK: Filters (Fixed on one line - Full Width)
                 HStack(spacing: 8) {
@@ -147,10 +223,22 @@ struct LawyersListView: View {
                                   maxWidth: .infinity) {}
                     }
                     
+                    // Sorting Dropdown
+                    Menu {
+                        ForEach(SortingOption.allCases, id: \.self) { option in
+                            Button(option.rawValue) { sortOption = option }
+                        }
+                    } label: {
+                        FilterPill(icon: "arrow.up.arrow.down", 
+                                  title: sortOption.rawValue, 
+                                  isActive: sortOption != .alphabetical,
+                                  maxWidth: .infinity) {}
+                    }
+                    
                     FilterPill(icon: "mappin.and.ellipse", 
-                              title: "Map", 
-                              isActive: isMapViewActive,
-                              maxWidth: .infinity) {
+                               title: "Map", 
+                               isActive: isMapViewActive,
+                               maxWidth: .infinity) {
                         withAnimation(.spring()) {
                             isMapViewActive.toggle()
                         }
@@ -158,8 +246,8 @@ struct LawyersListView: View {
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
-                .padding(.bottom, 12) // Added padding for spacing
-                .zIndex(1) // Ensure filters are above map
+                .padding(.bottom, 12)
+                .zIndex(1)
                 
                 // MARK: Lawyers List OR Map
                 ZStack {
@@ -339,27 +427,41 @@ struct LawyerRow: View {
     let lawyer: Lawyer
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 14) {
-                LawMateAvatar(url: lawyer.image, name: lawyer.name, size: 56)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 16) {
+                LawMateAvatar(url: lawyer.image, name: lawyer.name, size: 64)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(lawyer.name)
-                            .font(.system(size: 14, weight: .bold)) // Smaller and bold
+                            .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.lmPrimary)
                         
                         Spacer()
                         
-                        Text(lawyer.specialty)
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.lmPrimary.opacity(0.8))
+                        HStack(spacing: 4) {
+                            let spec = lawyer.specialty.lowercased()
+                            let icon = spec.contains("family") ? "house.fill" : 
+                                      spec.contains("criminal") ? "gavel.fill" : 
+                                      spec.contains("civil") ? "person.2.fill" : "briefcase.fill"
+                            
+                            Image(systemName: icon)
+                                .font(.system(size: 10))
+                            Text(lawyer.specialty)
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.lmPrimary.opacity(0.1))
+                        .foregroundColor(.lmPrimary)
+                        .clipShape(Capsule())
                     }
                     
                     Text(lawyer.bio)
-                        .font(.lmCaption)
+                        .font(.system(size: 13))
                         .foregroundColor(.lmTextSecondary)
                         .lineLimit(2)
+                        .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -368,28 +470,26 @@ struct LawyerRow: View {
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
                         .foregroundColor(.orange)
-                        .font(.system(size: 14))
+                        .font(.system(size: 12))
                     Text(String(format: "%.1f", lawyer.rating))
-                        .font(.lmCaption.weight(.bold))
-                        .foregroundColor(.lmTextPrimary)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.lmPrimary)
+                    Text("(120+ Reviews)")
+                        .font(.system(size: 10))
+                        .foregroundColor(.lmTextSecondary.opacity(0.7))
                 }
                 
                 Spacer()
                 
-                Text(lawyer.location)
-                    .font(.lmCaption.weight(.semibold))
-                    .foregroundColor(.lmPrimary.opacity(0.7))
+                Label(lawyer.location, systemImage: "mappin.circle.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.lmPrimary.opacity(0.6))
             }
         }
         .padding(20)
-        .background(Color.white.opacity(0.6))
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 30))
-        .overlay(
-            RoundedRectangle(cornerRadius: 30)
-                .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
-        )
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
     }
 }
 

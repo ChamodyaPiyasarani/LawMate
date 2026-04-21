@@ -89,6 +89,94 @@ struct NotificationButton: View {
     }
 }
 
+// MARK: - Shared Appointment Row
+struct AppointmentRowView: View {
+    let appointment: FBAppointment
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            // Time Indicator (Left)
+            VStack(spacing: 4) {
+                Text(appointment.time.components(separatedBy: " ").first ?? "")
+                    .font(.system(size: 11, weight: .black))
+                    .foregroundColor(.lmPrimary)
+                
+                Rectangle()
+                    .fill(Color.lmPrimary.opacity(0.2))
+                    .frame(width: 2, height: 24)
+            }
+            .frame(width: 50)
+            
+            // Info (Center - Left Aligned)
+            VStack(alignment: .leading, spacing: 4) {
+                let currentRole = AuthService.shared.currentUser?.role ?? .client
+                let displayName = currentRole == .lawyer ? appointment.clientName : appointment.lawyerName
+                
+                HStack(spacing: 8) {
+                    Text(displayName)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.lmPrimary)
+                    
+                    if let specialty = appointment.lawyerSpecialty {
+                        HStack(spacing: 4) {
+                            Image(systemName: appointment.specialtyIcon)
+                                .font(.system(size: 8))
+                            Text(specialty)
+                                .font(.system(size: 8, weight: .bold))
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.lmPrimary.opacity(0.1))
+                        .foregroundColor(.lmPrimary)
+                        .clipShape(Capsule())
+                    }
+                }
+                
+                Text(appointment.service)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.lmTextSecondary)
+                
+                Text(appointment.description)
+                    .font(.system(size: 11))
+                    .foregroundColor(.lmTextSecondary.opacity(0.7))
+                    .lineLimit(1)
+            }
+            
+            Spacer()
+            
+            // Status & Method (Right)
+            VStack(alignment: .trailing, spacing: 6) {
+                Text(appointment.status)
+                    .font(.system(size: 9, weight: .black))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(statusColor.opacity(0.12))
+                    .foregroundColor(statusColor)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(statusColor.opacity(0.3), lineWidth: 1))
+                
+                Image(systemName: appointment.method == "Video Call" ? "video.fill" : "building.2.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.lmPrimary.opacity(0.4))
+            }
+        }
+        .padding(16)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
+    }
+    
+    private var statusColor: Color {
+        switch appointment.status.lowercased() {
+        case "confirmed": return .green
+        case "pending": return .orange
+        case "cancelled": return .red
+        case "in progress": return .blue
+        default: return .gray
+        }
+    }
+}
+
 // MARK: - Camera Button
 struct CameraButton: View {
     var action: () -> Void = {}
@@ -168,6 +256,26 @@ struct LawMateNavigationBar: View {
     }
     .padding()
     .background(Color.lmFieldBg)
+}
+
+
+// MARK: - Shared Tab Button
+struct TabButton: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: isSelected ? .bold : .medium))
+                .foregroundColor(isSelected ? .white : .lmTextSecondary)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity)
+                .background(isSelected ? Color.lmPrimary : Color.clear)
+                .clipShape(Capsule())
+        }
+    }
 }
 
 
@@ -424,6 +532,41 @@ struct PDFKitViewerSheet: View {
     }
 }
 
+// MARK: - Generic Document Viewer
+struct LawMateDocumentViewer: View {
+    @Environment(\.dismiss) private var dismiss
+    let title: String
+    let url: URL
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.lmBackground.ignoresSafeArea()
+                
+                if url.scheme?.hasPrefix("http") == true {
+                    // Remote Viewer using WebView or Async Handling 
+                    // Note: In a real app, PDFKit can load remote URLs but it's flaky. 
+                    // We'll use a simple Safari-like approach or local download logic if needed.
+                    // For this implementation, we'll try to load it directly.
+                    PDFKitView(url: url)
+                        .edgesIgnoringSafeArea(.bottom)
+                } else {
+                    PDFKitView(url: url)
+                        .edgesIgnoringSafeArea(.bottom)
+                }
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Done") { dismiss() }
+                        .fontWeight(.bold)
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Timeline Component
 struct TimelineNode: View {
     let index: Int
@@ -560,24 +703,46 @@ struct LawMateAvatar: View {
     
     var body: some View {
         Group {
-            if let urlString = url, let imageURL = URL(string: urlString) {
-                AsyncImage(url: imageURL) { phase in
-                    switch phase {
-                    case .empty:
-                        ProgressView()
-                            .frame(width: size, height: size)
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: size, height: size)
-                    case .failure:
-                        fallbackView
-                    @unknown default:
-                        fallbackView
+            if let urlString = url, urlString.lowercased().hasPrefix("http") {
+                // Remote Image
+                if let imageURL = URL(string: urlString) {
+                    AsyncImage(url: imageURL) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                                .frame(width: size, height: size)
+                                .background(Color.lmPrimary.opacity(0.1))
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: size, height: size)
+                        case .failure:
+                            fallbackView
+                                .overlay(
+                                    Image(systemName: "exclamationmark.circle.fill")
+                                        .font(.system(size: size * 0.2))
+                                        .foregroundColor(.red)
+                                        .padding(2)
+                                        .background(Color.white)
+                                        .clipShape(Circle())
+                                        .offset(x: size * 0.35, y: size * 0.35)
+                                )
+                        @unknown default:
+                            fallbackView
+                        }
                     }
+                } else {
+                    fallbackView
                 }
+            } else if let localName = url, !localName.isEmpty {
+                // Local Mock Asset
+                Image(localName)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
             } else {
+                // Initials Fallback
                 fallbackView
             }
         }
@@ -585,6 +750,7 @@ struct LawMateAvatar: View {
         .clipShape(Circle())
         .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
     }
+
     
     private var fallbackView: some View {
         Circle()

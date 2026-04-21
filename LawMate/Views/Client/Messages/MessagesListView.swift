@@ -133,10 +133,16 @@ struct ChatPreviewCard: View {
             }
             
             VStack(alignment: .leading, spacing: 6) {
-                HStack {
+                HStack(spacing: 8) {
                     Text(partner.name)
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(.lmPrimary)
+                    
+                    if let userId = auth.currentUser?.id, let unread = conversation.unreadCounts?[userId], unread > 0 {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 8, height: 8)
+                    }
                     
                     Spacer()
                     
@@ -154,6 +160,19 @@ struct ChatPreviewCard: View {
                         .lineLimit(1)
                     
                     Spacer()
+                    
+                    if let userId = auth.currentUser?.id, let unread = conversation.unreadCounts?[userId], unread > 0 {
+                        Capsule()
+                            .fill(Color.red)
+                            .frame(height: 18)
+                            .overlay(
+                                Text("\(unread)")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 6)
+                            )
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
                 }
             }
         }

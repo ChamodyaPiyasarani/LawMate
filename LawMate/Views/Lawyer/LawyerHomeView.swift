@@ -11,6 +11,15 @@ struct LawyerHomeView: View {
     @AppStorage("userRole") private var storedRole: UserRole = .lawyer
     @State private var selectedTab: LawMateTab = .home
     @State private var navPath = NavigationPath()
+    @StateObject private var firestore = FirestoreManager.shared
+    @StateObject private var eventService = EventKitService.shared
+    @State private var todayEvents: [EKEvent] = []
+    
+    var todayAppointments: [FBAppointment] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        return firestore.appointments.filter { calendar.startOfDay(for: $0.date) == today }
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -57,13 +66,13 @@ struct LawyerHomeView: View {
                                     VStack(alignment: .leading, spacing: 28) {
                                         // MARK: Stats Cards
                                         HStack(spacing: 20) {
-                                            DashboardStatCard(title: "Cases", value: "07", isGreen: false)
-                                            DashboardStatCard(title: "Today\nAppointments", value: "03", isGreen: true)
+                                            DashboardStatCard(title: "Cases", value: String(format: "%02d", firestore.cases.count), isGreen: false)
+                                            DashboardStatCard(title: "Today\nAppointments", value: String(format: "%02d", todayEvents.count + todayAppointments.count), isGreen: true)
                                         }
                                         .padding(.horizontal, 24)
 
                                         // MARK: Hearings Card
-                                        HearingsCard(count: "09")
+                                        HearingsCard(count: String(format: "%02d", todayEvents.filter({ $0.title.lowercased().contains("hearing") }).count))
                                             .padding(.horizontal, 24)
 
                                         // MARK: Action Buttons
@@ -85,8 +94,30 @@ struct LawyerHomeView: View {
                                                 .padding(.horizontal, 24)
 
                                             VStack(spacing: 16) {
-                                                ScheduleRow(time: "10.00 AM", event: "Consultation : Anuradha Rnasinghe", category: "Family Law")
-                                                ScheduleRow(time: "02.00 PM", event: "Hearing : Malsha Kavindi", category: "Divorce")
+                                                if todayEvents.isEmpty && todayAppointments.isEmpty {
+                                                    Text("No schedules for today")
+                                                        .font(.lmCaption)
+                                                        .foregroundColor(.lmTextSecondary.opacity(0.5))
+                                                        .padding()
+                                                } else {
+                                                    // LawMate Appointments (Priority)
+                                                    ForEach(todayAppointments) { appointment in
+                                                        ScheduleRow(
+                                                            time: formatTime(appointment.date),
+                                                            event: "Appt: \(appointment.clientName)",
+                                                            category: appointment.service
+                                                        )
+                                                    }
+                                                    
+                                                    // System Events
+                                                    ForEach(todayEvents, id: \.eventIdentifier) { event in
+                                                        ScheduleRow(
+                                                            time: formatTime(event.startDate),
+                                                            event: event.title,
+                                                            category: event.notes?.replacingOccurrences(of: "Type: ", with: "") ?? "General"
+                                                        )
+                                                    }
+                                                }
                                             }
                                             .padding(.horizontal, 24)
                                         }
@@ -156,9 +187,30 @@ struct LawyerHomeView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: navPath.isEmpty)
-        .onChange(of: selectedTab) { _ in
-            navPath = NavigationPath()
+        .onAppear {
+            if let user = AuthService.shared.currentUser {
+                firestore.startSync(role: user.role, userId: user.id)
+                fetchTodayEvents()
+            }
         }
+    }
+    
+    private func fetchTodayEvents() {
+        if eventService.isAuthorized {
+            todayEvents = eventService.fetchEvents(for: Date())
+        } else {
+            eventService.requestAccess { granted in
+                if granted {
+                    todayEvents = eventService.fetchEvents(for: Date())
+                }
+            }
+        }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "hh.mm a"
+        return formatter.string(from: date)
     }
 }
 

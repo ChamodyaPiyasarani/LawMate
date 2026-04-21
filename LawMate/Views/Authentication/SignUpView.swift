@@ -15,6 +15,7 @@ struct SignUpView: View {
     @State private var experience: String = ""
     @State private var specialty:  String = ""
     @State private var bio:        String = ""
+    @State private var casesWon:   String = ""
 
     @State private var navigateToLogin = false
     
@@ -148,6 +149,10 @@ struct SignUpView: View {
                                     LawMateTextField(icon: "pencil",
                                                     placeholder: "Small Description",
                                                     text: $bio)
+                                    
+                                    LawMateTextField(icon: "trophy.fill",
+                                                    placeholder: "Cases Won (e.g. 100+)",
+                                                    text: $casesWon)
                                 }
                                 .padding(.horizontal, 24)
                                 .padding(.top, 24)
@@ -170,7 +175,8 @@ struct SignUpView: View {
                                         "phone": contact,
                                         "specialty": specialty,
                                         "experience": experience,
-                                        "bio": bio
+                                        "bio": bio,
+                                        "casesWon": casesWon
                                     ]
                                     
                                     ToastManager.shared.show(title: "Creating account...", message: "Please wait.", type: .info)

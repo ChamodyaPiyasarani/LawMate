@@ -16,8 +16,8 @@ public class AccessibilityManager: ObservableObject {
         authService.$currentUser
             .compactMap { $0 }
             .sink { [weak self] user in
-                self?.textScale = user.textScale
-                self?.highContrast = user.highContrast
+                self?.textScale = user.textScale ?? 1.0
+                self?.highContrast = user.highContrast ?? false
             }
             .store(in: &cancellables)
     }

@@ -4,10 +4,27 @@ import EventKit
 struct EventListView: View {
     @ObservedObject var viewModel: CalendarViewModel
     @State private var showingAddEvent = false
-    @State private var newEventTitle = ""
-    @State private var selectedType = "Appointment"
+    @State private var selectedService = "Case Review (1 hour)"
+    @State private var selectedTime: String? = "09:00 AM"
+    @State private var isVideoCall = false
+    @State private var caseDescription = ""
+    @State private var isSaving = false
+    @State private var selectedScheduleTab = 0 // 0: Upcoming, 1: Completed
     
-    let eventTypes = ["Appointment", "Hearing", "Consultation"]
+    // Search State
+    @State private var clientSearchName = ""
+    @State private var showClientSuggestions = false
+    @State private var selectedClientId = ""
+    @State private var selectedClientImage: String? = nil
+    
+    var filteredClients: [User] {
+        FirestoreManager.shared.clients.filter { 
+            clientSearchName.isEmpty || $0.fullName.lowercased().contains(clientSearchName.lowercased()) 
+        }
+    }
+    
+    let services = ["Case Review (1 hour)", "Legal Consultation (30 mins)", "Document Drafting", "Court Representation"]
+    let timeSlots = ["09:00 AM", "10:30 AM", "01:00 PM", "02:30 PM"]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -17,14 +34,15 @@ struct EventListView: View {
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.lmPrimary)
                     
-                    Text("\(viewModel.eventsForSelectedDate.count) Events scheduled")
+                    let totalCount = viewModel.appointmentsForSelectedDate.count
+                    Text("\(totalCount) Appointments scheduled")
                         .font(.system(size: 13))
                         .foregroundColor(.lmTextSecondary)
                 }
                 
                 Spacer()
                 
-                if viewModel.eventsForSelectedDate.count < 3 {
+                if (viewModel.eventsForSelectedDate.count + viewModel.appointmentsForSelectedDate.count) < 5 {
                     Button {
                         showingAddEvent = true
                     } label: {
@@ -32,24 +50,34 @@ struct EventListView: View {
                             .font(.system(size: 24))
                             .foregroundColor(.lmPrimary)
                     }
-                } else {
-                    Text("Day Full")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.red)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.red.opacity(0.1))
-                        .clipShape(Capsule())
                 }
             }
             .padding(.horizontal, 24)
             
-            if viewModel.eventsForSelectedDate.isEmpty {
+            .padding(.horizontal, 24)
+            
+            // MARK: Schedule Tabs
+            HStack(spacing: 0) {
+                TabButton(title: "Upcoming", isSelected: selectedScheduleTab == 0) {
+                    selectedScheduleTab = 0
+                }
+                TabButton(title: "Completed", isSelected: selectedScheduleTab == 1) {
+                    selectedScheduleTab = 1
+                }
+            }
+            .padding(4)
+            .background(Color.black.opacity(0.05))
+            .clipShape(Capsule())
+            .padding(.horizontal, 24)
+            
+            let displayList = (selectedScheduleTab == 0) ? viewModel.upcomingAppointments : viewModel.completedAppointments
+            
+            if displayList.isEmpty {
                 VStack(spacing: 16) {
-                    Image(systemName: "calendar.badge.plus")
+                    Image(systemName: selectedScheduleTab == 0 ? "calendar.badge.plus" : "clock.arrow.circlepath")
                         .font(.system(size: 40))
                         .foregroundColor(.lmPrimary.opacity(0.2))
-                    Text("No appointments for this day.")
+                    Text(selectedScheduleTab == 0 ? "No upcoming appointments." : "No completed appointments yet.")
                         .font(.system(size: 14))
                         .foregroundColor(.lmTextSecondary)
                 }
@@ -57,8 +85,8 @@ struct EventListView: View {
                 .padding(.vertical, 40)
             } else {
                 VStack(spacing: 12) {
-                    ForEach(viewModel.eventsForSelectedDate, id: \.eventIdentifier) { event in
-                        EventRow(event: event)
+                    ForEach(displayList) { appointment in
+                        AppointmentRowView(appointment: appointment)
                     }
                 }
                 .padding(.horizontal, 24)
@@ -67,37 +95,260 @@ struct EventListView: View {
         .sheet(isPresented: $showingAddEvent) {
             addEventSheet
         }
+        .onAppear {
+            FirestoreManager.shared.listenForClients()
+        }
     }
     
     private var addEventSheet: some View {
         NavigationStack {
-            Form {
-                Section("Event Details") {
-                    TextField("Title", text: $newEventTitle)
-                    Picker("Type", selection: $selectedType) {
-                        ForEach(eventTypes, id: \.self) { type in
-                            Text(type).tag(type)
+            ScrollView {
+                VStack(spacing: 24) {
+                    // MARK: Client Selection
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Select Client")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                        
+                        LawMateTextField(icon: "person.badge.shield.fill", placeholder: "Search Client Name", text: $clientSearchName)
+                            .onChange(of: clientSearchName) { _ in
+                                let exactMatch = FirestoreManager.shared.clients.contains(where: { $0.fullName.lowercased() == clientSearchName.lowercased() })
+                                showClientSuggestions = !clientSearchName.isEmpty && !exactMatch
+                            }
+                        
+                        if showClientSuggestions && !filteredClients.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                ForEach(filteredClients) { client in
+                                    Button {
+                                        clientSearchName = client.fullName
+                                        selectedClientId = client.id
+                                        selectedClientImage = client.profileImage
+                                        showClientSuggestions = false
+                                    } label: {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(client.fullName)
+                                                .font(.lmBody)
+                                                .foregroundColor(.lmPrimary)
+                                            Text(client.email)
+                                                .font(.system(size: 11))
+                                                .foregroundColor(.lmTextSecondary)
+                                        }
+                                    }
+                                    if client.id != filteredClients.last?.id {
+                                        Divider()
+                                    }
+                                }
+                            }
+                            .padding(16)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 3)
                         }
                     }
+                    
+                    // MARK: Service Selection
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Service Type")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                        
+                        Menu {
+                            ForEach(services, id: \.self) { service in
+                                Button(service) {
+                                    selectedService = service
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Text(selectedService)
+                                    .font(.system(size: 14, weight: .medium))
+                                Spacer()
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 12))
+                            }
+                            .foregroundColor(.lmPrimary)
+                            .padding()
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.lmPrimary.opacity(0.1), lineWidth: 1))
+                        }
+                    }
+                    
+                    // MARK: Time Slot
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Available Time Slots")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                        
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                            ForEach(timeSlots, id: \.self) { time in
+                                Button {
+                                    selectedTime = time
+                                } label: {
+                                    Text(time)
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(selectedTime == time ? .white : .lmPrimary)
+                                        .padding(.vertical, 12)
+                                        .frame(maxWidth: .infinity)
+                                        .background(selectedTime == time ? Color.lmPrimary : Color.white)
+                                        .clipShape(Capsule())
+                                        .overlay(Capsule().stroke(Color.lmPrimary.opacity(0.2), lineWidth: 1))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    
+                    // MARK: Method
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Meeting Method")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                        
+                        HStack(spacing: 16) {
+                            Button { isVideoCall = true } label: {
+                                Label("Video", systemImage: "video")
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(isVideoCall ? Color.lmPrimary : Color.white)
+                                    .foregroundColor(isVideoCall ? .white : .lmPrimary)
+                                    .clipShape(Capsule())
+                                    .overlay(Capsule().stroke(Color.lmPrimary.opacity(0.2), lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                            
+                            Button { isVideoCall = false } label: {
+                                Label("In-Person", systemImage: "building.2")
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(!isVideoCall ? Color.lmPrimary : Color.white)
+                                    .foregroundColor(!isVideoCall ? .white : .lmPrimary)
+                                    .clipShape(Capsule())
+                                    .overlay(Capsule().stroke(Color.lmPrimary.opacity(0.2), lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    
+                    // MARK: Description
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Description")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                        
+                        TextEditor(text: $caseDescription)
+                            .frame(height: 100)
+                            .padding(8)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.lmPrimary.opacity(0.1), lineWidth: 1))
+                    }
                 }
+                .padding(24)
             }
-            .navigationTitle("New Entry")
+            .navigationTitle("New Appointment")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { showingAddEvent = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        viewModel.addEvent(title: newEventTitle, type: selectedType)
-                        newEventTitle = ""
-                        showingAddEvent = false
+                    Button {
+                        if !isSaving {
+                            validateAndSave()
+                        }
+                    } label: {
+                        if isSaving {
+                            ProgressView()
+                                .tint(.lmPrimary)
+                        } else {
+                            Text("Save")
+                        }
                     }
-                    .disabled(newEventTitle.isEmpty)
+                    .disabled(selectedClientId.isEmpty || isSaving)
                 }
             }
         }
-        .presentationDetents([.medium])
+    }
+    
+    private func validateAndSave() {
+        guard let lawyer = AuthService.shared.currentUser else { return }
+        
+        if selectedClientId.isEmpty {
+            ToastManager.shared.show(title: "No Client", message: "Please search and select a client.", type: .error)
+            return
+        }
+        
+        guard let time = selectedTime, !time.isEmpty else {
+            ToastManager.shared.show(title: "Select Time", message: "Please select a time slot.", type: .error)
+            return
+        }
+        
+        isSaving = true
+        
+        // Use Firestore as source of truth — validates limit AND time conflict
+        FirestoreManager.shared.validateAppointmentSlot(lawyerId: lawyer.id, date: viewModel.selectedDate, time: time) { canBook, reason in
+            DispatchQueue.main.async {
+                if canBook {
+                    self.saveManualAppointment()
+                } else {
+                    self.isSaving = false
+                    ToastManager.shared.show(title: "Booking Unavailable", message: reason ?? "This slot is not available.", type: .error)
+                }
+            }
+        }
+    }
+    
+    private func saveManualAppointment() {
+        guard !selectedClientId.isEmpty,
+              let currentLawyer = AuthService.shared.currentUser else { 
+            isSaving = false
+            return 
+        }
+        
+        let appointment = FBAppointment(
+            clientId: selectedClientId,
+            clientName: clientSearchName,
+            lawyerId: currentLawyer.id,
+            lawyerName: currentLawyer.fullName,
+            lawyerImage: currentLawyer.profileImage,
+            lawyerSpecialty: currentLawyer.specialty,
+            service: selectedService,
+            date: viewModel.selectedDate,
+            time: selectedTime ?? "TBD",
+            method: isVideoCall ? "Video Call" : "In Person",
+            description: caseDescription,
+            status: "Confirmed"
+        )
+        
+        viewModel.addAppointment(appointment)
+        
+        // Notify Client
+        let notification = FBNotification(
+            title: "New Appointment Booked",
+            body: "Lawyer \(currentLawyer.fullName) has scheduled a \(selectedService) for you.",
+            type: "appointment",
+            timestamp: Date(),
+            relatedId: appointment.id
+        )
+        FirestoreManager.shared.addNotification(notification, toUserId: selectedClientId)
+        
+        // Success cleanup
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            isSaving = false
+            showingAddEvent = false
+            resetForm()
+        }
+    }
+    
+    private func resetForm() {
+        clientSearchName = ""
+        selectedClientId = ""
+        selectedClientImage = nil
+        selectedService = "Case Review (1 hour)"
+        selectedTime = "09:00 AM"
+        isVideoCall = false
+        caseDescription = ""
     }
     
     private var dateFormatter: DateFormatter {
@@ -164,3 +415,4 @@ struct EventRow: View {
         return f
     }
 }
+

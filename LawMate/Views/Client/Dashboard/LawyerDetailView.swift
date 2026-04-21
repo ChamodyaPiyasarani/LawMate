@@ -4,7 +4,27 @@ import MapKit
 struct LawyerDetailView: View {
     let lawyer: Lawyer
     @Environment(\.dismiss) private var dismiss
+    @Binding var navPath: NavigationPath
     @State private var showRatingSheet = false
+    
+    private func startChat() {
+        guard let currentUser = AuthService.shared.currentUser else { return }
+        
+        let partnerInfo = (name: lawyer.name, image: (lawyer.image.count > 15 ? lawyer.image : nil))
+        
+        FirestoreManager.shared.getOrCreateConversation(between: currentUser.id, and: lawyer.id, partnerInfo: partnerInfo, currentUser: currentUser) { convId in
+            if let conversation = FirestoreManager.shared.conversations.first(where: { $0.id == convId }) {
+                navPath.append(conversation)
+            } else {
+                // Fallback: manually fetch if not in local list yet
+                FirestoreManager.shared.db.collection("conversations").document(convId).getDocument { snap, _ in
+                    if let conversation = try? snap?.data(as: FBConversation.self) {
+                        navPath.append(conversation)
+                    }
+                }
+            }
+        }
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -142,22 +162,42 @@ struct LawyerDetailView: View {
                         .padding(.horizontal, 24)
                         .padding(.bottom, 24)
 
-                        // MARK: CTA
-                        NavigationLink(value: ClientHomeView.AppRoute.booking(lawyer)) {
-                            HStack {
-                                Spacer()
-                                Text("Book An Appointment")
-                                    .font(.lmButton)
-                                    .foregroundColor(.white)
-                                Spacer()
+                        // MARK: CTAs
+                        VStack(spacing: 12) {
+                            NavigationLink(value: ClientHomeView.AppRoute.booking(lawyer)) {
+                                HStack {
+                                    Spacer()
+                                    Text("Book An Appointment")
+                                        .font(.lmButton)
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 14)
+                                .background(Color.lmPrimary)
+                                .clipShape(Capsule())
                             }
-                            .padding(.vertical, 14)
-                            .background(Color.lmPrimary)
-                            .clipShape(Capsule())
+                            .buttonStyle(.plain)
+                            
+                            Button {
+                                startChat()
+                            } label: {
+                                HStack {
+                                    Spacer()
+                                    Image(systemName: "bubble.right.fill")
+                                    Text("Chat with Lawyer")
+                                        .font(.lmButton)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 14)
+                                .background(Color.white)
+                                .foregroundColor(.lmPrimary)
+                                .clipShape(Capsule())
+                                .overlay(Capsule().stroke(Color.lmPrimary, lineWidth: 2))
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                         .padding(.horizontal, 40)
-                        .padding(.bottom, 20) // Extra button spacing
+                        .padding(.bottom, 20)
                         
                         // Footer padding for global TabBar
                         Color.clear.frame(height: 220)
@@ -175,19 +215,23 @@ struct LawyerDetailView: View {
 }
 
 #Preview {
-    LawyerDetailView(lawyer: Lawyer(
-        id: "L1",
-        name: "Nimal Perera",
-        specialty: "Criminal Law",
-        bio: "Experienced criminal lawyer",
-        description: "Experienced criminal defense lawyer with over 14 years of practice. Known for strong courtroom representation and client-focused strategies.",
-        experience: "14 YEARS",
-        casesWon: "250 +",
-        rating: 4.8,
-        location: "Colombo, Sri Lanka",
-        image: "person.fill",
-        coordinate: .init(latitude: 6.9271, longitude: 79.8612)
-    ))
+    NavigationStack {
+        LawyerDetailView(lawyer: Lawyer(
+            id: "L1",
+            name: "Nimal Perera",
+            specialty: "Criminal Law",
+            bio: "Experienced criminal lawyer",
+            description: "Experienced criminal defense lawyer with over 14 years of practice. Known for strong courtroom representation and client-focused strategies.",
+            experience: "14 YEARS",
+            experienceYears: 14,
+            casesWon: "250 +",
+            wonCount: 250,
+            rating: 4.8,
+            location: "Colombo, Sri Lanka",
+            image: "person.fill",
+            coordinate: .init(latitude: 6.9271, longitude: 79.8612)
+        ), navPath: .constant(NavigationPath()))
+    }
 }
 
 // MARK: - Stat Card
