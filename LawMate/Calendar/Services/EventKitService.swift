@@ -15,7 +15,11 @@ class EventKitService: ObservableObject {
     func checkPermission() {
         let status = EKEventStore.authorizationStatus(for: .event)
         DispatchQueue.main.async {
-            self.isAuthorized = (status == .authorized || status == .fullAccess)
+            if #available(iOS 17.0, *) {
+                self.isAuthorized = (status == .fullAccess || status == .writeOnly)
+            } else {
+                self.isAuthorized = (status == .authorized)
+            }
         }
     }
     
@@ -53,8 +57,7 @@ class EventKitService: ObservableObject {
     
     func fetchEventsForMonth(date: Date) -> [Date: [EKEvent]] {
         let calendar = Calendar.current
-        guard let monthRange = calendar.range(of: .day, in: .month, for: date),
-              let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: date)) else {
+                guard let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: date)) else {
             return [:]
         }
         

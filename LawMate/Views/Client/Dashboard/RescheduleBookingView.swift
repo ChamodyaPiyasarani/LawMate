@@ -1,9 +1,11 @@
 import SwiftUI
 
 struct RescheduleBookingView: View {
+    let appointment: FBAppointment
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedDate = Date()
-    @State private var selectedTimeSlot: String? = nil
+    @State private var selectedDate: Date
+    @State private var selectedTimeSlot: String?
+    @State private var isUpdating = false
     
     let timeSlots = [
         "09:00 AM", "10:00 AM", "11:00 AM",
@@ -11,6 +13,13 @@ struct RescheduleBookingView: View {
         "04:00 PM", "05:00 PM"
     ]
     
+    init(appointment: FBAppointment) {
+        self.appointment = appointment
+        let day = Calendar.current.startOfDay(for: appointment.date)
+        _selectedDate = State(initialValue: day)
+        _selectedTimeSlot = State(initialValue: appointment.time)
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             Color.white.ignoresSafeArea()
@@ -77,29 +86,59 @@ struct RescheduleBookingView: View {
                         
                         // MARK: Confirm Button
                         Button {
-                            EventKitManager.shared.createEvent(
-                                title: "Rescheduled Consultation",
-                                startDate: selectedDate,
-                                endDate: selectedDate.addingTimeInterval(3600)
-                            ) { success, _ in
+                            guard let appointmentId = appointment.id else {
+                                ToastManager.shared.show(title: "Update Failed", message: "Appointment not found.", type: .error)
+                                return
+                            }
+                            guard let timeSlot = selectedTimeSlot else { return }
+                            isUpdating = true
+
+                            FirestoreManager.shared.validateAppointmentSlot(lawyerId: appointment.lawyerId, date: selectedDate, time: timeSlot, excludingAppointmentId: appointmentId) { canBook, reason in
                                 DispatchQueue.main.async {
-                                    dismiss()
+                                    if canBook {
+                                        FirestoreManager.shared.updateAppointmentSchedule(appointmentId: appointmentId, newDate: selectedDate, newTime: timeSlot) { success, updateReason in
+                                            DispatchQueue.main.async {
+                                                isUpdating = false
+                                                if success {
+                                                    EventKitManager.shared.createEvent(
+                                                        title: "Rescheduled Consultation",
+                                                        startDate: selectedDate,
+                                                        endDate: selectedDate.addingTimeInterval(3600)
+                                                    ) { _, _ in
+                                                        DispatchQueue.main.async {
+                                                            dismiss()
+                                                        }
+                                                    }
+                                                } else {
+                                                    ToastManager.shared.show(title: "Booking Unavailable", message: updateReason ?? "This slot is not available.", type: .error)
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        isUpdating = false
+                                        ToastManager.shared.show(title: "Booking Unavailable", message: reason ?? "This slot is not available.", type: .error)
+                                    }
                                 }
                             }
                         } label: {
                             HStack {
                                 Spacer()
-                                Text("Confirm Reschedule")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.white)
+                                if isUpdating {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Text("Confirm Reschedule")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
                                 Spacer()
                             }
                             .padding(.vertical, 16)
-                            .background(selectedTimeSlot == nil ? Color.gray : Color.lmPrimary)
+                            .background(selectedTimeSlot == nil || isUpdating ? Color.gray : Color.lmPrimary)
                             .clipShape(Capsule())
-                            .shadow(color: selectedTimeSlot == nil ? .clear : Color.lmPrimary.opacity(0.3), radius: 10, x: 0, y: 5)
+                            .shadow(color: selectedTimeSlot == nil || isUpdating ? .clear : Color.lmPrimary.opacity(0.3), radius: 10, x: 0, y: 5)
                         }
-                        .disabled(selectedTimeSlot == nil)
+                        .disabled(selectedTimeSlot == nil || isUpdating)
                         .buttonStyle(.plain)
                         .padding(.bottom, 120) // Moved significantly higher to avoid tab bar
                     }
@@ -113,5 +152,16 @@ struct RescheduleBookingView: View {
 }
 
 #Preview {
-    RescheduleBookingView()
+    RescheduleBookingView(appointment: FBAppointment(
+        clientId: "C1",
+        clientName: "Client",
+        lawyerId: "L1",
+        lawyerName: "Lawyer",
+        service: "Consultation",
+        date: Date(),
+        time: "09:00 AM",
+        method: "Video Call",
+        description: "",
+        status: "Confirmed"
+    ))
 }

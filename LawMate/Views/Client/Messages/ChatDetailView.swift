@@ -50,7 +50,7 @@ struct ChatDetailView: View {
                         .padding(.horizontal, 24)
                         .padding(.bottom, 100) // Padding for input area
                     }
-                    .onChange(of: firestore.messages) { _ in
+                    .onChange(of: firestore.messages) { _, _ in
                         if let lastId = firestore.messages.last?.id {
                             withAnimation {
                                 proxy.scrollTo(lastId, anchor: .bottom)

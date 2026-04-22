@@ -128,10 +128,10 @@ struct MyCaseDetailsView: View {
         }
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showRescheduleSheet) {
-            RescheduleBookingView()
+            RescheduleBookingView(appointment: appointment)
         }
         .sheet(isPresented: $showCancelSheet) {
-            CancelBookingView()
+            CancelBookingView(appointment: appointment)
         }
     }
     

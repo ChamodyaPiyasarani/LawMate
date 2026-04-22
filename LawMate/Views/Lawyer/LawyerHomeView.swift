@@ -67,7 +67,15 @@ struct LawyerHomeView: View {
                                         // MARK: Stats Cards
                                         HStack(spacing: 20) {
                                             DashboardStatCard(title: "Cases", value: String(format: "%02d", firestore.cases.count), isGreen: false)
-                                            DashboardStatCard(title: "Today\nAppointments", value: String(format: "%02d", todayEvents.count + todayAppointments.count), isGreen: true)
+                                            
+                                            Button {
+                                                withAnimation(.spring()) {
+                                                    selectedTab = .calendar
+                                                }
+                                            } label: {
+                                                DashboardStatCard(title: "Today\nAppointments", value: String(format: "%02d", todayEvents.count + todayAppointments.count), isGreen: true)
+                                            }
+                                            .buttonStyle(.plain)
                                         }
                                         .padding(.horizontal, 24)
 
@@ -88,10 +96,24 @@ struct LawyerHomeView: View {
 
                                         // MARK: Schedules
                                         VStack(alignment: .leading, spacing: 16) {
-                                            Text("Today Schedules")
-                                                .font(.system(size: 14, weight: .semibold))
-                                                .foregroundColor(.lmTextSecondary.opacity(0.6))
-                                                .padding(.horizontal, 24)
+                                            HStack {
+                                                Text("Today Schedules")
+                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .foregroundColor(.lmTextSecondary.opacity(0.6))
+                                                
+                                                Spacer()
+                                                
+                                                Button {
+                                                    withAnimation(.spring()) {
+                                                        selectedTab = .calendar
+                                                    }
+                                                } label: {
+                                                    Text("See All")
+                                                        .font(.system(size: 12, weight: .bold))
+                                                        .foregroundColor(.lmPrimary)
+                                                }
+                                            }
+                                            .padding(.horizontal, 24)
 
                                             VStack(spacing: 16) {
                                                 if todayEvents.isEmpty && todayAppointments.isEmpty {
@@ -102,20 +124,34 @@ struct LawyerHomeView: View {
                                                 } else {
                                                     // LawMate Appointments (Priority)
                                                     ForEach(todayAppointments) { appointment in
-                                                        ScheduleRow(
-                                                            time: formatTime(appointment.date),
-                                                            event: "Appt: \(appointment.clientName)",
-                                                            category: appointment.service
-                                                        )
+                                                        Button {
+                                                            withAnimation(.spring()) {
+                                                                selectedTab = .calendar
+                                                            }
+                                                        } label: {
+                                                            ScheduleRow(
+                                                                time: formatTime(appointment.date),
+                                                                event: "Appt: \(appointment.clientName)",
+                                                                category: appointment.service
+                                                            )
+                                                        }
+                                                        .buttonStyle(.plain)
                                                     }
                                                     
                                                     // System Events
                                                     ForEach(todayEvents, id: \.eventIdentifier) { event in
-                                                        ScheduleRow(
-                                                            time: formatTime(event.startDate),
-                                                            event: event.title,
-                                                            category: event.notes?.replacingOccurrences(of: "Type: ", with: "") ?? "General"
-                                                        )
+                                                        Button {
+                                                            withAnimation(.spring()) {
+                                                                selectedTab = .calendar
+                                                            }
+                                                        } label: {
+                                                            ScheduleRow(
+                                                                time: formatTime(event.startDate),
+                                                                event: event.title,
+                                                                category: event.notes?.replacingOccurrences(of: "Type: ", with: "") ?? "General"
+                                                            )
+                                                        }
+                                                        .buttonStyle(.plain)
                                                     }
                                                 }
                                             }

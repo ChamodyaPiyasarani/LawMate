@@ -735,6 +735,17 @@ struct LawMateAvatar: View {
                 } else {
                     fallbackView
                 }
+            } else if let base64String = url, base64String.hasPrefix("data:image") {
+                // Base64 Image
+                if let data = Data(base64Encoded: base64String.components(separatedBy: ",").last ?? ""),
+                   let uiImage = UIImage(data: data) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: size, height: size)
+                } else {
+                    fallbackView
+                }
             } else if let localName = url, !localName.isEmpty {
                 // Local Mock Asset
                 Image(localName)

@@ -111,9 +111,9 @@ struct EventListView: View {
                             .foregroundColor(.lmPrimary)
                         
                         LawMateTextField(icon: "person.badge.shield.fill", placeholder: "Search Client Name", text: $clientSearchName)
-                            .onChange(of: clientSearchName) { _ in
-                                let exactMatch = FirestoreManager.shared.clients.contains(where: { $0.fullName.lowercased() == clientSearchName.lowercased() })
-                                showClientSuggestions = !clientSearchName.isEmpty && !exactMatch
+                            .onChange(of: clientSearchName) { _, newValue in
+                                let exactMatch = FirestoreManager.shared.clients.contains(where: { $0.fullName.lowercased() == newValue.lowercased() })
+                                showClientSuggestions = !newValue.isEmpty && !exactMatch
                             }
                         
                         if showClientSuggestions && !filteredClients.isEmpty {
@@ -305,6 +305,8 @@ struct EventListView: View {
             isSaving = false
             return 
         }
+
+        let appointmentDate = combineDateAndTime(day: viewModel.selectedDate, timeString: selectedTime ?? "")
         
         let appointment = FBAppointment(
             clientId: selectedClientId,
@@ -314,30 +316,34 @@ struct EventListView: View {
             lawyerImage: currentLawyer.profileImage,
             lawyerSpecialty: currentLawyer.specialty,
             service: selectedService,
-            date: viewModel.selectedDate,
+            date: appointmentDate,
             time: selectedTime ?? "TBD",
             method: isVideoCall ? "Video Call" : "In Person",
             description: caseDescription,
             status: "Confirmed"
         )
-        
-        viewModel.addAppointment(appointment)
-        
-        // Notify Client
-        let notification = FBNotification(
-            title: "New Appointment Booked",
-            body: "Lawyer \(currentLawyer.fullName) has scheduled a \(selectedService) for you.",
-            type: "appointment",
-            timestamp: Date(),
-            relatedId: appointment.id
-        )
-        FirestoreManager.shared.addNotification(notification, toUserId: selectedClientId)
-        
-        // Success cleanup
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            isSaving = false
-            showingAddEvent = false
-            resetForm()
+
+        FirestoreManager.shared.createAppointmentWithValidation(appointment) { success, reason in
+            DispatchQueue.main.async {
+                if success {
+                    // Notify Client
+                    let notification = FBNotification(
+                        title: "New Appointment Booked",
+                        body: "Lawyer \(currentLawyer.fullName) has scheduled a \(selectedService) for you.",
+                        type: "appointment",
+                        timestamp: Date(),
+                        relatedId: appointment.id
+                    )
+                    FirestoreManager.shared.addNotification(notification, toUserId: selectedClientId)
+
+                    isSaving = false
+                    showingAddEvent = false
+                    resetForm()
+                } else {
+                    isSaving = false
+                    ToastManager.shared.show(title: "Booking Unavailable", message: reason ?? "This slot is not available.", type: .error)
+                }
+            }
         }
     }
     
@@ -355,6 +361,22 @@ struct EventListView: View {
         let f = DateFormatter()
         f.dateFormat = "MMM dd, yyyy"
         return f
+    }
+
+    private func combineDateAndTime(day: Date, timeString: String) -> Date {
+        let trimmed = timeString.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return day }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "hh:mm a"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        guard let timeDate = formatter.date(from: trimmed) else { return day }
+
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.year, .month, .day], from: day)
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: timeDate)
+        components.hour = timeComponents.hour
+        components.minute = timeComponents.minute
+        return calendar.date(from: components) ?? day
     }
 }
 

@@ -134,7 +134,7 @@ struct UploadAdvisoryView: View {
                                     .padding(.leading, 4)
                                 
                                 LawMateTextField(icon: "tag.circle.fill", placeholder: "e.g. divorce, custody", text: $tagInput)
-                                    .onChange(of: tagInput) { newValue in
+                                    .onChange(of: tagInput) { _, newValue in
                                         if newValue.contains(",") {
                                             let newTags = newValue.components(separatedBy: ",")
                                                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -164,7 +164,7 @@ struct UploadAdvisoryView: View {
                                     category: category,
                                     description: description,
                                     tags: tags,
-                                    lawyerName: User.mockLawyer.fullName,
+                                    lawyerName: AuthService.shared.currentUser?.fullName ?? "LawMate Attorney",
                                     tempURL: url
                                 )
                                 
@@ -181,7 +181,7 @@ struct UploadAdvisoryView: View {
                                         category: category,
                                         description: description,
                                         tags: tags,
-                                        lawyerName: User.mockLawyer.fullName,
+                                        lawyerName: AuthService.shared.currentUser?.fullName ?? "LawMate Attorney",
                                         tempURL: tempURL
                                     )
                                     
@@ -239,7 +239,7 @@ struct UploadAdvisoryView: View {
             }
         }
         .photosPicker(isPresented: $isPhotosPickerPresented, selection: $photosPickerItem, matching: .images)
-        .onChange(of: photosPickerItem) { newItem in
+        .onChange(of: photosPickerItem) { _, newItem in
             Task {
                 if let data = try? await newItem?.loadTransferable(type: Data.self),
                    let image = UIImage(data: data) {

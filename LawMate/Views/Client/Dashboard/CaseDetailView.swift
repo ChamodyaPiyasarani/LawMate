@@ -116,7 +116,7 @@ struct CaseDetailView: View {
                     .padding()
             }
         }
-        .onChange(of: selectedImage) { _ in
+        .onChange(of: selectedImage) { _, _ in
             handleImageUpload()
         }
         .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.pdf, .png, .jpeg]) { result in

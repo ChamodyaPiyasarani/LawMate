@@ -2,8 +2,9 @@ import SwiftUI
 import MapKit
 
 struct BookingView: View {
-    let lawyer: Lawyer
+    let lawyer: Lawyer?
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var firestore = FirestoreManager.shared
     
     @State private var selectedService = "Case Review (1 hour)"
     @State private var selectedDate = Date()
@@ -11,12 +12,53 @@ struct BookingView: View {
     @State private var isVideoCall = false
     @State private var caseDescription = ""
     
+    // Lawyer Selection State
+    @State private var selectedLawyer: Lawyer?
+    @State private var lawyerSearchText = ""
+    @State private var showSuggestions = false
+    
     // Validation & Loading State
     @State private var descriptionError: String?
     @State private var isBooking = false
     
     let services = ["Case Review (1 hour)", "Legal Consultation (30 mins)", "Document Drafting", "Court Representation"]
     let timeSlots = ["09:00 AM", "10:30 AM", "01:00 PM", "02:30 PM"]
+    
+    var allLawyers: [Lawyer] {
+        firestore.lawyers.map { user in
+            let expValue = Int(user.experience?.components(separatedBy: CharacterSet.decimalDigits.inverted).filter { !$0.isEmpty }.first ?? "0") ?? 0
+            let wonValue = Int(user.casesWon?.components(separatedBy: CharacterSet.decimalDigits.inverted).filter { !$0.isEmpty }.first ?? "0") ?? 0
+            
+            return Lawyer(
+                id: user.id,
+                name: user.fullName,
+                specialty: user.specialty ?? "General Practice",
+                bio: user.bio ?? "Professional Lawyer",
+                description: user.bio ?? "",
+                experience: user.experience ?? "5 YEARS",
+                experienceYears: expValue,
+                casesWon: user.casesWon ?? "0",
+                wonCount: wonValue,
+                rating: 4.8,
+                location: "Colombo, Sri Lanka",
+                image: user.profileImage ?? "",
+                coordinate: .init(latitude: 6.9271, longitude: 79.8612)
+            )
+        }
+    }
+    
+    var lawyerSuggestions: [Lawyer] {
+        if lawyerSearchText.isEmpty { return [] }
+        return allLawyers.filter { $0.name.localizedCaseInsensitiveContains(lawyerSearchText) }
+    }
+    
+    init(lawyer: Lawyer? = nil) {
+        self.lawyer = lawyer
+        _selectedLawyer = State(initialValue: lawyer)
+        if let lawyer = lawyer {
+            _lawyerSearchText = State(initialValue: lawyer.name)
+        }
+    }
                              
     var body: some View {
         ZStack(alignment: .top) {
@@ -38,6 +80,104 @@ struct BookingView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 28) {
+                        
+                        // MARK: Lawyer Selection
+                        VStack(alignment: .leading, spacing: 12) {
+                            SectionTitle(title: selectedLawyer == nil ? "Select Lawyer" : "Selected Lawyer")
+                            
+                            VStack(spacing: 0) {
+                                if let selected = selectedLawyer, lawyer != nil {
+                                    // Pre-selected Lawyer Card (Read-only)
+                                    HStack(spacing: 12) {
+                                        LawMateAvatar(url: selected.image, name: selected.name, size: 48)
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(selected.name)
+                                                .font(.system(size: 16, weight: .bold))
+                                                .foregroundColor(.lmPrimary)
+                                            Text(selected.specialty)
+                                                .font(.system(size: 12))
+                                                .foregroundColor(.lmTextSecondary)
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding(16)
+                                    .background(Color.white.opacity(0.4))
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                    )
+                                } else {
+                                    // Searchable Lawyer Selection
+                                    HStack {
+                                        Image(systemName: "person.fill")
+                                            .foregroundColor(.lmPrimary.opacity(0.5))
+                                        
+                                        TextField("Type lawyer's name...", text: $lawyerSearchText)
+                                            .foregroundColor(.lmTextPrimary)
+                                            .onChange(of: lawyerSearchText) { _, newValue in
+                                                if selectedLawyer?.name != newValue {
+                                                    selectedLawyer = nil
+                                                    showSuggestions = !newValue.isEmpty && !lawyerSuggestions.isEmpty
+                                                }
+                                            }
+                                        
+                                        if selectedLawyer != nil {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(.green)
+                                        }
+                                    }
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 16)
+                                    .background(.ultraThinMaterial)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                    )
+                                    
+                                    if showSuggestions {
+                                        VStack(alignment: .leading, spacing: 0) {
+                                            ForEach(lawyerSuggestions) { suggestedLawyer in
+                                                Button {
+                                                    selectedLawyer = suggestedLawyer
+                                                    lawyerSearchText = suggestedLawyer.name
+                                                    showSuggestions = false
+                                                } label: {
+                                                    HStack(spacing: 12) {
+                                                        LawMateAvatar(url: suggestedLawyer.image, name: suggestedLawyer.name, size: 32)
+                                                        
+                                                        VStack(alignment: .leading, spacing: 2) {
+                                                            Text(suggestedLawyer.name)
+                                                                .font(.system(size: 14, weight: .bold))
+                                                                .foregroundColor(.lmPrimary)
+                                                            Text(suggestedLawyer.specialty)
+                                                                    .font(.system(size: 10))
+                                                                    .foregroundColor(.lmTextSecondary)
+                                                        }
+                                                        Spacer()
+                                                    }
+                                                    .padding(.vertical, 10)
+                                                    .padding(.horizontal, 16)
+                                                }
+                                                .buttonStyle(.plain)
+                                                
+                                                if suggestedLawyer.id != lawyerSuggestions.last?.id {
+                                                    Divider().padding(.horizontal, 16)
+                                                }
+                                            }
+                                        }
+                                        .background(Color.white)
+                                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                                        .shadow(color: Color.black.opacity(0.1), radius: 10, y: 5)
+                                        .padding(.top, 4)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .zIndex(100)
                         
                         // MARK: Service Selection
                         VStack(alignment: .leading, spacing: 12) {
@@ -161,12 +301,16 @@ struct BookingView: View {
                         // MARK: Confirm Button
                         Button {
                             if validateForm() {
+                                guard let selectedLawyer = selectedLawyer else {
+                                    ToastManager.shared.show(title: "Select Lawyer", message: "Please select a lawyer from the suggestions.", type: .error)
+                                    return
+                                }
                                 guard let time = selectedTime, !time.isEmpty else {
                                     ToastManager.shared.show(title: "Select Time", message: "Please select a time slot before confirming.", type: .error)
                                     return
                                 }
                                 isBooking = true
-                                FirestoreManager.shared.validateAppointmentSlot(lawyerId: lawyer.id, date: selectedDate, time: time) { canBook, reason in
+                                FirestoreManager.shared.validateAppointmentSlot(lawyerId: selectedLawyer.id, date: selectedDate, time: time) { canBook, reason in
                                     DispatchQueue.main.async {
                                         if canBook {
                                             performBooking()
@@ -210,6 +354,7 @@ struct BookingView: View {
     
     private func performBooking() {
         isBooking = true
+        guard let currentLawyer = selectedLawyer else { return }
         let client = AuthService.shared.currentUser
         
         // Merge date and time string into a single Date object
@@ -229,11 +374,11 @@ struct BookingView: View {
             }
         }
         
-        var appointment = FBAppointment(
+        let appointment = FBAppointment(
             clientId: client?.id ?? "",
             clientName: client?.fullName ?? "Unknown Client",
-            lawyerId: lawyer.id,
-            lawyerName: lawyer.name,
+            lawyerId: currentLawyer.id,
+            lawyerName: currentLawyer.name,
             service: selectedService,
             date: bookingDate,
             time: selectedTime ?? "TBD",
@@ -243,11 +388,11 @@ struct BookingView: View {
         )
         
         // Step 1: Save to Firestore
-        FirestoreManager.shared.addAppointment(appointment) { success in
+        FirestoreManager.shared.createAppointmentWithValidation(appointment) { success, reason in
             guard success else {
                 DispatchQueue.main.async {
                     isBooking = false
-                    ToastManager.shared.show(title: "Booking Failed", message: "We couldn't save your appointment. Please try again.", type: .error)
+                    ToastManager.shared.show(title: "Booking Failed", message: reason ?? "We couldn't save your appointment. Please try again.", type: .error)
                 }
                 return
             }
@@ -260,14 +405,14 @@ struct BookingView: View {
                 timestamp: Date(),
                 relatedId: appointment.id
             )
-            FirestoreManager.shared.addNotification(lawyerNotification, toUserId: lawyer.id)
+            FirestoreManager.shared.addNotification(lawyerNotification, toUserId: currentLawyer.id)
             
             // Step 3: Local Calendar Sync
             EventKitManager.shared.createEvent(
-                title: "Consultation with \(lawyer.name)",
+                title: "Consultation with \(currentLawyer.name)",
                 startDate: selectedDate,
                 endDate: selectedDate.addingTimeInterval(3600),
-                location: isVideoCall ? "Video Call" : lawyer.location,
+                location: isVideoCall ? "Video Call" : currentLawyer.location,
                 notes: caseDescription
             ) { calSuccess, calError in
                 DispatchQueue.main.async {

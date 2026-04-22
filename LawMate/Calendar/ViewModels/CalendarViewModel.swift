@@ -145,13 +145,13 @@ class CalendarViewModel: ObservableObject {
     }
     
     func addAppointment(_ appointment: FBAppointment) {
-        firestore.addAppointment(appointment) { [weak self] success in
+        firestore.createAppointmentWithValidation(appointment) { [weak self] success, reason in
             DispatchQueue.main.async {
                 if success {
                     self?.refreshMonthData()
                     self?.refreshSelectedDateEvents()
                 } else {
-                    self?.errorMessage = "Failed to save appointment to the database."
+                    self?.errorMessage = reason ?? "Failed to save appointment to the database."
                 }
             }
         }

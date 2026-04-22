@@ -1,9 +1,11 @@
 import SwiftUI
 
 struct CancelBookingView: View {
+    let appointment: FBAppointment
     @Environment(\.dismiss) private var dismiss
     @State private var selectedReason: String? = nil
     @State private var otherReason: String = ""
+    @State private var isCancelling = false
     
     let cancellationReasons = [
         "I have a scheduling conflict",
@@ -107,22 +109,40 @@ struct CancelBookingView: View {
                         
                         // MARK: Confirm Action
                         Button {
-                            // Cancel action
-                            dismiss()
+                            guard let appointmentId = appointment.id else {
+                                ToastManager.shared.show(title: "Cancellation Failed", message: "Appointment not found.", type: .error)
+                                return
+                            }
+                            isCancelling = true
+                            FirestoreManager.shared.deleteAppointment(id: appointmentId) { success in
+                                DispatchQueue.main.async {
+                                    isCancelling = false
+                                    if success {
+                                        dismiss()
+                                    } else {
+                                        ToastManager.shared.show(title: "Cancellation Failed", message: "We couldn't cancel this appointment. Please try again.", type: .error)
+                                    }
+                                }
+                            }
                         } label: {
                             HStack {
                                 Spacer()
-                                Text("Confirm Cancellation")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.white)
+                                if isCancelling {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Text("Confirm Cancellation")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
                                 Spacer()
                             }
                             .padding(.vertical, 16)
-                            .background(selectedReason == nil ? Color.gray : Color.red)
+                            .background(selectedReason == nil || isCancelling ? Color.gray : Color.red)
                             .clipShape(Capsule())
-                            .shadow(color: selectedReason == nil ? .clear : Color.red.opacity(0.3), radius: 10, x: 0, y: 5)
+                            .shadow(color: selectedReason == nil || isCancelling ? .clear : Color.red.opacity(0.3), radius: 10, x: 0, y: 5)
                         }
-                        .disabled(selectedReason == nil)
+                        .disabled(selectedReason == nil || isCancelling)
                         .buttonStyle(.plain)
                         .padding(.bottom, 120) // Moved significantly higher to avoid tab bar
                     }
@@ -136,5 +156,16 @@ struct CancelBookingView: View {
 }
 
 #Preview {
-    CancelBookingView()
+    CancelBookingView(appointment: FBAppointment(
+        clientId: "C1",
+        clientName: "Client",
+        lawyerId: "L1",
+        lawyerName: "Lawyer",
+        service: "Consultation",
+        date: Date(),
+        time: "09:00 AM",
+        method: "Video Call",
+        description: "",
+        status: "Confirmed"
+    ))
 }

@@ -3,7 +3,6 @@ import Combine
 import LocalAuthentication
 import FirebaseAuth
 import FirebaseFirestore
-import FirebaseFirestoreSwift
 import FirebaseMessaging
 import FirebaseStorage
 
@@ -81,60 +80,33 @@ class AuthService: ObservableObject {
     }
     
     func uploadProfileImage(_ image: UIImage, completion: @escaping (Result<String, Error>) -> Void) {
-        guard let uid = Auth.auth().currentUser?.uid else {
+        guard let _ = Auth.auth().currentUser?.uid else {
             completion(.failure(NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])))
             return
         }
         
-        guard let imageData = image.jpegData(compressionQuality: 0.6) else {
+        // 1. Resize image to keep Base64 string small (Firestore has 1MB limit)
+        let targetSize = CGSize(width: 300, height: 300)
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        let resizedImage = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+        
+        // 2. Convert to Base64 (High compression)
+        guard let imageData = resizedImage.jpegData(compressionQuality: 0.4) else {
             completion(.failure(NSError(domain: "Auth", code: 400, userInfo: [NSLocalizedDescriptionKey: "Failed to process image"])))
             return
         }
         
-        let storage = Storage.storage()
-        let storageRef = storage.reference().child("profile_images").child("\(uid).jpg")
-        let metadata = StorageMetadata()
-        metadata.contentType = "image/jpeg"
+        let base64String = "data:image/jpeg;base64," + imageData.base64EncodedString()
         
-        storageRef.putData(imageData, metadata: metadata) { [weak self] _, error in
-            if let error = error as NSError? {
-                let message = self?.mapStorageError(error) ?? error.localizedDescription
-                let detailedMessage = "Storage (\(error.code)): \(message)"
-                print("DEBUG: \(detailedMessage)")
-                completion(.failure(NSError(domain: "Storage", code: error.code, userInfo: [NSLocalizedDescriptionKey: detailedMessage])))
-                return
+        // 3. Store directly in Firestore
+        self.updateUserProfile(profileImage: base64String) { success in
+            if success {
+                completion(.success(base64String))
+            } else {
+                completion(.failure(NSError(domain: "Auth", code: 500, userInfo: [NSLocalizedDescriptionKey: "Database (500): Failed to save profile image data."])))
             }
-            
-            storageRef.downloadURL { url, error in
-                if let error = error as NSError? {
-                    let message = self?.mapStorageError(error) ?? error.localizedDescription
-                    let detailedMessage = "Storage (\(error.code)): \(message)"
-                    print("DEBUG: \(detailedMessage)")
-                    completion(.failure(NSError(domain: "Storage", code: error.code, userInfo: [NSLocalizedDescriptionKey: detailedMessage])))
-                    return
-                }
-                
-                if let downloadURL = url?.absoluteString {
-                    self?.updateUserProfile(profileImage: downloadURL) { success in
-                        if success {
-                            completion(.success(downloadURL))
-                        } else {
-                            completion(.failure(NSError(domain: "Auth", code: 500, userInfo: [NSLocalizedDescriptionKey: "Database (500): Profile uploaded, but database update failed."])))
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    private func mapStorageError(_ error: NSError) -> String {
-        switch error.code {
-        case 18001, -13021: return "[\(error.code)] The image file or storage bucket was not found. Please ensure Storage is set up in Firebase."
-        case 18006, -13010: return "[\(error.code)] Permissions denied. Check your Firebase Storage security rules."
-        case 18005: return "[\(error.code)] User is not authenticated."
-        case 18004: return "[\(error.code)] Storage quota exceeded. Please check your billing plan."
-        case -13000: return "[\(error.code)] An unknown storage error occurred."
-        default: return "[\(error.code)] \(error.localizedDescription)"
         }
     }
     
@@ -200,7 +172,7 @@ class AuthService: ObservableObject {
     }
     
     func login(email: String, password: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        Auth.auth().signIn(withEmail: email, password: password) { [weak self] result, error in
+        Auth.auth().signIn(withEmail: email, password: password) { result, error in
             if let error = error {
                 completion(.failure(error))
             } else {

@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-import FirebaseFirestoreSwift
+import FirebaseFirestore
 
 struct FBLegalCase: Identifiable, Codable, Hashable {
     @DocumentID var id: String?

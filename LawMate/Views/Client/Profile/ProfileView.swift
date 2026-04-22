@@ -133,7 +133,7 @@ struct ProfileView: View {
         .sheet(isPresented: $showImagePicker) {
             ImagePicker(sourceType: imageSource, selectedImage: $selectedImage)
         }
-        .onChange(of: selectedImage) { newImage in
+        .onChange(of: selectedImage) { _, newImage in
             if let img = newImage {
                 uploadImage(img)
             }

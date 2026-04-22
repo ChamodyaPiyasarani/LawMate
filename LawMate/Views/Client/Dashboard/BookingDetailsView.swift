@@ -38,21 +38,7 @@ struct BookingDetailsView: View {
                     Spacer()
                     
                     // MARK: + Add Button (Standardized as Circle)
-                    NavigationLink(value: ClientHomeView.AppRoute.booking(Lawyer(
-                        id: "L1",
-                        name: "Nimal Perera",
-                        specialty: "Criminal Law",
-                        bio: "Criminal specialist",
-                        description: "Bio",
-                        experience: "14 YEARS",
-                        experienceYears: 14,
-                        casesWon: "250 +",
-                        wonCount: 250,
-                        rating: 4.8,
-                        location: "Colombo",
-                        image: "person",
-                        coordinate: .init(latitude: 6.9271, longitude: 79.8612)
-                    ))) {
+                    NavigationLink(value: ClientHomeView.AppRoute.booking(nil)) {
                         Image(systemName: "plus")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.lmPrimary)

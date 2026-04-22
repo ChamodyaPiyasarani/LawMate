@@ -141,8 +141,8 @@ struct LawyersListView: View {
                 // MARK: Search Bar
                 VStack(spacing: 0) {
                     LawMateSearchBar(text: $searchText, placeholder: "Search lawyers or legal fields")
-                        .onChange(of: searchText) { _ in
-                            showSuggestions = !searchText.isEmpty && !suggestions.isEmpty
+                        .onChange(of: searchText) { _, newValue in
+                            showSuggestions = !newValue.isEmpty && !suggestions.isEmpty
                         }
                     
                     if showSuggestions {

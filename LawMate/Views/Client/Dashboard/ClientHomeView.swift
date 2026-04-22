@@ -7,7 +7,7 @@ struct ClientHomeView: View {
     
     // Simple routes for screens without complex data models
     enum AppRoute: Hashable {
-        case myCases, documents, notifications, booking(Lawyer), allAppointments
+        case myCases, documents, notifications, booking(Lawyer?), allAppointments
     }
 
     var body: some View {
@@ -320,7 +320,7 @@ struct ClientHomeView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: navPath.isEmpty)
-        .onChange(of: selectedTab) { _ in
+        .onChange(of: selectedTab) { _, _ in
             navPath = NavigationPath()
         }
         .onAppear {

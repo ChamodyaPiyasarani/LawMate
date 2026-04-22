@@ -93,8 +93,8 @@ struct MessagesListView: View {
                         onSelect(existing)
                     } else {
                         // Temp object to trigger navigation
-                        var memberNames = [currentUser.id: currentUser.fullName, contact.id: contact.name]
-                        var memberImages = [currentUser.id: currentUser.profileImage, contact.id: contact.image]
+                        let memberNames = [currentUser.id: currentUser.fullName, contact.id: contact.name]
+                        let memberImages = [currentUser.id: currentUser.profileImage, contact.id: contact.image]
                         
                         let tempConv = FBConversation(
                             id: conversationId,

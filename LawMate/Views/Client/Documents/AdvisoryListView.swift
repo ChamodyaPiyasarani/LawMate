@@ -6,50 +6,12 @@ struct AdvisoryListView: View {
     @State private var selectedCategory = "All"
     @State private var showFilterSheet = false
     
-    // MARK: - Mock Data
-    @State private var allDocuments: [AdvisoryDocument] = [
-        AdvisoryDocument(
-            title: "Divorce Proceedings Guide 2024",
-            description: "A comprehensive guide explaining the step-by-step legal procedure for filing for divorce in Sri Lanka.",
-            category: "Family Law",
-            tags: ["divorce", "custody", "legal-aid"],
-            lawyerName: "Atty. Nimal Perera",
-            date: "Apr 10, 2026",
-            fileType: "PDF"
-        ),
-        AdvisoryDocument(
-            title: "Commercial Lease Agreement Template",
-            description: "Standard commercial lease agreement including clauses for security deposit and maintenance responsibilities.",
-            category: "Property Law",
-            tags: ["lease", "rent", "commercial"],
-            lawyerName: "Atty. Sarah De Silva",
-            date: "Apr 11, 2026",
-            fileType: "DOCX"
-        ),
-        AdvisoryDocument(
-            title: "Criminal Defense Rights",
-            description: "An overview of person's fundamental rights when being questioned or detained by authorities.",
-            category: "Criminal Law",
-            tags: ["rights", "defense", "detention"],
-            lawyerName: "Atty. Kasun Rajapakshe",
-            date: "Apr 08, 2026",
-            fileType: "PDF"
-        ),
-        AdvisoryDocument(
-            title: "Intellectual Property Basics",
-            description: "Understanding trademarks, copyrights and patents for small business owners and content creators.",
-            category: "Corporate Law",
-            tags: ["IP", "trademark", "business"],
-            lawyerName: "Atty. Sarah De Silva",
-            date: "Apr 05, 2026",
-            fileType: "PDF"
-        )
-    ]
+    @ObservedObject private var docManager = DocumentManager.shared
     
     private let categories = ["All", "Family Law", "Criminal Law", "Property Law", "Corporate Law"]
 
     var filteredDocuments: [AdvisoryDocument] {
-        allDocuments.filter { doc in
+        docManager.documents.filter { doc in
             let matchesCategory = selectedCategory == "All" || doc.category == selectedCategory
             let matchesSearch = searchText.isEmpty || 
                                doc.title.localizedCaseInsensitiveContains(searchText) ||

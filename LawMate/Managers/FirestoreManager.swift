@@ -1,11 +1,14 @@
 import Foundation
 import FirebaseFirestore
-import FirebaseFirestoreSwift
 import FirebaseStorage
 
 class FirestoreManager: ObservableObject {
     static let shared = FirestoreManager()
     let db = Firestore.firestore()
+
+    private let appointmentSlotMinutes: Int = 60
+    private let appointmentTimeFormat = "hh:mm a"
+    private let appointmentValidationDomain = "AppointmentValidation"
     
     @Published var cases: [FBLegalCase] = []
     @Published var lawyers: [User] = []
@@ -181,7 +184,6 @@ class FirestoreManager: ObservableObject {
     func fetchDocuments(forCaseId caseId: String, completion: @escaping ([FBDocument]) -> Void) {
         db.collection("documents")
             .whereField("legalCaseId", isEqualTo: caseId)
-            .order(by: "uploadedAt", descending: true)
             .getDocuments { snapshot, error in
                 guard let docs = snapshot?.documents else {
                     print("Error fetching docs: \(error?.localizedDescription ?? "unknown")")
@@ -190,7 +192,9 @@ class FirestoreManager: ObservableObject {
                 }
                 
                 let documents = docs.compactMap { try? $0.data(as: FBDocument.self) }
-                completion(documents)
+                // Sort by uploadedAt descending in memory to avoid index requirements
+                let sortedDocs = documents.sorted { ($0.uploadedAt) > ($1.uploadedAt) }
+                completion(sortedDocs)
             }
     }
     
@@ -201,7 +205,6 @@ class FirestoreManager: ObservableObject {
         
         conversationsListener = db.collection("conversations")
             .whereField("participants", arrayContains: userId)
-            .order(by: "lastMessageAt", descending: true)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let documents = snapshot?.documents else {
                     print("Error fetching conversations: \(error?.localizedDescription ?? "Unknown")")
@@ -303,7 +306,7 @@ class FirestoreManager: ObservableObject {
                     // Create new conversation
                     var memberNames = [user1: partnerInfo.name, user2: partnerInfo.name]
                     var memberImages = [user1: partnerInfo.image, user2: partnerInfo.image]
-                    var unreadCounts = [user1: 0, user2: 0]
+                    let unreadCounts = [user1: 0, user2: 0]
                     
                     // Correct the names/images for the current user
                     memberNames[currentUser.id] = currentUser.fullName
@@ -364,6 +367,40 @@ class FirestoreManager: ObservableObject {
     }
     
     // MARK: - Appointments
+
+    private func combineDateAndTime(day: Date, timeString: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = appointmentTimeFormat
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        guard let timeDate = formatter.date(from: timeString) else { return nil }
+
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.year, .month, .day], from: day)
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: timeDate)
+        components.hour = timeComponents.hour
+        components.minute = timeComponents.minute
+        return calendar.date(from: components)
+    }
+
+    private func appointmentStartDate(date: Date, timeString: String?) -> Date? {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: date)
+        let minute = calendar.component(.minute, from: date)
+
+        if hour == 0 && minute == 0, let timeString, !timeString.isEmpty {
+            return combineDateAndTime(day: calendar.startOfDay(for: date), timeString: timeString)
+        }
+
+        return date
+    }
+
+    private func overlaps(start: Date, end: Date, otherStart: Date, otherEnd: Date) -> Bool {
+        return start < otherEnd && otherStart < end
+    }
+
+    private func validationError(_ message: String, code: Int) -> NSError {
+        NSError(domain: appointmentValidationDomain, code: code, userInfo: [NSLocalizedDescriptionKey: message])
+    }
     
     func listenForAppointments(userId: String, role: UserRole) {
         appointmentsListener?.remove()
@@ -389,23 +426,257 @@ class FirestoreManager: ObservableObject {
     }
     
     func addAppointment(_ appointment: FBAppointment, completion: ((Bool) -> Void)? = nil) {
+        createAppointmentWithValidation(appointment) { success, _ in
+            completion?(success)
+        }
+    }
+
+    func createAppointmentWithValidation(_ appointment: FBAppointment, completion: @escaping (Bool, String?) -> Void) {
         var normalizedAppointment = appointment
-        // We no longer reset to startOfDay here because we want to preserve the specific time slot (e.g., 10:30 AM)
-        // selected by the client. Isolation is handled by unique IDs and the time slot check.
-        
-        // Auto-fill specialty if missing
+
+        if let combined = combineDateAndTime(day: appointment.date, timeString: appointment.time) {
+            normalizedAppointment.date = combined
+        } else if !appointment.time.trimmingCharacters(in: .whitespaces).isEmpty {
+            completion(false, "Invalid time slot. Please select a valid time.")
+            return
+        }
+
         if normalizedAppointment.lawyerSpecialty == nil {
             if let lawyer = lawyers.first(where: { $0.id == appointment.lawyerId }) {
                 normalizedAppointment.lawyerSpecialty = lawyer.specialty
             }
         }
-        do {
-            try db.collection("appointments").addDocument(from: normalizedAppointment) { error in
-                completion?(error == nil)
+
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: normalizedAppointment.date)
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else {
+            completion(false, "System was unable to verify availability. Please try again.")
+            return
+        }
+
+        let query = db.collection("appointments")
+            .whereField("lawyerId", isEqualTo: normalizedAppointment.lawyerId)
+
+        query.getDocuments { [weak self] snapshot, error in
+            guard let self else {
+                completion(false, "System was unable to verify availability. Please try again.")
+                return
             }
-        } catch {
-            print("Error creating appointment: \(error)")
-            completion?(false)
+
+            if let error = error as NSError? {
+                let errDesc = error.localizedDescription.lowercased()
+                if errDesc.contains("index") || errDesc.contains("composite") || error.code == 9 {
+                    completion(false, "Database Index Missing. Please check Xcode console for the creation link.")
+                } else {
+                    completion(false, "System was unable to verify availability. Please try again or check your connection.")
+                }
+                return
+            }
+
+            // Filter by date range in memory to avoid composite index requirements
+            let filteredDocuments = snapshot?.documents.filter { doc in
+                guard let timestamp = doc.get("date") as? Timestamp else { return false }
+                let dateValue = timestamp.dateValue()
+                return dateValue >= start && dateValue < end
+            } ?? []
+
+            let docRefs = filteredDocuments.map { $0.reference }
+
+            self.db.runTransaction({ transaction, errorPointer in
+                do {
+                    var documents: [DocumentSnapshot] = []
+                    documents.reserveCapacity(docRefs.count)
+                    for ref in docRefs {
+                        let doc = try transaction.getDocument(ref)
+                        if doc.exists {
+                            documents.append(doc)
+                        }
+                    }
+
+                    if documents.count >= 3 {
+                        errorPointer?.pointee = self.validationError("This lawyer is fully booked for the selected date. Please choose another day.", code: 1001)
+                        return nil
+                    }
+
+                    guard let newStart = self.appointmentStartDate(date: normalizedAppointment.date, timeString: normalizedAppointment.time) else {
+                        errorPointer?.pointee = self.validationError("Invalid time slot. Please select a valid time.", code: 1002)
+                        return nil
+                    }
+                    let newEnd = newStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
+
+                    for doc in documents {
+                        let data = doc.data() ?? [:]
+                        let time = data["time"] as? String
+                        let dateValue = (data["date"] as? Timestamp)?.dateValue() ?? Date()
+                        guard let existingStart = self.appointmentStartDate(date: dateValue, timeString: time) else { continue }
+                        let existingEnd = existingStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
+                        if self.overlaps(start: newStart, end: newEnd, otherStart: existingStart, otherEnd: existingEnd) {
+                            errorPointer?.pointee = self.validationError("The selected time overlaps with another appointment. Please choose a different time.", code: 1003)
+                            return nil
+                        }
+                    }
+
+                    let ref = self.db.collection("appointments").document()
+                    try transaction.setData(from: normalizedAppointment, forDocument: ref)
+                    return nil
+                } catch {
+                    errorPointer?.pointee = error as NSError
+                    return nil
+                }
+            }) { _, error in
+                if let error = error as NSError? {
+                    if error.domain == self.appointmentValidationDomain {
+                        completion(false, error.localizedDescription)
+                        return
+                    }
+
+                    let errDesc = error.localizedDescription.lowercased()
+                    if errDesc.contains("index") || errDesc.contains("composite") || error.code == 9 {
+                        completion(false, "Database Index Missing. Please check Xcode console for the creation link.")
+                    } else {
+                        completion(false, "System was unable to verify availability. Please try again or check your connection.")
+                    }
+                    return
+                }
+
+                completion(true, nil)
+            }
+        }
+    }
+
+    func updateAppointmentSchedule(appointmentId: String, newDate: Date, newTime: String, completion: @escaping (Bool, String?) -> Void) {
+        let docRef = db.collection("appointments").document(appointmentId)
+        let calendar = Calendar.current
+
+        guard let combinedDate = combineDateAndTime(day: newDate, timeString: newTime) else {
+            completion(false, "Invalid time slot. Please select a valid time.")
+            return
+        }
+
+        let start = calendar.startOfDay(for: combinedDate)
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else {
+            completion(false, "System was unable to verify availability. Please try again.")
+            return
+        }
+
+        docRef.getDocument { [weak self] snapshot, error in
+            guard let self else {
+                completion(false, "System was unable to verify availability. Please try again.")
+                return
+            }
+
+            if let error = error as NSError? {
+                let errDesc = error.localizedDescription.lowercased()
+                if errDesc.contains("index") || errDesc.contains("composite") || error.code == 9 {
+                    completion(false, "Database Index Missing. Please check Xcode console for the creation link.")
+                } else {
+                    completion(false, "System was unable to verify availability. Please try again or check your connection.")
+                }
+                return
+            }
+
+            guard let data = snapshot?.data(), let lawyerId = data["lawyerId"] as? String else {
+                completion(false, "Appointment not found.")
+                return
+            }
+
+            let query = self.db.collection("appointments")
+                .whereField("lawyerId", isEqualTo: lawyerId)
+
+            query.getDocuments { [weak self] snapshot, error in
+                guard let self else {
+                    completion(false, "System was unable to verify availability. Please try again.")
+                    return
+                }
+
+                if let error = error as NSError? {
+                    let errDesc = error.localizedDescription.lowercased()
+                    if errDesc.contains("index") || errDesc.contains("composite") || error.code == 9 {
+                        completion(false, "Database Index Missing. Please check Xcode console for the creation link.")
+                    } else {
+                        completion(false, "System was unable to verify availability. Please try again or check your connection.")
+                    }
+                    return
+                }
+
+                // Filter by date range in memory to avoid composite index requirements
+                let filteredDocuments = snapshot?.documents.filter { doc in
+                    guard let timestamp = doc.get("date") as? Timestamp else { return false }
+                    let dateValue = timestamp.dateValue()
+                    return dateValue >= start && dateValue < end
+                } ?? []
+
+                let docRefs = filteredDocuments.map { $0.reference }
+
+                self.db.runTransaction({ transaction, errorPointer in
+                do {
+                    let existingSnapshot = try transaction.getDocument(docRef)
+                    var existing = try existingSnapshot.data(as: FBAppointment.self)
+
+                    existing.date = combinedDate
+                    existing.time = newTime
+
+                    var documents: [DocumentSnapshot] = []
+                    documents.reserveCapacity(docRefs.count)
+                    for ref in docRefs {
+                        if ref.documentID == appointmentId { continue }
+                        let doc = try transaction.getDocument(ref)
+                        if doc.exists {
+                            documents.append(doc)
+                        }
+                    }
+
+                    if documents.count >= 3 {
+                        errorPointer?.pointee = self.validationError("This lawyer is fully booked for the selected date. Please choose another day.", code: 1001)
+                        return nil
+                    }
+
+                    let newStart = combinedDate
+                    let newEnd = newStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
+
+                    for doc in documents {
+                        let data = doc.data() ?? [:]
+                        let time = data["time"] as? String
+                        let dateValue = (data["date"] as? Timestamp)?.dateValue() ?? Date()
+                        guard let existingStart = self.appointmentStartDate(date: dateValue, timeString: time) else { continue }
+                        let existingEnd = existingStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
+                        if self.overlaps(start: newStart, end: newEnd, otherStart: existingStart, otherEnd: existingEnd) {
+                            errorPointer?.pointee = self.validationError("The selected time overlaps with another appointment. Please choose a different time.", code: 1003)
+                            return nil
+                        }
+                    }
+
+                    try transaction.setData(from: existing, forDocument: docRef)
+                    return nil
+                } catch {
+                    errorPointer?.pointee = error as NSError
+                    return nil
+                }
+                }) { _, error in
+                if let error = error as NSError? {
+                    if error.domain == self.appointmentValidationDomain {
+                        completion(false, error.localizedDescription)
+                        return
+                    }
+
+                    let errDesc = error.localizedDescription.lowercased()
+                    if errDesc.contains("index") || errDesc.contains("composite") || error.code == 9 {
+                        completion(false, "Database Index Missing. Please check Xcode console for the creation link.")
+                    } else {
+                        completion(false, "System was unable to verify availability. Please try again or check your connection.")
+                    }
+                    return
+                }
+
+                completion(true, nil)
+                }
+            }
+        }
+    }
+
+    func deleteAppointment(id: String, completion: ((Bool) -> Void)? = nil) {
+        db.collection("appointments").document(id).delete { error in
+            completion?(error == nil)
         }
     }
     
@@ -491,7 +762,7 @@ class FirestoreManager: ObservableObject {
             return
         }
 
-        storageRef.putData(data, metadata: metadata) { [weak self] _, error in
+        storageRef.putData(data, metadata: metadata) { _, error in
             if let error = error {
                 print("CRITICAL: Upload failed: \(error.localizedDescription)")
                 completion(.failure(error))
@@ -512,7 +783,7 @@ class FirestoreManager: ObservableObject {
     
     /// Validates daily limit (max 3) AND checks for time slot conflict.
     /// Returns a tuple: (canBook: Bool, reason: String?)
-    func validateAppointmentSlot(lawyerId: String, date: Date, time: String, completion: @escaping (Bool, String?) -> Void) {
+    func validateAppointmentSlot(lawyerId: String, date: Date, time: String, excludingAppointmentId: String? = nil, completion: @escaping (Bool, String?) -> Void) {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: date)
         guard let end = calendar.date(byAdding: .day, value: 1, to: start) else {
@@ -522,8 +793,6 @@ class FirestoreManager: ObservableObject {
 
         db.collection("appointments")
             .whereField("lawyerId", isEqualTo: lawyerId)
-            .whereField("date", isGreaterThanOrEqualTo: start)
-            .whereField("date", isLessThan: end)
             .getDocuments { snapshot, error in
                 if let error = error as NSError? {
                     print("CRITICAL: Appointment validation failed: \(error.localizedDescription)")
@@ -537,7 +806,14 @@ class FirestoreManager: ObservableObject {
                     return
                 }
 
-                let documents = snapshot?.documents ?? []
+                // Filter by date range in memory to avoid composite index requirements
+                let filteredDocuments = (snapshot?.documents ?? []).filter { doc in
+                    guard let timestamp = doc.get("date") as? Timestamp else { return false }
+                    let dateValue = timestamp.dateValue()
+                    return dateValue >= start && dateValue < end
+                }
+
+                let documents = filteredDocuments.filter { $0.documentID != excludingAppointmentId }
                 let count = documents.count
                 print("DEBUG: Lawyer \(lawyerId) has \(count) appointment(s) on \(date).")
 
@@ -548,15 +824,25 @@ class FirestoreManager: ObservableObject {
                 }
 
                 // 2. TIME SLOT CONFLICT CHECK
-                let existingTimes = documents.compactMap { $0.data()["time"] as? String }
-                let normalizedNew = time.trimmingCharacters(in: .whitespaces).uppercased()
-                let hasConflict = existingTimes.contains { existing in
-                    existing.trimmingCharacters(in: .whitespaces).uppercased() == normalizedNew
-                }
+                let trimmedTime = time.trimmingCharacters(in: .whitespaces)
+                if !trimmedTime.isEmpty {
+                    guard let newStart = self.appointmentStartDate(date: date, timeString: trimmedTime) else {
+                        completion(false, "Invalid time slot. Please select a valid time.")
+                        return
+                    }
+                    let newEnd = newStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
 
-                if hasConflict {
-                    completion(false, "The \(time) slot is already booked for this day. Please choose a different time.")
-                    return
+                    for doc in documents {
+                        let data = doc.data()
+                        let existingTime = data["time"] as? String
+                        let dateValue = (data["date"] as? Timestamp)?.dateValue() ?? Date()
+                        guard let existingStart = self.appointmentStartDate(date: dateValue, timeString: existingTime) else { continue }
+                        let existingEnd = existingStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
+                        if self.overlaps(start: newStart, end: newEnd, otherStart: existingStart, otherEnd: existingEnd) {
+                            completion(false, "The selected time overlaps with another appointment. Please choose a different time.")
+                            return
+                        }
+                    }
                 }
 
                 // All checks passed

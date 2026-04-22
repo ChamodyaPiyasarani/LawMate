@@ -80,10 +80,10 @@ struct AddCaseView: View {
                         formSection(title: "Client Information") {
                             VStack(alignment: .leading, spacing: 8) {
                                 LawMateTextField(icon: "person.badge.shield.fill", placeholder: "Search Client Name", text: $clientName)
-                                    .onChange(of: clientName) { _ in
+                                    .onChange(of: clientName) { _, newValue in
                                         // Hide suggestions if exact match found
-                                        let exactMatch = firestore.clients.contains(where: { $0.fullName.lowercased() == clientName.lowercased() })
-                                        showClientSuggestions = !clientName.isEmpty && !exactMatch
+                                        let exactMatch = firestore.clients.contains(where: { $0.fullName.lowercased() == newValue.lowercased() })
+                                        showClientSuggestions = !newValue.isEmpty && !exactMatch
                                     }
                                 
                                 if showClientSuggestions && !filteredClients.isEmpty {
@@ -278,15 +278,22 @@ struct AddCaseView: View {
         
         geocoder.reverseGeocodeLocation(location) { placemarks, error in
             if let placemark = placemarks?.first {
-                let name = placemark.name ?? ""
+                let road = placemark.thoroughfare ?? ""
+                let district = placemark.subAdministrativeArea ?? ""
                 let locality = placemark.locality ?? ""
                 let country = placemark.country ?? ""
                 
                 DispatchQueue.main.async {
-                    if !name.isEmpty && !locality.isEmpty {
-                        self.selectedAddress = "\(name), \(locality)"
+                    var components: [String] = []
+                    if !road.isEmpty { components.append(road) }
+                    if !locality.isEmpty { components.append(locality) }
+                    if !district.isEmpty { components.append(district) }
+                    if !country.isEmpty { components.append(country) }
+                    
+                    if !components.isEmpty {
+                        self.selectedAddress = components.joined(separator: ", ")
                     } else {
-                        self.selectedAddress = "\(locality), \(country)"
+                        self.selectedAddress = "Unknown Location"
                     }
                 }
             }

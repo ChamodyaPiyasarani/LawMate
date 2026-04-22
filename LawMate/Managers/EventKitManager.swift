@@ -110,8 +110,7 @@ class DocumentManager: ObservableObject {
         let destinationURL = storageDirectory.appendingPathComponent(fileName)
         
         do {
-            let attributes = try fileManager.attributesOfItem(atPath: tempURL.path)
-            let fileSize = attributes[.size] as? Int64 ?? 0
+            let _ = try fileManager.attributesOfItem(atPath: tempURL.path)
             
             if fileManager.fileExists(atPath: destinationURL.path) {
                 try fileManager.removeItem(at: destinationURL)
