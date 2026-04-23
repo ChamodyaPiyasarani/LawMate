@@ -226,6 +226,28 @@ struct FBNotification: Identifiable, Codable, Hashable {
     var isRead: Bool = false
     var relatedId: String? // e.g., conversationId or caseId or appointmentId
     
+    var iconName: String {
+        switch type {
+        case "message": return "message.fill"
+        case "case": return "doc.text.fill"
+        case "booking", "appointment": return "calendar"
+        case "document": return "doc.on.doc.fill"
+        case "payment": return "creditcard.fill"
+        default: return "bell.fill"
+        }
+    }
+    
+    var dynamicColor: Color {
+        switch type {
+        case "message": return .lmPrimary
+        case "case": return .blue
+        case "booking", "appointment": return .orange
+        case "document": return .purple
+        case "payment": return .green
+        default: return .lmPrimary
+        }
+    }
+    
     enum CodingKeys: String, CodingKey {
         case id, title, body, type, timestamp, isRead, relatedId
     }

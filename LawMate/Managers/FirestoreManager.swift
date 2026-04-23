@@ -45,7 +45,10 @@ class FirestoreManager: ObservableObject {
                     print("Error fetching lawyers: \(error?.localizedDescription ?? "Unknown")")
                     return
                 }
-                self?.lawyers = documents.compactMap { try? $0.data(as: User.self) }
+                let fetched = documents.compactMap { try? $0.data(as: User.self) }
+                DispatchQueue.main.async {
+                    self?.lawyers = fetched
+                }
             }
     }
     
@@ -57,7 +60,10 @@ class FirestoreManager: ObservableObject {
                     print("Error fetching clients: \(error?.localizedDescription ?? "Unknown")")
                     return
                 }
-                self?.clients = documents.compactMap { try? $0.data(as: User.self) }
+                let fetched = documents.compactMap { try? $0.data(as: User.self) }
+                DispatchQueue.main.async {
+                    self?.clients = fetched
+                }
             }
     }
     
@@ -102,8 +108,10 @@ class FirestoreManager: ObservableObject {
                 try? doc.data(as: FBLegalCase.self)
             }
             
-            // Sort manually in Swift to avoid index requirements and missing field exclusions
-            self?.cases = fetchedCases.sorted { ($0.createdDate ?? Date.distantPast) > ($1.createdDate ?? Date.distantPast) }
+            DispatchQueue.main.async {
+                // Sort manually in Swift to avoid index requirements and missing field exclusions
+                self?.cases = fetchedCases.sorted { ($0.createdDate ?? Date.distantPast) > ($1.createdDate ?? Date.distantPast) }
+            }
         }
     }
     
@@ -524,24 +532,27 @@ class FirestoreManager: ObservableObject {
                 }
                 let fetched = documents.compactMap { try? $0.data(as: FBNotification.self) }
                 
-                // Trigger local notifications for new unread notifications
-                if let lastDate = self?.lastKnownNotificationDate {
-                    for notification in fetched {
-                        if !notification.isRead && notification.timestamp > lastDate {
-                            NotificationManager.shared.scheduleNotification(
-                                title: notification.title,
-                                body: notification.body,
-                                relatedId: notification.relatedId,
-                                type: notification.type
-                            )
+                DispatchQueue.main.async {
+                    // Trigger local notifications for new unread notifications
+                    if let lastDate = self?.lastKnownNotificationDate {
+                        for notification in fetched {
+                            if !notification.isRead && notification.timestamp > lastDate {
+                                NotificationManager.shared.scheduleNotification(
+                                    title: notification.title,
+                                    body: notification.body,
+                                    relatedId: notification.relatedId,
+                                    type: notification.type
+                                )
+                            }
                         }
                     }
+                    
+                    self?.notifications = fetched
+                    // EXCLUDE chat messages from the Notification UI count (they have their own tab badge)
+                    self?.unreadNotificationsCount = fetched.filter { !$0.isRead && $0.type != "message" }.count
+                    self?.updateTotalUnreadCount()
+                    self?.lastKnownNotificationDate = fetched.first?.timestamp ?? Date()
                 }
-                
-                self?.notifications = fetched
-                self?.unreadNotificationsCount = fetched.filter { !$0.isRead }.count
-                self?.updateTotalUnreadCount()
-                self?.lastKnownNotificationDate = fetched.first?.timestamp ?? Date()
             }
     }
     
@@ -559,6 +570,29 @@ class FirestoreManager: ObservableObject {
         batch.commit { error in
             if let error = error {
                 print("Error marking notifications as read: \(error)")
+            }
+        }
+    }
+    
+    func clearAllNotifications(userId: String) {
+        let batch = db.batch()
+        for notification in notifications {
+            if let id = notification.id {
+                let ref = db.collection("users").document(userId).collection("notifications").document(id)
+                batch.deleteDocument(ref)
+            }
+        }
+        
+        batch.commit { [weak self] error in
+            if let error = error {
+                print("Error clearing notifications: \(error)")
+            } else {
+                print("DEBUG: All notifications cleared for user \(userId)")
+                DispatchQueue.main.async {
+                    self?.notifications = []
+                    self?.unreadNotificationsCount = 0
+                    self?.updateTotalUnreadCount()
+                }
             }
         }
     }
@@ -634,8 +668,9 @@ class FirestoreManager: ObservableObject {
             }
             
             let fetched = documents.compactMap { try? $0.data(as: FBAppointment.self) }
-            // Sort by date then time
-            self?.appointments = fetched.sorted { ($0.date) > ($1.date) }
+            DispatchQueue.main.async {
+                self?.appointments = fetched.sorted { ($0.date) > ($1.date) }
+            }
         }
     }
     

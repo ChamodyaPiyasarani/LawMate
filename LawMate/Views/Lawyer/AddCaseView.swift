@@ -55,7 +55,7 @@ struct AddCaseView: View {
                     showNotification: false,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 64)
+                .padding(.top, 20)
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
@@ -256,7 +256,6 @@ struct AddCaseView: View {
                 }
             }
         }
-        .ignoresSafeArea(edges: .top)
         .fileImporter(isPresented: $isFileImporterPresented, allowedContentTypes: [.pdf, .text], allowsMultipleSelection: true) { result in
             // Handle files
         }

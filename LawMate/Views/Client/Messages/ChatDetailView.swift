@@ -30,7 +30,7 @@ struct ChatDetailView: View {
                 // MARK: Chat Header
                 chatHeader
                     .padding(.horizontal, 24)
-                    .padding(.top, 64)
+                    .padding(.top, 20)
                     .padding(.bottom, 20)
                     .zIndex(10)
                 
@@ -69,7 +69,6 @@ struct ChatDetailView: View {
                     }
                 }
             }
-            .ignoresSafeArea(edges: .top)
             
             // MARK: Input Area — floats above keyboard
             VStack {

@@ -213,6 +213,7 @@ struct LawMateNavigationBar: View {
     var onBack: () -> Void = {}
     var onNotification: () -> Void = {}
     var onCamera: () -> Void = {}
+    var trailingView: AnyView? = nil
     
     @StateObject private var firestore = FirestoreManager.shared
 
@@ -229,11 +230,15 @@ struct LawMateNavigationBar: View {
             }
             Spacer()
             
-            if showNotification {
+            if let trailingView = trailingView {
+                trailingView
+            } else if showNotification {
                 NotificationButton(badgeCount: firestore.unreadNotificationsCount, action: onNotification)
             } else if showCamera {
                 CameraButton(action: onCamera)
             } else if showBack {
+                Color.clear.frame(width: 44, height: 44)
+            } else {
                 Color.clear.frame(width: 44, height: 44)
             }
         }

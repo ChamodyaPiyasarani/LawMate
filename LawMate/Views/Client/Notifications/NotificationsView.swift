@@ -14,6 +14,8 @@ struct NotificationModel: Identifiable, Hashable {
 struct NotificationsView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var firestore = FirestoreManager.shared
+    @State private var showClearAlert = false
+    @StateObject private var auth = AuthService.shared
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -24,10 +26,22 @@ struct NotificationsView: View {
                 LawMateNavigationBar(
                     title: "Notifications",
                     showBack: true,
-                    showNotification: false,
-                    onBack: { dismiss() }
+                    onBack: { dismiss() },
+                    trailingView: AnyView(
+                        Group {
+                            if !firestore.notifications.isEmpty {
+                                Button {
+                                    showClearAlert = true
+                                } label: {
+                                    Text("Clear All")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(.red)
+                                }
+                            }
+                        }
+                    )
                 )
-                .padding(.top, 64)
+                .padding(.top, 20)
                 .zIndex(10)
                 
                 if firestore.notifications.isEmpty {
@@ -62,9 +76,18 @@ struct NotificationsView: View {
                     }
                 }
             }
-            .ignoresSafeArea(edges: .top)
         }
         .navigationBarBackButtonHidden(true)
+        .alert("Clear All Notifications?", isPresented: $showClearAlert) {
+            Button("Clear All", role: .destructive) {
+                if let userId = auth.currentUser?.id {
+                    firestore.clearAllNotifications(userId: userId)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently delete all your notifications. This action cannot be undone.")
+        }
         .onAppear {
             if let user = AuthService.shared.currentUser {
                 // Start real-time listener first so UI populates immediately
@@ -85,7 +108,10 @@ struct NotificationsView: View {
         var week: [FBNotification] = []
         var earlier: [FBNotification] = []
         
-        for notification in firestore.notifications {
+        // Filter out chat messages — they should not appear in the notification UI list
+        let filteredNotifications = firestore.notifications.filter { $0.type != "message" }
+        
+        for notification in filteredNotifications {
             if calendar.isDateInToday(notification.timestamp) {
                 today.append(notification)
             } else if let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: now), notification.timestamp > sevenDaysAgo {
@@ -143,12 +169,12 @@ struct NotificationRow: View {
             // Icon
             ZStack {
                 Circle()
-                    .fill(Color.lmPrimary.opacity(0.1))
+                    .fill(notification.dynamicColor.opacity(0.1))
                     .frame(width: 44, height: 44)
                 
-                Image(systemName: iconName)
+                Image(systemName: notification.iconName)
                     .font(.system(size: 18))
-                    .foregroundColor(.lmPrimary)
+                    .foregroundColor(notification.dynamicColor)
             }
             
             // Text Content
@@ -176,14 +202,7 @@ struct NotificationRow: View {
         .padding(.trailing, 16)
     }
     
-    private var iconName: String {
-        switch notification.type {
-        case "message": return "message.fill"
-        case "case": return "doc.text.fill"
-        case "booking": return "calendar"
-        default: return "bell.fill"
-        }
-    }
+    /* Dynamic properties moved to FBNotification model */
     
     private func timeAgo(_ date: Date) -> String {
         let formatter = RelativeDateTimeFormatter()

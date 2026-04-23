@@ -64,7 +64,7 @@ struct LawyerHomeView: View {
                                     })
                                 }
                                 .padding(.horizontal, 24)
-                                .padding(.top, 64)
+                                .padding(.top, 20)
                                 .background(Color.lmBackground.opacity(0.01)) // Subtle touch area
 
                                 // MARK: Scrollable Content
@@ -171,7 +171,6 @@ struct LawyerHomeView: View {
                                 }
                             }
                         }
-                        .ignoresSafeArea(edges: .top)
                     } else if selectedTab == .cases {
                         LawyerCasesView()
                     } else if selectedTab == .calendar {
@@ -234,20 +233,19 @@ struct LawyerHomeView: View {
                         // 2. Clear stack first for a clean push
                         navPath = NavigationPath()
                         
-                        // 3. Find and push (with a small delay to allow Firestore to sync if needed)
-                        func attemptPush() {
-                            if let conv = firestore.conversations.first(where: { $0.id == conversationId }) {
-                                navPath.append(conv)
-                            } else {
-                                // Retry once after a short delay if data is still loading
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                    if let conv = firestore.conversations.first(where: { $0.id == conversationId }) {
-                                        navPath.append(conv)
-                                    }
-                                }
-                            }
+                        // 3. Find and push
+                        if let conv = firestore.conversations.first(where: { $0.id == conversationId }) {
+                            navPath.append(conv)
+                        } else {
+                            // If not found in list yet, construct a basic one so navigation succeeds
+                            // The ChatDetailView will load the messages based on the ID anyway
+                            let placeholder = FBConversation(
+                                id: conversationId,
+                                participants: [], // Will be filled by listener
+                                lastMessageAt: Date()
+                            )
+                            navPath.append(placeholder)
                         }
-                        attemptPush()
                     case .notificationCenter:
                         navPath.append(LawyerRoute.notifications)
                     }
