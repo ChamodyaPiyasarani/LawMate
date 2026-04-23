@@ -2,9 +2,9 @@ import SwiftUI
 
 struct ProfileNotificationsView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var pushEnabled = true
-    @State private var emailEnabled = true
-    @State private var updatesEnabled = false
+    @AppStorage("pushEnabled") private var pushEnabled = true
+    @AppStorage("emailEnabled") private var emailEnabled = true
+    @AppStorage("updatesEnabled") private var updatesEnabled = false
     
     var body: some View {
         ZStack(alignment: .top) {

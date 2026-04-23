@@ -3,7 +3,7 @@ import SwiftUI
 struct DocumentDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showPDFViewer = false
-    let document: AdvisoryDocument
+    let document: FBAdvisoryDocument
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -173,13 +173,13 @@ struct DocumentDetailView: View {
 }
 
 #Preview {
-    DocumentDetailView(document: AdvisoryDocument(
-        title: "Divorce Proceedings Guide 2024",
-        description: "A comprehensive guide explaining the step-by-step legal procedure for filing for divorce in Sri Lanka. This guide covers legal grounds, required documentation, and expectation management during the court sessions.",
+    DocumentDetailView(document: FBAdvisoryDocument(
+        title: "Divorce Proceedings Guide - 2024 Edition",
+        description: "A comprehensive guide on what to expect during divorce proceedings in Sri Lanka.",
         category: "Family Law",
-        tags: ["divorce", "custody", "legal-aid"],
-        lawyerName: "Atty. Nimal Perera",
-        date: "Apr 10, 2026",
+        tags: ["divorce", "family", "guide"],
+        lawyerName: "Sanduni Fernando",
+        date: "Apr 20, 2024",
         fileType: "PDF"
     ))
 }

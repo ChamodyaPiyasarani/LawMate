@@ -4,6 +4,7 @@ import EventKit
 enum LawyerRoute: Hashable {
     case addCase
     case uploadAdvisory
+    case notifications
 }
 
 struct LawyerHomeView: View {
@@ -11,6 +12,8 @@ struct LawyerHomeView: View {
     @AppStorage("userRole") private var storedRole: UserRole = .lawyer
     @State private var selectedTab: LawMateTab = .home
     @State private var navPath = NavigationPath()
+    @AppStorage("biometricsEnabled") private var biometricsEnabled = false
+    @State private var showBiometricOptIn = false
     @StateObject private var firestore = FirestoreManager.shared
     @StateObject private var eventService = EventKitService.shared
     @State private var todayEvents: [EKEvent] = []
@@ -55,7 +58,9 @@ struct LawyerHomeView: View {
                                     Spacer()
                                     
                                     // Notification Bell as per image
-                                    NotificationButton(badgeCount: 3, action: {})
+                                    NotificationButton(badgeCount: 3, action: {
+                                        navPath.append(LawyerRoute.notifications)
+                                    })
                                 }
                                 .padding(.horizontal, 24)
                                 .padding(.top, 64)
@@ -188,6 +193,8 @@ struct LawyerHomeView: View {
                         AddCaseView()
                     case .uploadAdvisory:
                         UploadAdvisoryView()
+                    case .notifications:
+                        NotificationsView()
                     }
                 }
                 .navigationDestination(for: ProfileRoute.self) { route in
@@ -209,6 +216,25 @@ struct LawyerHomeView: View {
                     case .accessibility:
                         AccessibilitySettingsView()
                     }
+                }
+                .onAppear {
+                    if UserDefaults.standard.bool(forKey: "shouldShowBiometricPrompt") {
+                        showBiometricOptIn = true
+                    }
+                }
+                .alert("Enable Biometric Login?", isPresented: $showBiometricOptIn) {
+                    Button("Yes, Enable") {
+                        biometricsEnabled = true
+                        UserDefaults.standard.set(false, forKey: "shouldShowBiometricPrompt")
+                        ToastManager.shared.show(title: "Face ID Enabled", message: "You can now log in using biometrics.", type: .success)
+                    }
+                    Button("Not Now", role: .cancel) {
+                        biometricsEnabled = false
+                        KeychainManager.shared.clearCredentials()
+                        UserDefaults.standard.set(false, forKey: "shouldShowBiometricPrompt")
+                    }
+                } message: {
+                    Text("Would you like to use Face ID / Touch ID for faster login next time?")
                 }
             }
             

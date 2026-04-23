@@ -2,8 +2,8 @@ import SwiftUI
 
 struct BiometricsView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var faceIDEnabled = true
-    @State private var appLockEnabled = false
+    @AppStorage("faceIDEnabled") private var faceIDEnabled = true
+    @AppStorage("appLockEnabled") private var appLockEnabled = false
     
     var body: some View {
         ZStack(alignment: .top) {

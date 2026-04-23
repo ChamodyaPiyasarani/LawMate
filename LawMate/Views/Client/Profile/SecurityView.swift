@@ -5,6 +5,7 @@ struct SecurityView: View {
     @State private var currentPassword = ""
     @State private var newPassword = ""
     @State private var confirmPassword = ""
+    @State private var isUpdating = false
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -23,16 +24,44 @@ struct SecurityView: View {
                         ProfileInputRow(icon: "checkmark.shield.fill", title: "Confirm Password", text: $confirmPassword)
                         
                         Button {
-                            dismiss()
+                            guard !newPassword.isEmpty else {
+                                ToastManager.shared.show(title: "Error", message: "Password cannot be empty.", type: .error)
+                                return
+                            }
+                            guard newPassword == confirmPassword else {
+                                ToastManager.shared.show(title: "Mismatch", message: "Passwords do not match.", type: .error)
+                                return
+                            }
+                            
+                            isUpdating = true
+                            AuthService.shared.updatePassword(newPassword: newPassword) { result in
+                                DispatchQueue.main.async {
+                                    isUpdating = false
+                                    switch result {
+                                    case .success:
+                                        ToastManager.shared.show(title: "Success", message: "Password updated successfully.", type: .success)
+                                        dismiss()
+                                    case .failure(let error):
+                                        ToastManager.shared.show(title: "Update Failed", message: error.localizedDescription, type: .error)
+                                    }
+                                }
+                            }
                         } label: {
-                            Text("Update Password")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.white)
+                            HStack {
+                                if isUpdating {
+                                    ProgressView().tint(.white)
+                                } else {
+                                    Text("Update Password")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
+                            }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
                                 .background(Color.lmPrimary)
                                 .clipShape(Capsule())
                         }
+                        .disabled(isUpdating)
                         .padding(.top, 24)
                     }
                     .padding(.horizontal, 24)

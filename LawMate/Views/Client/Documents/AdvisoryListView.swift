@@ -6,12 +6,15 @@ struct AdvisoryListView: View {
     @State private var selectedCategory = "All"
     @State private var showFilterSheet = false
     
-    @ObservedObject private var docManager = DocumentManager.shared
+    @StateObject private var firestore = FirestoreManager.shared
     
     private let categories = ["All", "Family Law", "Criminal Law", "Property Law", "Corporate Law"]
 
-    var filteredDocuments: [AdvisoryDocument] {
-        docManager.documents.filter { doc in
+    var filteredDocuments: [FBAdvisoryDocument] {
+        firestore.advisoryDocuments.filter { doc in
+            // Must be Public for clients
+            guard doc.visibility == "Public" else { return false }
+            
             let matchesCategory = selectedCategory == "All" || doc.category == selectedCategory
             let matchesSearch = searchText.isEmpty || 
                                doc.title.localizedCaseInsensitiveContains(searchText) ||
@@ -119,7 +122,7 @@ struct AdvisoryListView: View {
 // MARK: - Supporting Views
 
 struct AdvisoryDocumentCard: View {
-    let document: AdvisoryDocument
+    let document: FBAdvisoryDocument
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {

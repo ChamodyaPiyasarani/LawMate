@@ -15,6 +15,7 @@ import LocalAuthentication
 struct LoginView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     @AppStorage("userRole") private var storedRole: UserRole = .client
+    @AppStorage("biometricsEnabled") private var biometricsEnabled = false
     @State private var email:    String = ""
     @State private var password: String = ""
     @State private var navigateToSignUp   = false
@@ -76,11 +77,21 @@ struct LoginView: View {
                                     ToastManager.shared.show(title: "Logging in...", message: "Please wait.", type: .info)
                                     
                                     AuthService.shared.login(email: email, password: password) { result in
-                                        switch result {
-                                        case .success:
-                                            ToastManager.shared.show(title: "Welcome Back!", message: "Successfully logged in.", type: .success)
-                                        case .failure(let error):
-                                            ToastManager.shared.show(title: "Login Failed", message: error.localizedDescription, type: .error)
+                                        DispatchQueue.main.async {
+                                            switch result {
+                                            case .success:
+                                                if !biometricsEnabled {
+                                                    // Save for potential opt-in on the Home screen
+                                                    KeychainManager.shared.saveCredentials(email: email, password: password)
+                                                    UserDefaults.standard.set(true, forKey: "shouldShowBiometricPrompt")
+                                                } else {
+                                                    // Update stored credentials
+                                                    KeychainManager.shared.saveCredentials(email: email, password: password)
+                                                    ToastManager.shared.show(title: "Welcome Back!", message: "Successfully logged in.", type: .success)
+                                                }
+                                            case .failure(let error):
+                                                ToastManager.shared.show(title: "Login Failed", message: error.localizedDescription, type: .error)
+                                            }
                                         }
                                     }
                                 } else {
@@ -168,15 +179,36 @@ struct LoginView: View {
     }
 
     private func authenticateWithBiometrics() {
+        guard biometricsEnabled else {
+            ToastManager.shared.show(title: "Not Enabled", message: "Please log in manually first to enable biometrics.", type: .warning)
+            return
+        }
+        
+        let credentials = KeychainManager.shared.getCredentials()
+        guard let savedEmail = credentials.email, let savedPassword = credentials.password else {
+            ToastManager.shared.show(title: "Credentials Missing", message: "Please log in manually to refresh your session.", type: .error)
+            biometricsEnabled = false
+            return
+        }
+        
         AuthService.shared.authenticateWithBiometrics { success, error in
             if success {
-                withAnimation {
-                    // For demo purposes, we default to the last stored role or client
-                    isLoggedIn = true
-                    NotificationManager.shared.scheduleNotification(
-                        title: "Login Successful",
-                        body: "Welcome back to LawMate."
-                    )
+                ToastManager.shared.show(title: "Biometrics Matched", message: "Logging you in...", type: .info)
+                
+                AuthService.shared.login(email: savedEmail, password: savedPassword) { result in
+                    DispatchQueue.main.async {
+                        switch result {
+                        case .success:
+                            ToastManager.shared.show(title: "Welcome Back!", message: "Successfully logged in.", type: .success)
+                            NotificationManager.shared.scheduleNotification(
+                                title: "Login Successful",
+                                body: "Welcome back to LawMate."
+                            )
+                        case .failure(let error):
+                            biometricError = "Auto-login failed: \(error.localizedDescription)"
+                            ToastManager.shared.show(title: "Login Failed", message: "Credentials may be outdated. Please log in manually.", type: .error)
+                        }
+                    }
                 }
             } else {
                 biometricError = error ?? "Biometric authentication failed."

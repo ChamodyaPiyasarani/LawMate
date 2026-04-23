@@ -159,35 +159,51 @@ struct UploadAdvisoryView: View {
                             ToastManager.shared.show(title: "Publishing...", message: "Uploading your document.", type: .info)
                             
                             if let url = selectedFile {
-                                DocumentManager.shared.saveDocument(
+                                FirestoreManager.shared.uploadAdvisoryDocument(
                                     title: title,
                                     category: category,
                                     description: description,
                                     tags: tags,
+                                    visibility: visibility,
                                     lawyerName: AuthService.shared.currentUser?.fullName ?? "LawMate Attorney",
+                                    lawyerId: AuthService.shared.currentUser?.id ?? "",
                                     tempURL: url
-                                )
-                                
-                                ToastManager.shared.show(title: "Document Published", message: "Your advisory document is now live.", type: .success)
-                                NotificationManager.shared.scheduleNotification(title: "Document Published", body: "Successfully published \(title)")
-                                dismiss()
+                                ) { success, errorMessage in
+                                    DispatchQueue.main.async {
+                                        if success {
+                                            ToastManager.shared.show(title: "Document Published", message: "Your advisory document is now live.", type: .success)
+                                            NotificationManager.shared.scheduleNotification(title: "Document Published", body: "Successfully published \(title)")
+                                            dismiss()
+                                        } else {
+                                            ToastManager.shared.show(title: "Upload Failed", message: errorMessage ?? "Could not publish document.", type: .error)
+                                        }
+                                    }
+                                }
                             } else if let image = selectedImage {
                                 // Save image to temporary file first
                                 if let data = image.jpegData(compressionQuality: 0.8) {
                                     let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
                                     try? data.write(to: tempURL)
-                                    DocumentManager.shared.saveDocument(
+                                    FirestoreManager.shared.uploadAdvisoryDocument(
                                         title: title,
                                         category: category,
                                         description: description,
                                         tags: tags,
+                                        visibility: visibility,
                                         lawyerName: AuthService.shared.currentUser?.fullName ?? "LawMate Attorney",
+                                        lawyerId: AuthService.shared.currentUser?.id ?? "",
                                         tempURL: tempURL
-                                    )
-                                    
-                                    ToastManager.shared.show(title: "Document Published", message: "Your advisory document is now live.", type: .success)
-                                    NotificationManager.shared.scheduleNotification(title: "Document Published", body: "Successfully published \(title)")
-                                    dismiss()
+                                    ) { success, errorMessage in
+                                        DispatchQueue.main.async {
+                                            if success {
+                                                ToastManager.shared.show(title: "Document Published", message: "Your advisory document is now live.", type: .success)
+                                                NotificationManager.shared.scheduleNotification(title: "Document Published", body: "Successfully published \(title)")
+                                                dismiss()
+                                            } else {
+                                                ToastManager.shared.show(title: "Upload Failed", message: errorMessage ?? "Could not publish document.", type: .error)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

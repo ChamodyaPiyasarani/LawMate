@@ -2,12 +2,12 @@ import SwiftUI
 
 struct LawyerMyUploadsView: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var docManager = DocumentManager.shared
+    @StateObject private var firestore = FirestoreManager.shared
     
     @State private var showDeleteAlert = false
-    @State private var documentToDelete: AdvisoryDocument? = nil
+    @State private var documentToDelete: FBAdvisoryDocument? = nil
     @State private var showPDFViewer = false
-    @State private var selectedDocument: AdvisoryDocument? = nil
+    @State private var selectedDocument: FBAdvisoryDocument? = nil
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -36,11 +36,12 @@ struct LawyerMyUploadsView: View {
                             .padding(.top, 8)
                         
                         // Documents list
+                        let myDocs = firestore.advisoryDocuments.filter { $0.lawyerId == AuthService.shared.currentUser?.id }
                         VStack(spacing: 16) {
-                            if docManager.documents.isEmpty {
+                            if myDocs.isEmpty {
                                 emptyState
                             } else {
-                                ForEach(docManager.documents) { doc in
+                                ForEach(myDocs) { doc in
                                     documentRow(for: doc)
                                 }
                             }
@@ -58,7 +59,9 @@ struct LawyerMyUploadsView: View {
         .alert("Remove Document", isPresented: $showDeleteAlert, presenting: documentToDelete) { doc in
             Button("Delete", role: .destructive) {
                 withAnimation {
-                    docManager.deleteDocument(id: doc.id)
+                    if let docId = doc.id {
+                        firestore.deleteAdvisoryDocument(id: docId)
+                    }
                 }
             }
             Button("Cancel", role: .cancel) {}
@@ -72,7 +75,7 @@ struct LawyerMyUploadsView: View {
         }
     }
     
-    private func documentRow(for doc: AdvisoryDocument) -> some View {
+    private func documentRow(for doc: FBAdvisoryDocument) -> some View {
         Button {
             self.selectedDocument = doc
             self.showPDFViewer = true
@@ -100,17 +103,50 @@ struct LawyerMyUploadsView: View {
                 
                 Spacer()
                 
-                // Delete button
-                Button {
-                    documentToDelete = doc
-                    showDeleteAlert = true
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 14))
-                        .foregroundColor(.red.opacity(0.8))
-                        .frame(width: 36, height: 36)
-                        .background(Color.red.opacity(0.05))
-                        .clipShape(Circle())
+                // Visibility Toggle & Delete
+                HStack(spacing: 12) {
+                    Menu {
+                        Button {
+                            if let id = doc.id {
+                                firestore.updateAdvisoryDocumentVisibility(id: id, visibility: "Public")
+                            }
+                        } label: {
+                            Label("Make Public", systemImage: "globe")
+                        }
+                        
+                        Button {
+                            if let id = doc.id {
+                                firestore.updateAdvisoryDocumentVisibility(id: id, visibility: "Private")
+                            }
+                        } label: {
+                            Label("Make Private", systemImage: "lock.fill")
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: doc.visibility == "Public" ? "globe" : "lock.fill")
+                                .font(.system(size: 10))
+                            Text(doc.visibility)
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(doc.visibility == "Public" ? Color.green.opacity(0.15) : Color.orange.opacity(0.15))
+                        .foregroundColor(doc.visibility == "Public" ? .green : .orange)
+                        .clipShape(Capsule())
+                    }
+                    
+                    // Delete button
+                    Button {
+                        documentToDelete = doc
+                        showDeleteAlert = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 14))
+                            .foregroundColor(.red.opacity(0.8))
+                            .frame(width: 36, height: 36)
+                            .background(Color.red.opacity(0.05))
+                            .clipShape(Circle())
+                    }
                 }
             }
             .padding(16)

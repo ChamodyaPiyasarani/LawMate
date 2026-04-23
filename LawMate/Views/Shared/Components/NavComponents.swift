@@ -441,7 +441,7 @@ struct PDFKitView: UIViewRepresentable {
 
 struct PDFKitViewerSheet: View {
     @Environment(\.dismiss) private var dismiss
-    let document: AdvisoryDocument
+    let document: FBAdvisoryDocument
     
     var body: some View {
         NavigationStack {
@@ -449,32 +449,35 @@ struct PDFKitViewerSheet: View {
                 Color.lmBackground.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
-                    if let url = document.fileURL, FileManager.default.fileExists(atPath: url.path) {
-                        let attr = try? FileManager.default.attributesOfItem(atPath: url.path)
-                        let size = attr?[.size] as? Int64 ?? 0
+                    if let urlString = document.fileURL, let url = URL(string: urlString) {
+                        // For remote URLs from Firebase, we don't check file size locally first
+                        // Instead, we just attempt to load it with PDFKitView
                         
-                        if size == 0 {
-                            errorView(message: "The document file is empty (0 bytes). This usually happens if the upload was interrupted.")
-                        } else {
-                            let ext = url.pathExtension.lowercased()
-                            if ["jpg", "jpeg", "png", "heic"].contains(ext) {
-                                // Image Viewer
-                                ScrollView([.horizontal, .vertical], showsIndicators: false) {
-                                    if let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
-                                        Image(uiImage: image)
+                        let ext = url.pathExtension.lowercased()
+                        if ["jpg", "jpeg", "png", "heic"].contains(ext) {
+                            // Image Viewer
+                            ScrollView([.horizontal, .vertical], showsIndicators: false) {
+                                AsyncImage(url: url) { phase in
+                                    switch phase {
+                                    case .empty:
+                                        ProgressView()
+                                    case .success(let image):
+                                        image
                                             .resizable()
                                             .scaledToFit()
                                             .frame(maxWidth: .infinity)
                                             .padding(.top, 20)
-                                    } else {
-                                        errorView(message: "Failed to parse image data.")
+                                    case .failure:
+                                        errorView(message: "Failed to load image from server.")
+                                    @unknown default:
+                                        errorView(message: "Unknown error loading image.")
                                     }
                                 }
-                            } else {
-                                // PDF Viewer
-                                PDFKitView(url: url)
-                                    .edgesIgnoringSafeArea(.bottom)
                             }
+                        } else {
+                            // PDF Viewer
+                            PDFKitView(url: url)
+                                .edgesIgnoringSafeArea(.bottom)
                         }
                     } else {
                         errorView(message: "Document file not found. Please try uploading it again.")
@@ -522,7 +525,7 @@ struct PDFKitViewerSheet: View {
     }
     
     private func shareDocument() {
-        guard let url = document.fileURL else { return }
+        guard let urlString = document.fileURL, let url = URL(string: urlString) else { return }
         let activityVC = UIActivityViewController(activityItems: [url], applicationActivities: nil)
         
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,

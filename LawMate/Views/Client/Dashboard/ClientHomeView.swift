@@ -4,6 +4,8 @@ struct ClientHomeView: View {
     @State private var selectedTab:  LawMateTab = .home
     @State private var searchQuery:  String = ""
     @State private var navPath = NavigationPath()
+    @AppStorage("biometricsEnabled") private var biometricsEnabled = false
+    @State private var showBiometricOptIn = false
     
     // Simple routes for screens without complex data models
     enum AppRoute: Hashable {
@@ -276,7 +278,7 @@ struct ClientHomeView: View {
                         ClientAllAppointmentsListView()
                     }
                 }
-                .navigationDestination(for: AdvisoryDocument.self) { doc in
+                .navigationDestination(for: FBAdvisoryDocument.self) { doc in
                     DocumentDetailView(document: doc)
                 }
                 .navigationDestination(for: FBLegalCase.self) { clientCase in
@@ -306,6 +308,25 @@ struct ClientHomeView: View {
                     }
                 }
                 .navigationBarBackButtonHidden(true)
+                .onAppear {
+                    if UserDefaults.standard.bool(forKey: "shouldShowBiometricPrompt") {
+                        showBiometricOptIn = true
+                    }
+                }
+                .alert("Enable Biometric Login?", isPresented: $showBiometricOptIn) {
+                    Button("Yes, Enable") {
+                        biometricsEnabled = true
+                        UserDefaults.standard.set(false, forKey: "shouldShowBiometricPrompt")
+                        ToastManager.shared.show(title: "Face ID Enabled", message: "You can now log in using biometrics.", type: .success)
+                    }
+                    Button("Not Now", role: .cancel) {
+                        biometricsEnabled = false
+                        KeychainManager.shared.clearCredentials()
+                        UserDefaults.standard.set(false, forKey: "shouldShowBiometricPrompt")
+                    }
+                } message: {
+                    Text("Would you like to use Face ID / Touch ID for faster login next time?")
+                }
                 .toolbar(.hidden, for: .navigationBar)
             }
             

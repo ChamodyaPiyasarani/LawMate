@@ -8,7 +8,7 @@ struct BookingView: View {
     
     @State private var selectedService = "Case Review (1 hour)"
     @State private var selectedDate = Date()
-    @State private var selectedTime: String? = "10:30 AM"
+    @State private var selectedTime: String? = nil
     @State private var isVideoCall = false
     @State private var caseDescription = ""
     
@@ -362,6 +362,7 @@ struct BookingView: View {
         if let timeString = selectedTime {
             let formatter = DateFormatter()
             formatter.dateFormat = "hh:mm a"
+            formatter.locale = Locale(identifier: "en_US_POSIX")
             if let timeDate = formatter.date(from: timeString) {
                 let calendar = Calendar.current
                 var components = calendar.dateComponents([.year, .month, .day], from: selectedDate)

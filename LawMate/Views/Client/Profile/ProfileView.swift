@@ -24,6 +24,7 @@ struct ProfileView: View {
     @State private var imageSource: UIImagePickerController.SourceType = .photoLibrary
     @State private var showSourceSelection = false
     @State private var isUploading = false
+    @State private var showNotifications = false
     
     var onBack: () -> Void = {}
     
@@ -44,7 +45,9 @@ struct ProfileView: View {
                     
                     Spacer()
                     
-                    NotificationButton(badgeCount: 3, action: {})
+                    NotificationButton(badgeCount: 3, action: {
+                        showNotifications = true
+                    })
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 64)
@@ -137,6 +140,9 @@ struct ProfileView: View {
             if let img = newImage {
                 uploadImage(img)
             }
+        }
+        .sheet(isPresented: $showNotifications) {
+            NotificationsView()
         }
     }
     

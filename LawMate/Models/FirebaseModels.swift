@@ -114,6 +114,21 @@ struct FBDocument: Identifiable, Codable, Hashable {
     var localFileName: String?
 }
 
+struct FBAdvisoryDocument: Identifiable, Codable, Hashable {
+    @DocumentID var id: String?
+    var title: String
+    var description: String
+    var category: String
+    var tags: [String]
+    var lawyerName: String
+    var date: String
+    var fileType: String // e.g., "PDF", "DOCX", "IMAGE"
+    var fileURL: String?
+    var localFileName: String?
+    var lawyerId: String? // To easily match which lawyer uploaded it
+    var visibility: String = "Public" // "Public" or "Private"
+}
+
 struct FBConversation: Identifiable, Codable, Hashable {
     @DocumentID var id: String?
     var participants: [String] // Array of user UIDs

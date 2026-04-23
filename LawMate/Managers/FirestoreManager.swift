@@ -18,6 +18,7 @@ class FirestoreManager: ObservableObject {
     @Published var totalUnreadCount: Int = 0
     @Published var notifications: [FBNotification] = []
     @Published var appointments: [FBAppointment] = []
+    @Published var advisoryDocuments: [FBAdvisoryDocument] = []
     
     private var casesListener: ListenerRegistration?
     private var lawyersListener: ListenerRegistration?
@@ -26,6 +27,7 @@ class FirestoreManager: ObservableObject {
     private var messagesListener: ListenerRegistration?
     private var notificationsListener: ListenerRegistration?
     private var appointmentsListener: ListenerRegistration?
+    private var advisoryDocumentsListener: ListenerRegistration?
     private var lastKnownMessageDate: Date? = Date()
     
     // MARK: - Lawyers
@@ -107,6 +109,7 @@ class FirestoreManager: ObservableObject {
         conversationsListener?.remove()
         notificationsListener?.remove()
         appointmentsListener?.remove()
+        advisoryDocumentsListener?.remove()
     }
     
     func startSync(role: UserRole, userId: String) {
@@ -119,6 +122,7 @@ class FirestoreManager: ObservableObject {
         } else {
             listenForLawyers()
         }
+        listenForAdvisoryDocuments()
     }
     
     func addCase(_ newCase: FBLegalCase) {
@@ -198,6 +202,97 @@ class FirestoreManager: ObservableObject {
             }
     }
     
+    // MARK: - Advisory Documents
+    
+    func listenForAdvisoryDocuments() {
+        advisoryDocumentsListener?.remove()
+        
+        advisoryDocumentsListener = db.collection("advisoryDocuments")
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let documents = snapshot?.documents else {
+                    print("Error fetching advisory documents: \(error?.localizedDescription ?? "Unknown")")
+                    return
+                }
+                
+                let fetchedDocs = documents.compactMap { try? $0.data(as: FBAdvisoryDocument.self) }
+                // Sort newest first
+                self?.advisoryDocuments = fetchedDocs.sorted { 
+                    // Using ID as a rough sort since date is a string, or parse the date string
+                    let dateFormatter = DateFormatter()
+                    dateFormatter.dateFormat = "MMM dd, yyyy"
+                    let date0 = dateFormatter.date(from: $0.date) ?? Date.distantPast
+                    let date1 = dateFormatter.date(from: $1.date) ?? Date.distantPast
+                    return date0 > date1
+                }
+            }
+    }
+    
+    func uploadAdvisoryDocument(title: String, category: String, description: String, tags: [String], visibility: String, lawyerName: String, lawyerId: String, tempURL: URL, completion: @escaping (Bool, String?) -> Void) {
+        let fileExtension = tempURL.pathExtension
+        let fileName = "\(UUID().uuidString).\(fileExtension)"
+        let storagePath = "cases/advisory_documents"
+        
+        do {
+            let data = try Data(contentsOf: tempURL)
+            uploadFile(data: data, path: storagePath, fileName: fileName) { [weak self] result in
+                switch result {
+                case .success(let downloadURL):
+                    let newDoc = FBAdvisoryDocument(
+                        title: title,
+                        description: description,
+                        category: category,
+                        tags: tags,
+                        lawyerName: lawyerName,
+                        date: self?.formatDate(Date()) ?? "",
+                        fileType: fileExtension.uppercased(),
+                        fileURL: downloadURL,
+                        lawyerId: lawyerId,
+                        visibility: visibility
+                    )
+                    
+                    do {
+                        let _ = try self?.db.collection("advisoryDocuments").addDocument(from: newDoc)
+                        completion(true, nil)
+                    } catch {
+                        print("Error saving advisory document metadata: \(error)")
+                        completion(false, error.localizedDescription)
+                    }
+                    
+                case .failure(let error):
+                    print("Error uploading advisory document file: \(error)")
+                    completion(false, error.localizedDescription)
+                }
+            }
+        } catch {
+            print("Failed to read tempURL data: \(error)")
+            completion(false, error.localizedDescription)
+        }
+    }
+    
+    func deleteAdvisoryDocument(id: String) {
+        db.collection("advisoryDocuments").document(id).delete() { error in
+            if let error = error {
+                print("Error removing advisory document: \(error)")
+            }
+        }
+    }
+    
+    func updateAdvisoryDocumentVisibility(id: String, visibility: String) {
+        db.collection("advisoryDocuments").document(id).updateData([
+            "visibility": visibility
+        ]) { error in
+            if let error = error {
+                print("Error updating advisory document visibility: \(error)")
+            }
+        }
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM dd, yyyy"
+        return formatter.string(from: date)
+    }
+
     // MARK: - Messaging
     
     func listenForConversations(userId: String) {

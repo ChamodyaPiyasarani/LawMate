@@ -5,7 +5,7 @@ struct EventListView: View {
     @ObservedObject var viewModel: CalendarViewModel
     @State private var showingAddEvent = false
     @State private var selectedService = "Case Review (1 hour)"
-    @State private var selectedTime: String? = "09:00 AM"
+    @State private var selectedTime: String? = nil
     @State private var isVideoCall = false
     @State private var caseDescription = ""
     @State private var isSaving = false

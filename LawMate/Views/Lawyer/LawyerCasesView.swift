@@ -8,6 +8,7 @@ struct LawyerCasesView: View {
     let statuses = ["Active", "Pending", "Closed"]
     
     @StateObject private var firestore = FirestoreManager.shared
+    @State private var showNotifications = false
     
     var filteredCases: [FBLegalCase] {
         firestore.cases.filter { c in
@@ -38,7 +39,9 @@ struct LawyerCasesView: View {
                         
                         Spacer()
                         
-                        NotificationButton(badgeCount: 3, action: {})
+                        NotificationButton(badgeCount: 3, action: {
+                            showNotifications = true
+                        })
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 64)
@@ -98,6 +101,9 @@ struct LawyerCasesView: View {
                     firestore.listenForCases(role: currentUser.role, userId: currentUser.id)
                 }
             }
+        }
+        .sheet(isPresented: $showNotifications) {
+            NotificationsView()
         }
     }
     
@@ -211,6 +217,7 @@ struct LawyerCaseDetailView: View {
     @State private var selectedTab = 0 // 0: Progress, 1: Documents
     @State private var showFilePicker = false
     @State private var selectedStageIndex: Int? = nil
+    @State private var selectedDocument: FBDocument? = nil
     
     init(legalCase: FBLegalCase) {
         self.legalCase = legalCase
@@ -265,6 +272,22 @@ struct LawyerCaseDetailView: View {
             if let index = selectedStageIndex {
                 handleFileUpload(result: result, stageIndex: index)
             }
+        }
+        .sheet(item: $selectedDocument) { doc in
+            let dummyDoc = FBAdvisoryDocument(
+                id: doc.id ?? UUID().uuidString,
+                title: doc.fileName,
+                description: "",
+                category: "Case Document",
+                tags: [],
+                lawyerName: "",
+                date: ISO8601DateFormatter().string(from: doc.uploadedAt),
+                fileType: doc.fileType,
+                fileURL: doc.fileURL,
+                lawyerId: "",
+                visibility: "Private"
+            )
+            PDFKitViewerSheet(document: dummyDoc)
         }
     }
     
@@ -554,7 +577,7 @@ struct LawyerCaseDetailView: View {
             Spacer()
             
             Button {
-                // View action
+                selectedDocument = doc
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .bold))
