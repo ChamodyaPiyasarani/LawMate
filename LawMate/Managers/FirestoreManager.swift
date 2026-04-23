@@ -16,6 +16,8 @@ class FirestoreManager: ObservableObject {
     @Published var conversations: [FBConversation] = []
     @Published var messages: [FBMessage] = []
     @Published var totalUnreadCount: Int = 0
+    @Published var unreadNotificationsCount: Int = 0
+    @Published var unreadChatCount: Int = 0
     @Published var notifications: [FBNotification] = []
     @Published var appointments: [FBAppointment] = []
     @Published var advisoryDocuments: [FBAdvisoryDocument] = []
@@ -29,6 +31,9 @@ class FirestoreManager: ObservableObject {
     private var appointmentsListener: ListenerRegistration?
     private var advisoryDocumentsListener: ListenerRegistration?
     private var lastKnownMessageDate: Date? = Date()
+    private var lastKnownNotificationDate: Date? = Date()
+    /// IDs of conversations deleted locally — prevents the snapshot listener from re-adding them
+    private var deletedConversationIds: Set<String> = []
     
     // MARK: - Lawyers
     
@@ -180,6 +185,21 @@ class FirestoreManager: ObservableObject {
         )
         do {
             let _ = try db.collection("documents").addDocument(from: newDoc)
+            
+            // Notify other party (if case is found)
+            if let legalCase = cases.first(where: { $0.id == caseId }) {
+                let currentUserId = AuthService.shared.currentUser?.id ?? ""
+                let recipientId = currentUserId == legalCase.lawyerId ? legalCase.clientId : legalCase.lawyerId
+                
+                let notification = FBNotification(
+                    title: "New Document Added",
+                    body: "A new document '\(fileName)' has been uploaded to case \(legalCase.title).",
+                    type: "case",
+                    timestamp: Date(),
+                    relatedId: caseId
+                )
+                addNotification(notification, toUserId: recipientId)
+            }
         } catch {
             print("Error uploading document: \(error)")
         }
@@ -306,27 +326,16 @@ class FirestoreManager: ObservableObject {
                     return
                 }
                 let loadedConversations = documents.compactMap { try? $0.data(as: FBConversation.self) }
-                self?.conversations = loadedConversations.sorted { ($0.lastMessageAt ?? Date.distantPast) > ($1.lastMessageAt ?? Date.distantPast) }
-                
-                // Calculate total unread
-                self?.totalUnreadCount = loadedConversations.reduce(0) { total, conv in
-                    total + (conv.unreadCounts?[userId] ?? 0)
+                // Filter out locally-deleted conversations so they never re-appear
+                let filtered = loadedConversations.filter { conv in
+                    guard let id = conv.id else { return true }
+                    return !(self?.deletedConversationIds.contains(id) ?? false)
                 }
+                self?.conversations = filtered.sorted { ($0.lastMessageAt ?? Date.distantPast) > ($1.lastMessageAt ?? Date.distantPast) }
                 
-                // Trigger notification for new messages
-                for conv in loadedConversations {
-                    if let lastAt = conv.lastMessageAt, let lastKnown = self?.lastKnownMessageDate {
-                        if lastAt > lastKnown {
-                            let partner = conv.partnerInfo(for: userId)
-                            if (conv.unreadCounts?[userId] ?? 0) > 0 {
-                                NotificationManager.shared.scheduleNotification(
-                                    title: partner.name,
-                                    body: conv.lastMessage ?? "New message"
-                                )
-                            }
-                        }
-                    }
-                }
+                // Calculate total unread (messages + notifications)
+                self?.updateTotalUnreadCount()
+                
                 self?.lastKnownMessageDate = Date()
             }
     }
@@ -350,9 +359,10 @@ class FirestoreManager: ObservableObject {
     func sendMessage(to conversationId: String, text: String, senderId: String) {
         let newMessage = FBMessage(senderId: senderId, text: text, timestamp: Date())
         
-        // Find recipient ID
+        // Find recipient ID from loaded conversations
         let conversation = conversations.first(where: { $0.id == conversationId })
         let recipientId = conversation?.participants.first(where: { $0 != senderId })
+        let senderName = AuthService.shared.currentUser?.fullName ?? "Someone"
         
         do {
             let _ = try db.collection("conversations")
@@ -370,13 +380,17 @@ class FirestoreManager: ObservableObject {
                 updateData["unreadCounts.\(recipientId)"] = FieldValue.increment(Int64(1))
             }
             
-            db.collection("conversations").document(conversationId).updateData(updateData)
+            db.collection("conversations").document(conversationId).updateData(updateData) { error in
+                if let error = error {
+                    print("Error updating conversation: \(error)")
+                }
+            }
             
-            // Send a persistent notification to the recipient
+            // Send a persistent in-app notification to the recipient
             if let recipientId = recipientId {
                 let notification = FBNotification(
-                    title: "New Message",
-                    body: text,
+                    title: "New Message from \(senderName)",
+                    body: text.count > 60 ? String(text.prefix(60)) + "…" : text,
                     type: "message",
                     timestamp: Date(),
                     relatedId: conversationId
@@ -385,31 +399,46 @@ class FirestoreManager: ObservableObject {
             }
         } catch {
             print("Error sending message: \(error)")
+            DispatchQueue.main.async {
+                ToastManager.shared.show(title: "Send Failed", message: "Could not send your message. Please try again.", type: .error)
+            }
         }
     }
     
     func getOrCreateConversation(between user1: String, and user2: String, partnerInfo: (name: String, image: String?), currentUser: User, completion: @escaping (String) -> Void) {
-        // Sort participants to have consistent ID formation or querying
+        // Firestore does not support isEqualTo on arrays.
+        // Use arrayContains on one participant, then filter client-side for the second.
         let sortedParticipants = [user1, user2].sorted()
         
         db.collection("conversations")
-            .whereField("participants", isEqualTo: sortedParticipants)
+            .whereField("participants", arrayContains: user1)
             .getDocuments { [weak self] snapshot, error in
-                if let doc = snapshot?.documents.first {
-                    completion(doc.documentID)
+                if let error = error {
+                    print("Error fetching conversations: \(error)")
+                }
+                
+                // Client-side: find conversation that has exactly both participants
+                let existing = snapshot?.documents.first { doc in
+                    let participants = (doc.data()["participants"] as? [String] ?? []).sorted()
+                    return participants == sortedParticipants
+                }
+                
+                if let existing = existing {
+                    DispatchQueue.main.async { completion(existing.documentID) }
                 } else {
-                    // Create new conversation
-                    var memberNames = [user1: partnerInfo.name, user2: partnerInfo.name]
-                    var memberImages = [user1: partnerInfo.image, user2: partnerInfo.image]
+                    // Build correct names/images map
+                    var memberNames: [String: String] = [:]
+                    var memberImages: [String: String?] = [:]
                     let unreadCounts = [user1: 0, user2: 0]
                     
-                    // Correct the names/images for the current user
                     memberNames[currentUser.id] = currentUser.fullName
                     memberImages[currentUser.id] = currentUser.profileImage
+                    memberNames[partnerInfo.name == currentUser.fullName ? user2 : (user1 == currentUser.id ? user2 : user1)] = partnerInfo.name
+                    memberImages[user1 == currentUser.id ? user2 : user1] = partnerInfo.image
                     
                     let newConversation = FBConversation(
                         participants: sortedParticipants,
-                        lastMessage: "Start a conversation",
+                        lastMessage: nil,
                         lastMessageAt: Date(),
                         memberNames: memberNames,
                         memberImages: memberImages,
@@ -418,7 +447,7 @@ class FirestoreManager: ObservableObject {
                     
                     do {
                         let ref = try self?.db.collection("conversations").addDocument(from: newConversation)
-                        completion(ref?.documentID ?? "")
+                        DispatchQueue.main.async { completion(ref?.documentID ?? "") }
                     } catch {
                         print("Error creating conversation: \(error)")
                     }
@@ -430,6 +459,53 @@ class FirestoreManager: ObservableObject {
         db.collection("conversations").document(id).updateData([
             "unreadCounts.\(userId)": 0
         ])
+    }
+    
+    func deleteConversation(id: String, completion: ((Bool) -> Void)? = nil) {
+        print("DEBUG: deleteConversation called for id=\(id)")
+        // 1. Add to tombstone set FIRST — listener will filter it out immediately
+        deletedConversationIds.insert(id)
+        // 2. Remove from local array right now
+        conversations.removeAll { $0.id == id }
+        
+        let messagesRef = db.collection("conversations").document(id).collection("messages")
+        messagesRef.getDocuments { [weak self] snapshot, error in
+            guard let self else { completion?(false); return }
+            
+            if let error = error {
+                print("DEBUG: Failed to fetch messages for deletion: \(error.localizedDescription)")
+            }
+            
+            let batch = self.db.batch()
+            let msgDocs = snapshot?.documents ?? []
+            print("DEBUG: Deleting \(msgDocs.count) message(s) in conversation \(id)")
+            msgDocs.forEach { batch.deleteDocument($0.reference) }
+            batch.deleteDocument(self.db.collection("conversations").document(id))
+            
+            batch.commit { [weak self] error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        print("DEBUG: Batch delete failed: \(error.localizedDescription)")
+                        // Rollback — remove from tombstone so conversation reappears
+                        self?.deletedConversationIds.remove(id)
+                        completion?(false)
+                    } else {
+                        print("DEBUG: Conversation \(id) deleted successfully")
+                        // Keep ID in tombstone — it's gone from Firestore anyway
+                        completion?(true)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func updateTotalUnreadCount() {
+        let currentUserId = AuthService.shared.currentUser?.id ?? ""
+        let chatUnread = conversations.reduce(0) { total, conv in
+            total + (conv.unreadCounts?[currentUserId] ?? 0)
+        }
+        self.unreadChatCount = chatUnread
+        self.totalUnreadCount = chatUnread + unreadNotificationsCount
     }
     
     // MARK: - Notifications
@@ -446,8 +522,51 @@ class FirestoreManager: ObservableObject {
                     print("Error fetching notifications: \(error?.localizedDescription ?? "Unknown")")
                     return
                 }
-                self?.notifications = documents.compactMap { try? $0.data(as: FBNotification.self) }
+                let fetched = documents.compactMap { try? $0.data(as: FBNotification.self) }
+                
+                // Trigger local notifications for new unread notifications
+                if let lastDate = self?.lastKnownNotificationDate {
+                    for notification in fetched {
+                        if !notification.isRead && notification.timestamp > lastDate {
+                            NotificationManager.shared.scheduleNotification(
+                                title: notification.title,
+                                body: notification.body,
+                                relatedId: notification.relatedId,
+                                type: notification.type
+                            )
+                        }
+                    }
+                }
+                
+                self?.notifications = fetched
+                self?.unreadNotificationsCount = fetched.filter { !$0.isRead }.count
+                self?.updateTotalUnreadCount()
+                self?.lastKnownNotificationDate = fetched.first?.timestamp ?? Date()
             }
+    }
+    
+    func markNotificationsAsRead(userId: String) {
+        let batch = db.batch()
+        let unread = notifications.filter { !$0.isRead }
+        
+        for notification in unread {
+            if let id = notification.id {
+                let ref = db.collection("users").document(userId).collection("notifications").document(id)
+                batch.updateData(["isRead": true], forDocument: ref)
+            }
+        }
+        
+        batch.commit { error in
+            if let error = error {
+                print("Error marking notifications as read: \(error)")
+            }
+        }
+    }
+    
+    func markNotificationAsRead(userId: String, notificationId: String) {
+        db.collection("users").document(userId).collection("notifications").document(notificationId).updateData([
+            "isRead": true
+        ])
     }
     
     func addNotification(_ notification: FBNotification, toUserId userId: String, completion: ((Bool) -> Void)? = nil) {
@@ -764,6 +883,21 @@ class FirestoreManager: ObservableObject {
                 }
 
                 completion(true, nil)
+                
+                // Notify other party
+                if let appointment = self.appointments.first(where: { $0.id == appointmentId }) {
+                    let currentUserId = AuthService.shared.currentUser?.id ?? ""
+                    let recipientId = currentUserId == appointment.lawyerId ? appointment.clientId : appointment.lawyerId
+                    
+                    let notification = FBNotification(
+                        title: "Appointment Rescheduled",
+                        body: "An appointment has been moved to \(newTime) on \({ let f = DateFormatter(); f.dateFormat = "MMM dd, yyyy"; return f.string(from: newDate) }()).",
+                        type: "appointment",
+                        timestamp: Date(),
+                        relatedId: appointmentId
+                    )
+                    self.addNotification(notification, toUserId: recipientId)
+                }
                 }
             }
         }

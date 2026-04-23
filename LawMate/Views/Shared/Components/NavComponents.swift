@@ -210,10 +210,11 @@ struct LawMateNavigationBar: View {
     var showBack: Bool = false
     var showNotification: Bool = false
     var showCamera: Bool = false
-    var notificationCount: Int = 0
     var onBack: () -> Void = {}
     var onNotification: () -> Void = {}
     var onCamera: () -> Void = {}
+    
+    @StateObject private var firestore = FirestoreManager.shared
 
     var body: some View {
         HStack {
@@ -229,7 +230,7 @@ struct LawMateNavigationBar: View {
             Spacer()
             
             if showNotification {
-                NotificationButton(badgeCount: notificationCount, action: onNotification)
+                NotificationButton(badgeCount: firestore.unreadNotificationsCount, action: onNotification)
             } else if showCamera {
                 CameraButton(action: onCamera)
             } else if showBack {
@@ -249,7 +250,6 @@ struct LawMateNavigationBar: View {
         LawMateNavigationBar(title: "My Cases",
                               showBack: true,
                               showNotification: true,
-                              notificationCount: 2,
                               onBack: {},
                               onNotification: {})
         .background(Color.lmBackground)

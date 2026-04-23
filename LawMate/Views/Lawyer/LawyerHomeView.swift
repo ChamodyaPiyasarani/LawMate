@@ -16,6 +16,7 @@ struct LawyerHomeView: View {
     @State private var showBiometricOptIn = false
     @StateObject private var firestore = FirestoreManager.shared
     @StateObject private var eventService = EventKitService.shared
+    @StateObject private var notifications = NotificationManager.shared
     @State private var todayEvents: [EKEvent] = []
     
     var todayAppointments: [FBAppointment] {
@@ -58,7 +59,7 @@ struct LawyerHomeView: View {
                                     Spacer()
                                     
                                     // Notification Bell as per image
-                                    NotificationButton(badgeCount: 3, action: {
+                                    NotificationButton(badgeCount: firestore.unreadNotificationsCount, action: {
                                         navPath.append(LawyerRoute.notifications)
                                     })
                                 }
@@ -221,6 +222,38 @@ struct LawyerHomeView: View {
                     if UserDefaults.standard.bool(forKey: "shouldShowBiometricPrompt") {
                         showBiometricOptIn = true
                     }
+                }
+                // Handle Deep Linking from Notifications
+                .onChange(of: notifications.pendingRoute) { _, route in
+                    guard let route = route else { return }
+                    
+                    switch route {
+                    case .chat(let conversationId):
+                        // 1. Switch to messages tab
+                        selectedTab = .messages
+                        // 2. Clear stack first for a clean push
+                        navPath = NavigationPath()
+                        
+                        // 3. Find and push (with a small delay to allow Firestore to sync if needed)
+                        func attemptPush() {
+                            if let conv = firestore.conversations.first(where: { $0.id == conversationId }) {
+                                navPath.append(conv)
+                            } else {
+                                // Retry once after a short delay if data is still loading
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    if let conv = firestore.conversations.first(where: { $0.id == conversationId }) {
+                                        navPath.append(conv)
+                                    }
+                                }
+                            }
+                        }
+                        attemptPush()
+                    case .notificationCenter:
+                        navPath.append(LawyerRoute.notifications)
+                    }
+                    
+                    // Clear the pending route
+                    notifications.pendingRoute = nil
                 }
                 .alert("Enable Biometric Login?", isPresented: $showBiometricOptIn) {
                     Button("Yes, Enable") {

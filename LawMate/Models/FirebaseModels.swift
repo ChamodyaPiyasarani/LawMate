@@ -43,7 +43,7 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(DocumentID<String>.self, forKey: .id)?.wrappedValue
+        self._id = try container.decode(DocumentID<String>.self, forKey: .id)
         caseNumber = try container.decode(String.self, forKey: .caseNumber)
         title = try container.decode(String.self, forKey: .title)
         clientName = try container.decode(String.self, forKey: .clientName)
@@ -154,7 +154,7 @@ struct FBConversation: Identifiable, Codable, Hashable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(DocumentID<String>.self, forKey: .id)?.wrappedValue
+        self._id = try container.decode(DocumentID<String>.self, forKey: .id)
         participants = try container.decode([String].self, forKey: .participants)
         lastMessage = try? container.decode(String.self, forKey: .lastMessage)
         lastMessageAt = try? container.decode(Date.self, forKey: .lastMessageAt)
@@ -176,6 +176,10 @@ struct FBConversation: Identifiable, Codable, Hashable {
         }
         memberImages = parsedImages
     }
+    
+    // Hashable conformance for navigation routing — using only ID ensures stable identity
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: FBConversation, rhs: FBConversation) -> Bool { lhs.id == rhs.id }
     
     // Helper to get the other participant's info
     func partnerInfo(for currentUserId: String) -> (id: String, name: String, image: String?) {
@@ -238,7 +242,7 @@ struct FBNotification: Identifiable, Codable, Hashable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(DocumentID<String>.self, forKey: .id)?.wrappedValue
+        self._id = try container.decode(DocumentID<String>.self, forKey: .id)
         title = (try? container.decode(String.self, forKey: .title)) ?? "Notification"
         body = (try? container.decode(String.self, forKey: .body)) ?? ""
         type = (try? container.decode(String.self, forKey: .type)) ?? "system"

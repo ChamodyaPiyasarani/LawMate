@@ -32,7 +32,6 @@ struct MyCasesView: View {
                     title: "My Case Details",
                     showBack: true,
                     showNotification: true,
-                    notificationCount: 0,
                     onBack: { dismiss() },
                     onNotification: {}
                 )

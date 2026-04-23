@@ -19,10 +19,6 @@ struct NotificationsView: View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
             
-            // Background blob based on role
-            GreenBlobBackground(style: AuthService.shared.currentUser?.role == .lawyer ? .lawyer : .client)
-                .frame(height: 300)
-            
             VStack(spacing: 0) {
                 // MARK: Custom Header
                 LawMateNavigationBar(
@@ -38,7 +34,7 @@ struct NotificationsView: View {
                     VStack(spacing: 20) {
                         Spacer()
                         Image(systemName: "bell.slash")
-                            .font(.system(size:60))
+                            .font(.system(size: 60))
                             .foregroundColor(.lmPrimary.opacity(0.3))
                         Text("No notifications yet")
                             .font(.lmBody)
@@ -71,7 +67,12 @@ struct NotificationsView: View {
         .navigationBarBackButtonHidden(true)
         .onAppear {
             if let user = AuthService.shared.currentUser {
+                // Start real-time listener first so UI populates immediately
                 firestore.listenForNotifications(userId: user.id)
+                // Mark as read after a short delay so unread indicators are visible briefly
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    firestore.markNotificationsAsRead(userId: user.id)
+                }
             }
         }
     }

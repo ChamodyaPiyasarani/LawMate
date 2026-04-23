@@ -1,4 +1,5 @@
 import SwiftUI
+import MapKit
 
 struct ClientHomeView: View {
     @State private var selectedTab:  LawMateTab = .home
@@ -6,6 +7,8 @@ struct ClientHomeView: View {
     @State private var navPath = NavigationPath()
     @AppStorage("biometricsEnabled") private var biometricsEnabled = false
     @State private var showBiometricOptIn = false
+    @StateObject private var firestore = FirestoreManager.shared
+    @StateObject private var notifications = NotificationManager.shared
     
     // Simple routes for screens without complex data models
     enum AppRoute: Hashable {
@@ -45,7 +48,7 @@ struct ClientHomeView: View {
                                             }
                                         }
                                         Spacer()
-                                        NotificationButton(badgeCount: 5, action: {
+                                        NotificationButton(badgeCount: firestore.unreadNotificationsCount, action: {
                                             navPath.append(AppRoute.notifications)
                                         })
                                     }
@@ -53,159 +56,72 @@ struct ClientHomeView: View {
                 .padding(.top, 64)
                 
                 // MARK: Upcoming Appointments Section
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack {
-                        Text("Upcoming Appointments")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.lmPrimary)
-                        
-                        Spacer()
-                        
-                        NavigationLink(value: AppRoute.allAppointments) {
-                            Text("See All")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.lmPrimary.opacity(0.8))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 24)
-                    
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 16) {
-                            let upcoming = FirestoreManager.shared.appointments.filter { 
-                               $0.status.lowercased() == "confirmed" || $0.status.lowercased() == "pending" 
-                            }.prefix(5)
+                let upcoming = FirestoreManager.shared.appointments.filter { 
+                   $0.status.lowercased() == "confirmed" || $0.status.lowercased() == "pending" 
+                }.prefix(5)
+                
+                if !upcoming.isEmpty {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text("Upcoming Appointments")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.lmPrimary)
                             
-                            ForEach(upcoming) { appointment in
-                                NavigationLink(value: appointment) {
-                                    VStack(alignment: .leading, spacing: 12) {
-                                        HStack {
-                                            Label(appointment.time, systemImage: "clock.fill")
-                                                .font(.system(size: 10, weight: .bold))
-                                                .foregroundColor(.lmPrimary)
-                                            
-                                            Spacer()
-                                            
-                                            Image(systemName: appointment.specialtyIcon)
-                                                .font(.system(size: 12))
-                                                .foregroundColor(.lmPrimary.opacity(0.3))
-                                        }
-                                        
-                                        Text(appointment.lawyerName)
-                                            .font(.system(size: 14, weight: .bold))
-                                            .foregroundColor(.lmPrimary)
-                                        
-                                        Text(appointment.service)
-                                            .font(.system(size: 11))
-                                            .foregroundColor(.lmTextSecondary)
-                                    }
-                                    .padding(16)
-                                    .frame(width: 160)
-                                    .background(Color.white)
-                                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
-                                }
-                                .buttonStyle(.plain)
-                            }
+                            Spacer()
                             
-                            if upcoming.isEmpty {
-                                Text("No upcoming sessions.")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.lmTextSecondary)
-                                    .frame(width: 160, height: 100)
-                                    .background(Color.white.opacity(0.4))
-                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                            NavigationLink(value: AppRoute.allAppointments) {
+                                Text("See All")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.lmPrimary.opacity(0.8))
                             }
+                            .buttonStyle(.plain)
                         }
                         .padding(.horizontal, 24)
-                        .padding(.vertical, 2)
-                    }
-                }
-                .padding(.top, 10)
-                
-                // MARK: Nearby Lawyers Section
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack {
-                        Text("Nearby Lawyers")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.lmPrimary)
                         
-                        Spacer()
-                        
-                        Button {
-                            withAnimation(.spring()) {
-                                selectedTab = .lawyers
-                            }
-                        } label: {
-                            Text("See All")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.lmPrimary.opacity(0.8))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 24)
-                    
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 16) {
-                            ForEach(FirestoreManager.shared.lawyers.prefix(5), id: \.id) { lawyer in
-                                NavigationLink(value: lawyer) {
-                                    VStack(alignment: .leading, spacing: 12) {
-                                        HStack(alignment: .top) {
-                                            LawMateAvatar(url: lawyer.profileImage, name: lawyer.fullName, size: 44)
-                                            
-                                            Spacer()
-                                            
-                                            HStack(spacing: 4) {
-                                                Image(systemName: "star.fill")
-                                                    .font(.system(size: 8))
-                                                    .foregroundColor(.orange)
-                                                Text("4.8")
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 16) {
+                                ForEach(upcoming) { appointment in
+                                    NavigationLink(value: appointment) {
+                                        VStack(alignment: .leading, spacing: 12) {
+                                            HStack {
+                                                Label(appointment.time, systemImage: "clock.fill")
                                                     .font(.system(size: 10, weight: .bold))
                                                     .foregroundColor(.lmPrimary)
+                                                
+                                                Spacer()
+                                                
+                                                Image(systemName: appointment.specialtyIcon)
+                                                    .font(.system(size: 12))
+                                                    .foregroundColor(.lmPrimary.opacity(0.3))
                                             }
-                                        }
-                                        
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(lawyer.fullName)
-                                                .font(.system(size: 13, weight: .bold))
+                                            
+                                            Text(appointment.lawyerName)
+                                                .font(.system(size: 14, weight: .bold))
                                                 .foregroundColor(.lmPrimary)
-                                                .lineLimit(1)
                                             
-                                            Text(lawyer.specialty ?? "Legal Expert")
-                                                .font(.system(size: 10))
+                                            Text(appointment.service)
+                                                .font(.system(size: 11))
                                                 .foregroundColor(.lmTextSecondary)
-                                                .lineLimit(1)
                                         }
-                                        
-                                        HStack {
-                                            Label("Colombo", systemImage: "mappin.circle.fill")
-                                                .font(.system(size: 9, weight: .semibold))
-                                                .foregroundColor(.lmPrimary.opacity(0.6))
-                                            
-                                            Spacer()
-                                            
-                                            Image(systemName: "chevron.right")
-                                                .font(.system(size: 10, weight: .bold))
-                                                .foregroundColor(.lmPrimary.opacity(0.3))
-                                        }
+                                        .padding(16)
+                                        .frame(width: 160)
+                                        .background(Color.white)
+                                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                                        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
                                     }
-                                    .padding(16)
-                                    .frame(width: 150)
-                                    .background(Color.white)
-                                    .clipShape(RoundedRectangle(cornerRadius: 20))
-                                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
+                                    .buttonStyle(.plain)
                                 }
-                                .buttonStyle(.plain)
                             }
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 2)
                         }
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 2)
                     }
+                    .padding(.top, 10)
                 }
-                .padding(.top, 24)
+                
 
                                     // MARK: Find My Lawyer card
-                                    FindLawyerCard(searchQuery: $searchQuery, selectedTab: $selectedTab)
+                                    FindLawyerCard(searchQuery: $searchQuery, selectedTab: $selectedTab, navPath: $navPath)
                                         .padding(.horizontal, 24)
 
                                     // MARK: My Cases card
@@ -327,6 +243,38 @@ struct ClientHomeView: View {
                 } message: {
                     Text("Would you like to use Face ID / Touch ID for faster login next time?")
                 }
+                // Handle Deep Linking from Notifications
+                .onChange(of: notifications.pendingRoute) { _, route in
+                    guard let route = route else { return }
+                    
+                    switch route {
+                    case .chat(let conversationId):
+                        // 1. Switch to messages tab
+                        selectedTab = .messages
+                        // 2. Clear stack first for a clean push
+                        navPath = NavigationPath()
+                        
+                        // 3. Find and push (with a small delay to allow Firestore to sync if needed)
+                        func attemptPush() {
+                            if let conv = firestore.conversations.first(where: { $0.id == conversationId }) {
+                                navPath.append(conv)
+                            } else {
+                                // Retry once after a short delay if data is still loading
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    if let conv = firestore.conversations.first(where: { $0.id == conversationId }) {
+                                        navPath.append(conv)
+                                    }
+                                }
+                            }
+                        }
+                        attemptPush()
+                    case .notificationCenter:
+                        navPath.append(AppRoute.notifications)
+                    }
+                    
+                    // Clear the pending route
+                    notifications.pendingRoute = nil
+                }
                 .toolbar(.hidden, for: .navigationBar)
             }
             
@@ -358,16 +306,92 @@ struct ClientHomeView: View {
 private struct FindLawyerCard: View {
     @Binding var searchQuery: String
     @Binding var selectedTab: LawMateTab
+    @Binding var navPath: NavigationPath
+
+    var lawyers: [Lawyer] {
+        FirestoreManager.shared.lawyers.map { user in
+            Lawyer(
+                id: user.id,
+                name: user.fullName,
+                specialty: user.specialty ?? "General Practice",
+                bio: user.bio ?? "Professional Lawyer",
+                description: user.bio ?? "",
+                experience: user.experience ?? "5 YEARS",
+                experienceYears: 5,
+                casesWon: user.casesWon ?? "0",
+                wonCount: 0,
+                rating: 4.8,
+                location: "Colombo, Sri Lanka",
+                image: user.profileImage ?? "",
+                coordinate: CLLocationCoordinate2D(latitude: 6.9271, longitude: 79.8612)
+            )
+        }
+    }
+
+    var suggestions: [Lawyer] {
+        guard !searchQuery.isEmpty else { return [] }
+        return lawyers.filter { lawyer in
+            lawyer.name.lowercased().contains(searchQuery.lowercased()) ||
+            lawyer.specialty.lowercased().contains(searchQuery.lowercased())
+        }
+    }
 
     var body: some View {
         VStack(spacing: 16) {
-            // Search field
-            LawMateSearchBar(text: $searchQuery, placeholder: "Search by name or specialization...")
+            VStack(spacing: 0) {
+                // Search field
+                LawMateSearchBar(text: $searchQuery, placeholder: "Search by name or specialization...")
+                
+                if !suggestions.isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(suggestions.prefix(3)) { lawyer in
+                            Button {
+                                searchQuery = lawyer.name
+                                navPath.append(lawyer)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    LawMateAvatar(url: lawyer.image, name: lawyer.name, size: 32)
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(lawyer.name)
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(.lmPrimary)
+                                        Text(lawyer.specialty)
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.lmTextSecondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "arrow.up.left")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.lmPrimary.opacity(0.3))
+                                }
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, 16)
+                            }
+                            .buttonStyle(.plain)
+                            
+                            if lawyer.id != suggestions.prefix(3).last?.id {
+                                Divider()
+                                    .padding(.horizontal, 16)
+                            }
+                        }
+                    }
+                    .background(Color.white.opacity(0.9))
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                    .padding(.top, 8)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
 
             // CTA button
             Button {
-                withAnimation(.spring()) {
-                    selectedTab = .lawyers
+                if let match = lawyers.first(where: { $0.name.lowercased() == searchQuery.lowercased() }) {
+                    navPath.append(match)
+                } else {
+                    withAnimation(.spring()) {
+                        selectedTab = .lawyers
+                    }
                 }
             } label: {
                 HStack {

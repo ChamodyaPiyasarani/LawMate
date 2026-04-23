@@ -7,6 +7,13 @@ class NotificationManager: NSObject, ObservableObject {
     
     @Published var isAuthorized = false
     
+    // For Deep Linking
+    enum AppRoute: Hashable {
+        case chat(conversationId: String)
+        case notificationCenter // to go to the notifications tab
+    }
+    @Published var pendingRoute: AppRoute? = nil
+    
     override init() {
         super.init()
         checkStatus()
@@ -34,11 +41,16 @@ class NotificationManager: NSObject, ObservableObject {
         }
     }
     
-    func scheduleNotification(title: String, body: String, timeInterval: TimeInterval = 5) {
+    func scheduleNotification(title: String, body: String, relatedId: String? = nil, type: String? = nil, timeInterval: TimeInterval = 1) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
+        
+        var userInfo: [String: Any] = [:]
+        if let relatedId = relatedId { userInfo["relatedId"] = relatedId }
+        if let type = type { userInfo["type"] = type }
+        content.userInfo = userInfo
         
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: timeInterval, repeats: false)
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
@@ -69,6 +81,17 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
         
         let userInfo = response.notification.request.content.userInfo
         print("Tapped notification with userInfo: \(userInfo)")
+        
+        let relatedId = userInfo["relatedId"] as? String
+        let type = userInfo["type"] as? String
+        
+        DispatchQueue.main.async {
+            if let relatedId = relatedId, type == "message" {
+                self.pendingRoute = .chat(conversationId: relatedId)
+            } else {
+                self.pendingRoute = .notificationCenter
+            }
+        }
         
         completionHandler()
     }

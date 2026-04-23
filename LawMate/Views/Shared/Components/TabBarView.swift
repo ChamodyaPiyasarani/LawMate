@@ -73,12 +73,12 @@ struct TabBarView: View {
                                 .foregroundColor(selectedTab == tab ? .lmPrimary : .lmTextSecondary)
                                 .overlay(
                                     Group {
-                                        if tab == .messages && firestore.totalUnreadCount > 0 {
+                                        if tab == .messages && firestore.unreadChatCount > 0 {
                                             ZStack {
                                                 Circle()
                                                     .fill(Color.red)
                                                     .frame(width: 16, height: 16)
-                                                Text("\(min(firestore.totalUnreadCount, 99))")
+                                                Text("\(min(firestore.unreadChatCount, 99))")
                                                     .font(.system(size: 8, weight: .bold))
                                                     .foregroundColor(.white)
                                             }

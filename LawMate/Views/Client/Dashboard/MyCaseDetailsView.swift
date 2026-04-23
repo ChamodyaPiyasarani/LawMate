@@ -27,7 +27,6 @@ struct MyCaseDetailsView: View {
                     showBack: true,
                     showNotification: true,
                     showCamera: false,
-                    notificationCount: 0,
                     onBack: { dismiss() },
                     onNotification: {}
                 )

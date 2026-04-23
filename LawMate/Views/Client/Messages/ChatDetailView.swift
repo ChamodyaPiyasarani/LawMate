@@ -48,23 +48,30 @@ struct ChatDetailView: View {
                             }
                         }
                         .padding(.horizontal, 24)
-                        .padding(.bottom, 100) // Padding for input area
+                        .padding(.top, 8)
+                        .padding(.bottom, 120) // Padding for input area
+                    }
+                    .onTapGesture {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                     }
                     .onChange(of: firestore.messages) { _, _ in
                         if let lastId = firestore.messages.last?.id {
-                            withAnimation {
+                            withAnimation(.easeOut(duration: 0.25)) {
                                 proxy.scrollTo(lastId, anchor: .bottom)
                             }
+                        }
+                    }
+                    // Scroll to bottom on first load
+                    .onAppear {
+                        if let lastId = firestore.messages.last?.id {
+                            proxy.scrollTo(lastId, anchor: .bottom)
                         }
                     }
                 }
             }
             .ignoresSafeArea(edges: .top)
-            .onTapGesture {
-                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            }
             
-            // MARK: Input Area
+            // MARK: Input Area — floats above keyboard
             VStack {
                 Spacer()
                 
@@ -74,12 +81,14 @@ struct ChatDetailView: View {
                         .foregroundColor(.lmTextPrimary)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 14)
+                        .submitLabel(.send)
+                        .onSubmit { sendCurrentMessage() }
                     
                     Button(action: {
                         sendCurrentMessage()
                     }) {
                         Circle()
-                            .fill(Color.lmPrimary)
+                            .fill(messageText.trimmingCharacters(in: .whitespaces).isEmpty ? Color.lmTextSecondary.opacity(0.3) : Color.lmPrimary)
                             .frame(width: 44, height: 44)
                             .overlay(
                                 Image(systemName: "arrow.up")
@@ -87,19 +96,21 @@ struct ChatDetailView: View {
                                     .foregroundColor(.white)
                             )
                     }
+                    .disabled(messageText.trimmingCharacters(in: .whitespaces).isEmpty)
                     .padding(.trailing, 8)
                 }
-                .background(Color.white.opacity(0.8))
+                .background(Color.white.opacity(0.95))
                 .background(.ultraThinMaterial)
                 .clipShape(Capsule())
                 .overlay(
                     Capsule()
                         .stroke(Color.white.opacity(0.5), lineWidth: 1)
                 )
-                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: -4)
                 .padding(.horizontal, 24)
-                .padding(.bottom, 30) // Floating above bottom edge
+                .padding(.bottom, 24)
             }
+            .ignoresSafeArea(.keyboard, edges: .bottom)
         }
         .navigationBarBackButtonHidden(true)
         .onAppear {
