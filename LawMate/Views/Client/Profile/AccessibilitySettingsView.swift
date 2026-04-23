@@ -80,7 +80,7 @@ struct AccessibilitySettingsView: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text("High Contrast")
                                             .font(.lmHeading)
-                                        Text("Improve readability with darker colors.")
+                                        Text("Enhance legibility with stronger colors.")
                                             .font(.lmCaption)
                                             .foregroundColor(.lmTextSecondary)
                                     }
@@ -173,7 +173,9 @@ struct AccessibilitySettingsView: View {
             bio: authService.currentUser?.bio,
             textScale: textScale,
             highContrast: highContrast
-        )
+        ) { _ in
+            isSaving = false
+        }
         
         // Show Success Toast
         ToastManager.shared.show(title: "Settings Saved", message: "Your accessibility preferences have been updated.", type: .success)

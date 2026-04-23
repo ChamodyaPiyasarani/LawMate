@@ -51,6 +51,7 @@ struct LawMateTextField: View {
                             .foregroundColor(.lmTextSecondary)
                             .frame(width: 15)
                     }
+                    .accessibilityLabel(isPasswordVisible ? "Hide password" : "Show password")
                 }
             }
             .padding(.horizontal, 10)
