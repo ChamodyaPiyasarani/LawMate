@@ -16,6 +16,7 @@ import MapKit
 import PDFKit
 import CoreLocation
 import Combine
+import WebKit
 
 // MARK: - Back Button
 struct LawMateBackButton: View {
@@ -116,6 +117,7 @@ struct AppointmentRowView: View {
                     Text(displayName)
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(.lmPrimary)
+                        .lineLimit(1)
                     
                     if let specialty = appointment.lawyerSpecialty {
                         HStack(spacing: 4) {
@@ -123,18 +125,21 @@ struct AppointmentRowView: View {
                                 .font(.system(size: 8))
                             Text(specialty)
                                 .font(.system(size: 8, weight: .bold))
+                                .lineLimit(1)
                         }
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Color.lmPrimary.opacity(0.1))
                         .foregroundColor(.lmPrimary)
                         .clipShape(Capsule())
+                        .layoutPriority(1)
                     }
                 }
                 
                 Text(appointment.service)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.lmTextSecondary)
+                    .lineLimit(1)
                 
                 Text(appointment.description)
                     .font(.system(size: 11))
@@ -142,7 +147,7 @@ struct AppointmentRowView: View {
                     .lineLimit(1)
             }
             
-            Spacer()
+            Spacer(minLength: 8)
             
             // Status & Method (Right)
             VStack(alignment: .trailing, spacing: 6) {
@@ -419,29 +424,18 @@ struct LocationPickerView: View {
 struct PDFKitView: UIViewRepresentable {
     let url: URL
     
-    func makeUIView(context: Context) -> PDFView {
-        let pdfView = PDFView()
+    func makeUIView(context: Context) -> WKWebView {
+        let webView = WKWebView()
+        webView.isOpaque = false
+        webView.backgroundColor = .clear
+        webView.scrollView.backgroundColor = .clear
         
-        // Final sanity check for file size
-        let attr = try? FileManager.default.attributesOfItem(atPath: url.path)
-        let size = attr?[.size] as? Int64 ?? 0
-        
-        if size > 0 {
-            if let data = try? Data(contentsOf: url) {
-                pdfView.document = PDFDocument(data: data)
-            } else {
-                pdfView.document = PDFDocument(url: url)
-            }
-        }
-        
-        pdfView.autoScales = true
-        pdfView.displayMode = .singlePageContinuous
-        pdfView.displayDirection = .vertical
-        pdfView.backgroundColor = .clear 
-        return pdfView
+        let request = URLRequest(url: url)
+        webView.load(request)
+        return webView
     }
     
-    func updateUIView(_ uiView: PDFView, context: Context) {}
+    func updateUIView(_ uiView: WKWebView, context: Context) {}
 }
 
 struct PDFKitViewerSheet: View {

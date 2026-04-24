@@ -431,13 +431,14 @@ struct LawyerRow: View {
             HStack(alignment: .top, spacing: 16) {
                 LawMateAvatar(url: lawyer.image, name: lawyer.name, size: 64)
                 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .center) {
                         Text(lawyer.name)
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.lmPrimary)
+                            .lineLimit(1)
                         
-                        Spacer()
+                        Spacer(minLength: 8)
                         
                         HStack(spacing: 4) {
                             let spec = lawyer.specialty.lowercased()
@@ -449,24 +450,25 @@ struct LawyerRow: View {
                                 .font(.system(size: 10))
                             Text(lawyer.specialty)
                                 .font(.system(size: 10, weight: .bold))
+                                .lineLimit(1)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(Color.lmPrimary.opacity(0.1))
                         .foregroundColor(.lmPrimary)
                         .clipShape(Capsule())
+                        .layoutPriority(1)
                     }
                     
                     Text(lawyer.bio)
                         .font(.system(size: 13))
                         .foregroundColor(.lmTextSecondary)
-                        .lineLimit(2)
+                        .lineLimit(1)
                         .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             
-            HStack {
+            HStack(alignment: .center) {
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
                         .foregroundColor(.orange)
@@ -477,13 +479,15 @@ struct LawyerRow: View {
                     Text("(120+ Reviews)")
                         .font(.system(size: 10))
                         .foregroundColor(.lmTextSecondary.opacity(0.7))
+                        .lineLimit(1)
                 }
                 
-                Spacer()
+                Spacer(minLength: 8)
                 
                 Label(lawyer.location, systemImage: "mappin.circle.fill")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.lmPrimary.opacity(0.6))
+                    .lineLimit(1)
             }
         }
         .padding(20)
