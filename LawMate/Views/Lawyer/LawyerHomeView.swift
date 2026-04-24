@@ -12,6 +12,8 @@ struct LawyerHomeView: View {
     @AppStorage("userRole") private var storedRole: UserRole = .lawyer
     @State private var selectedTab: LawMateTab = .home
     @State private var navPath = NavigationPath()
+    @State private var activeConversation: FBConversation? = nil
+    @State private var pendingChatId: String? = nil
     @AppStorage("biometricsEnabled") private var biometricsEnabled = false
     @State private var showBiometricOptIn = false
     @StateObject private var firestore = FirestoreManager.shared
@@ -59,7 +61,7 @@ struct LawyerHomeView: View {
                                     Spacer()
                                     
                                     // Notification Bell as per image
-                                    NotificationButton(badgeCount: firestore.unreadNotificationsCount, action: {
+                                    NotificationButton(action: {
                                         navPath.append(LawyerRoute.notifications)
                                     })
                                 }
@@ -177,14 +179,14 @@ struct LawyerHomeView: View {
                         LawyerCalendarView(showBack: false)
                     } else if selectedTab == .messages {
                         MessagesListView(onBack: { selectedTab = .home }, onSelect: { conversation in
-                            navPath.append(conversation)
+                            activeConversation = conversation
                         })
                     } else {
                         ProfileView(onBack: { selectedTab = .home })
                     }
                 }
                 .navigationBarHidden(true)
-                .navigationDestination(for: FBConversation.self) { conversation in
+                .navigationDestination(item: $activeConversation) { conversation in
                     ChatDetailView(conversation: conversation)
                 }
                 .navigationDestination(for: LawyerRoute.self) { route in
@@ -232,20 +234,8 @@ struct LawyerHomeView: View {
                         selectedTab = .messages
                         // 2. Clear stack first for a clean push
                         navPath = NavigationPath()
-                        
-                        // 3. Find and push
-                        if let conv = firestore.conversations.first(where: { $0.id == conversationId }) {
-                            navPath.append(conv)
-                        } else {
-                            // If not found in list yet, construct a basic one so navigation succeeds
-                            // The ChatDetailView will load the messages based on the ID anyway
-                            let placeholder = FBConversation(
-                                id: conversationId,
-                                participants: [], // Will be filled by listener
-                                lastMessageAt: Date()
-                            )
-                            navPath.append(placeholder)
-                        }
+                        pendingChatId = conversationId
+                        tryNavigateToPendingChat()
                     case .notificationCenter:
                         navPath.append(LawyerRoute.notifications)
                     }
@@ -270,7 +260,7 @@ struct LawyerHomeView: View {
             }
             
             // MARK: Global Tab Bar (Lawyer Role)
-            if navPath.isEmpty {
+            if navPath.isEmpty && activeConversation == nil {
                 VStack {
                     Spacer()
                     TabBarView(selectedTab: $selectedTab, role: .lawyer)
@@ -279,12 +269,30 @@ struct LawyerHomeView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: navPath.isEmpty)
+        .animation(.easeInOut(duration: 0.2), value: navPath.isEmpty && activeConversation == nil)
+        .onChange(of: selectedTab) { _, _ in
+            navPath = NavigationPath()
+            activeConversation = nil
+        }
+        .onChange(of: firestore.conversations) { _, _ in
+            tryNavigateToPendingChat()
+        }
         .onAppear {
             if let user = AuthService.shared.currentUser {
                 firestore.startSync(role: user.role, userId: user.id)
                 fetchTodayEvents()
             }
+        }
+    }
+
+    private func tryNavigateToPendingChat() {
+        guard let pendingChatId = pendingChatId else { return }
+        if let conv = firestore.conversations.first(where: { $0.id == pendingChatId }) {
+            activeConversation = conv
+            self.pendingChatId = nil
+        } else if !firestore.conversations.isEmpty {
+            ToastManager.shared.show(title: "Chat Error", message: "We couldn't open that conversation. Please try again.", type: .error)
+            self.pendingChatId = nil
         }
     }
     

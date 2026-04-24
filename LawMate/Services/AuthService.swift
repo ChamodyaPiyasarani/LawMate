@@ -33,6 +33,13 @@ class AuthService: ObservableObject {
     func updateFCMToken(_ token: String) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         
+        // Only update if the token has actually changed to save on Firestore writes
+        let lastToken = UserDefaults.standard.string(forKey: "lastFCMToken")
+        if lastToken == token {
+            print("FCM Token is already up to date.")
+            return
+        }
+        
         db.collection("users").document(uid).updateData([
             "fcmToken": token
         ]) { error in
@@ -40,6 +47,7 @@ class AuthService: ObservableObject {
                 print("Error updating FCM token: \(error)")
             } else {
                 print("FCM Token successfully updated in Firestore.")
+                UserDefaults.standard.set(token, forKey: "lastFCMToken")
             }
         }
     }

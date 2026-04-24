@@ -5,6 +5,8 @@ struct ClientHomeView: View {
     @State private var selectedTab:  LawMateTab = .home
     @State private var searchQuery:  String = ""
     @State private var navPath = NavigationPath()
+    @State private var activeConversation: FBConversation? = nil
+    @State private var pendingChatId: String? = nil
     @AppStorage("biometricsEnabled") private var biometricsEnabled = false
     @State private var showBiometricOptIn = false
     @StateObject private var firestore = FirestoreManager.shared
@@ -48,7 +50,7 @@ struct ClientHomeView: View {
                                             }
                                         }
                                         Spacer()
-                                        NotificationButton(badgeCount: firestore.unreadNotificationsCount, action: {
+                                        NotificationButton(action: {
                                             navPath.append(AppRoute.notifications)
                                         })
                                     }
@@ -56,8 +58,12 @@ struct ClientHomeView: View {
                 .padding(.top, 20)
                 
                 // MARK: Upcoming Appointments Section
-                let upcoming = FirestoreManager.shared.appointments.filter { 
-                   $0.status.lowercased() == "confirmed" || $0.status.lowercased() == "pending" 
+                let calendar = Calendar.current
+                let today = calendar.startOfDay(for: Date())
+                let upcoming = FirestoreManager.shared.appointments.filter {
+                    let s = $0.status.lowercased()
+                    let isUpcoming = calendar.startOfDay(for: $0.date) >= today
+                    return isUpcoming && (s == "confirmed" || s == "pending" || s == "in progress")
                 }.prefix(5)
                 
                 if !upcoming.isEmpty {
@@ -81,6 +87,8 @@ struct ClientHomeView: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 16) {
                                 ForEach(upcoming) { appointment in
+                                    let isHearing = appointment.service.localizedCaseInsensitiveContains("hearing") ||
+                                        appointment.description.localizedCaseInsensitiveContains("hearing")
                                     NavigationLink(value: appointment) {
                                         VStack(alignment: .leading, spacing: 12) {
                                             HStack {
@@ -105,7 +113,7 @@ struct ClientHomeView: View {
                                         }
                                         .padding(16)
                                         .frame(width: 160)
-                                        .background(Color.white)
+                                        .background(isHearing ? Color.orange.opacity(0.12) : Color.white)
                                         .clipShape(RoundedRectangle(cornerRadius: 16))
                                         .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
                                     }
@@ -164,7 +172,7 @@ struct ClientHomeView: View {
                         MessagesListView(onBack: {
                             selectedTab = .home
                         }, onSelect: { conversation in
-                            navPath.append(conversation)
+                            activeConversation = conversation
                         })
                     } else {
                         // MARK: Profile Content
@@ -174,7 +182,7 @@ struct ClientHomeView: View {
                     }
                 }
                 .navigationDestination(for: Lawyer.self) { lawyer in
-                    LawyerDetailView(lawyer: lawyer, navPath: $navPath)
+                    LawyerDetailView(lawyer: lawyer, activeConversation: $activeConversation)
                 }
                 .navigationDestination(for: FBAppointment.self) { appointment in
                     MyCaseDetailsView(appointment: appointment)
@@ -199,7 +207,7 @@ struct ClientHomeView: View {
                 .navigationDestination(for: FBLegalCase.self) { clientCase in
                     CaseDetailView(clientCase: clientCase)
                 }
-                .navigationDestination(for: FBConversation.self) { conversation in
+                .navigationDestination(item: $activeConversation) { conversation in
                     ChatDetailView(conversation: conversation)
                 }
                 .navigationDestination(for: ProfileRoute.self) { route in
@@ -252,20 +260,8 @@ struct ClientHomeView: View {
                         selectedTab = .messages
                         // 2. Clear stack first for a clean push
                         navPath = NavigationPath()
-                        
-                        // 3. Find and push
-                        if let conv = firestore.conversations.first(where: { $0.id == conversationId }) {
-                            navPath.append(conv)
-                        } else {
-                            // If not found in list yet, construct a basic one so navigation succeeds
-                            // The ChatDetailView will load the messages based on the ID anyway
-                            let placeholder = FBConversation(
-                                id: conversationId,
-                                participants: [], // Will be filled by listener
-                                lastMessageAt: Date()
-                            )
-                            navPath.append(placeholder)
-                        }
+                        pendingChatId = conversationId
+                        tryNavigateToPendingChat()
                     case .notificationCenter:
                         navPath.append(AppRoute.notifications)
                     }
@@ -277,7 +273,7 @@ struct ClientHomeView: View {
             }
             
             // MARK: Global Tab Bar
-            if navPath.isEmpty {
+            if navPath.isEmpty && activeConversation == nil {
                 VStack {
                     Spacer()
                     TabBarView(selectedTab: $selectedTab, role: .client)
@@ -286,14 +282,29 @@ struct ClientHomeView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: navPath.isEmpty)
+        .animation(.easeInOut(duration: 0.2), value: navPath.isEmpty && activeConversation == nil)
         .onChange(of: selectedTab) { _, _ in
             navPath = NavigationPath()
+            activeConversation = nil
+        }
+        .onChange(of: firestore.conversations) { _, _ in
+            tryNavigateToPendingChat()
         }
         .onAppear {
             if let user = AuthService.shared.currentUser {
                 FirestoreManager.shared.startSync(role: user.role, userId: user.id)
             }
+        }
+    }
+
+    private func tryNavigateToPendingChat() {
+        guard let pendingChatId = pendingChatId else { return }
+        if let conv = firestore.conversations.first(where: { $0.id == pendingChatId }) {
+            activeConversation = conv
+            self.pendingChatId = nil
+        } else if !firestore.conversations.isEmpty {
+            ToastManager.shared.show(title: "Chat Error", message: "We couldn't open that conversation. Please try again.", type: .error)
+            self.pendingChatId = nil
         }
     }
 }
@@ -487,9 +498,12 @@ public struct ClientAllAppointmentsListView: View {
     public init() {}
     
     var upcomingAppointments: [FBAppointment] {
-        firestore.appointments.filter { 
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        return firestore.appointments.filter {
             let s = $0.status.lowercased()
-            return s == "confirmed" || s == "pending" || s == "in progress"
+            let isUpcoming = calendar.startOfDay(for: $0.date) >= today
+            return isUpcoming && (s == "confirmed" || s == "pending" || s == "in progress")
         }.sorted { $0.date > $1.date }
     }
     

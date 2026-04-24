@@ -120,6 +120,7 @@ class FirestoreManager: ObservableObject {
         lawyersListener?.remove()
         clientsListener?.remove()
         conversationsListener?.remove()
+        messagesListener?.remove()
         notificationsListener?.remove()
         appointmentsListener?.remove()
         advisoryDocumentsListener?.remove()
@@ -329,6 +330,7 @@ class FirestoreManager: ObservableObject {
         conversationsListener = db.collection("conversations")
             .whereField("participants", arrayContains: userId)
             .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
                 guard let documents = snapshot?.documents else {
                     print("Error fetching conversations: \(error?.localizedDescription ?? "Unknown")")
                     return
@@ -337,31 +339,48 @@ class FirestoreManager: ObservableObject {
                 // Filter out locally-deleted conversations so they never re-appear
                 let filtered = loadedConversations.filter { conv in
                     guard let id = conv.id else { return true }
-                    return !(self?.deletedConversationIds.contains(id) ?? false)
+                    return !self.deletedConversationIds.contains(id)
                 }
-                self?.conversations = filtered.sorted { ($0.lastMessageAt ?? Date.distantPast) > ($1.lastMessageAt ?? Date.distantPast) }
-                
-                // Calculate total unread (messages + notifications)
-                self?.updateTotalUnreadCount()
-                
-                self?.lastKnownMessageDate = Date()
+                DispatchQueue.main.async {
+                    self.conversations = filtered.sorted { ($0.lastMessageAt ?? Date.distantPast) > ($1.lastMessageAt ?? Date.distantPast) }
+
+                    // Calculate total unread (messages + notifications)
+                    self.updateTotalUnreadCount()
+
+                    self.lastKnownMessageDate = Date()
+                }
             }
     }
     
     func listenForMessages(conversationId: String) {
         messagesListener?.remove()
+        DispatchQueue.main.async { [weak self] in
+            self?.messages = []
+        }
         
         messagesListener = db.collection("conversations")
             .document(conversationId)
             .collection("messages")
             .order(by: "timestamp", descending: false)
             .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
                 guard let documents = snapshot?.documents else {
                     print("Error fetching messages: \(error?.localizedDescription ?? "Unknown")")
                     return
                 }
-                self?.messages = documents.compactMap { try? $0.data(as: FBMessage.self) }
+                let loadedMessages = documents.compactMap { try? $0.data(as: FBMessage.self) }
+                DispatchQueue.main.async {
+                    self.messages = loadedMessages
+                }
             }
+    }
+
+    func stopListeningForMessages() {
+        messagesListener?.remove()
+        messagesListener = nil
+        DispatchQueue.main.async { [weak self] in
+            self?.messages = []
+        }
     }
     
     func sendMessage(to conversationId: String, text: String, senderId: String) {
@@ -432,17 +451,25 @@ class FirestoreManager: ObservableObject {
                 }
                 
                 if let existing = existing {
-                    DispatchQueue.main.async { completion(existing.documentID) }
+                    let existingId = existing.documentID
+                    guard !existingId.isEmpty else {
+                        DispatchQueue.main.async {
+                            ToastManager.shared.show(title: "Chat Error", message: "Conversation is missing an ID. Please try again.", type: .error)
+                        }
+                        return
+                    }
+                    DispatchQueue.main.async { completion(existingId) }
                 } else {
                     // Build correct names/images map
                     var memberNames: [String: String] = [:]
                     var memberImages: [String: String?] = [:]
                     let unreadCounts = [user1: 0, user2: 0]
+                    let partnerId = currentUser.id == user1 ? user2 : user1
                     
                     memberNames[currentUser.id] = currentUser.fullName
                     memberImages[currentUser.id] = currentUser.profileImage
-                    memberNames[partnerInfo.name == currentUser.fullName ? user2 : (user1 == currentUser.id ? user2 : user1)] = partnerInfo.name
-                    memberImages[user1 == currentUser.id ? user2 : user1] = partnerInfo.image
+                    memberNames[partnerId] = partnerInfo.name
+                    memberImages[partnerId] = partnerInfo.image
                     
                     let newConversation = FBConversation(
                         participants: sortedParticipants,
@@ -455,9 +482,19 @@ class FirestoreManager: ObservableObject {
                     
                     do {
                         let ref = try self?.db.collection("conversations").addDocument(from: newConversation)
-                        DispatchQueue.main.async { completion(ref?.documentID ?? "") }
+                        let newId = ref?.documentID ?? ""
+                        guard !newId.isEmpty else {
+                            DispatchQueue.main.async {
+                                ToastManager.shared.show(title: "Chat Error", message: "Unable to create the conversation. Please try again.", type: .error)
+                            }
+                            return
+                        }
+                        DispatchQueue.main.async { completion(newId) }
                     } catch {
                         print("Error creating conversation: \(error)")
+                        DispatchQueue.main.async {
+                            ToastManager.shared.show(title: "Chat Error", message: "Unable to create the conversation. Please try again.", type: .error)
+                        }
                     }
                 }
             }

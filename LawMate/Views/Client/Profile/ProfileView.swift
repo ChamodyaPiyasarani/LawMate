@@ -45,7 +45,7 @@ struct ProfileView: View {
                     
                     Spacer()
                     
-                    NotificationButton(badgeCount: 3, action: {
+                    NotificationButton(action: {
                         showNotifications = true
                     })
                 }

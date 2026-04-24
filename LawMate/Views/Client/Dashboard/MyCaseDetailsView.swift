@@ -85,37 +85,6 @@ struct MyCaseDetailsView: View {
                         .buttonStyle(.plain)
                         .padding(.top, 10)
                         
-                        // MARK: Secondary Actions
-                        HStack(spacing: 16) {
-                            Button {
-                                showRescheduleSheet = true
-                            } label: {
-                                Text("Reschedule")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
-                                    .background(Color.lmPrimary)
-                                    .clipShape(Capsule())
-                            }
-                            
-                            Button {
-                                showCancelSheet = true
-                            } label: {
-                                Text("Cancel")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.lmPrimary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
-                                    .background(Color.lmPrimary.opacity(0.1))
-                                    .clipShape(Capsule())
-                                    .overlay(
-                                        Capsule().stroke(Color.lmPrimary.opacity(0.3), lineWidth: 1)
-                                    )
-                            }
-                        }
-                        .padding(.top, 40)
-                        
                         // Bottom Padding for Tab Bar equivalent area
                         Color.clear.frame(height: 100)
                     }
@@ -176,6 +145,36 @@ struct MyCaseDetailsView: View {
                     .background(appointment.statusColor.opacity(0.12))
                     .clipShape(Capsule())
                     .overlay(Capsule().stroke(appointment.statusColor.opacity(0.3), lineWidth: 1))
+            }
+
+            HStack {
+                Spacer()
+
+                Button {
+                    showRescheduleSheet = true
+                } label: {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.lmPrimary)
+                        .frame(width: 36, height: 36)
+                        .background(Color.lmPrimary.opacity(0.12))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Reschedule")
+
+                Button {
+                    showCancelSheet = true
+                } label: {
+                    Image(systemName: "xmark.circle")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.red)
+                        .frame(width: 36, height: 36)
+                        .background(Color.red.opacity(0.12))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Cancel")
             }
             
             HStack(alignment: .top, spacing: 16) {

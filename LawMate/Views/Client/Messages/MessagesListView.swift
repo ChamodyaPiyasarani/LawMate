@@ -88,20 +88,23 @@ struct MessagesListView: View {
                     partnerInfo: (name: contact.name, image: contact.image),
                     currentUser: currentUser
                 ) { conversationId in
-                    if let existing = firestore.conversations.first(where: { $0.id == conversationId }) {
-                        onSelect(existing)
-                    } else {
-                        let memberNames = [currentUser.id: currentUser.fullName, contact.id: contact.name]
-                        let memberImages: [String: String?] = [currentUser.id: currentUser.profileImage, contact.id: contact.image]
-                        
-                        let tempConv = FBConversation(
-                            id: conversationId,
-                            participants: [currentUser.id, contact.id].sorted(),
-                            lastMessageAt: Date(),
-                            memberNames: memberNames,
-                            memberImages: memberImages
-                        )
-                        onSelect(tempConv)
+                    // Small delay to ensure sheet dismissal completes before navigation starts
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        if let existing = firestore.conversations.first(where: { $0.id == conversationId }) {
+                            onSelect(existing)
+                        } else {
+                            let memberNames = [currentUser.id: currentUser.fullName, contact.id: contact.name]
+                            let memberImages: [String: String?] = [currentUser.id: currentUser.profileImage, contact.id: contact.image]
+                            
+                            let tempConv = FBConversation(
+                                id: conversationId,
+                                participants: [currentUser.id, contact.id].sorted(),
+                                lastMessageAt: Date(),
+                                memberNames: memberNames,
+                                memberImages: memberImages
+                            )
+                            onSelect(tempConv)
+                        }
                     }
                 }
             }
@@ -167,85 +170,89 @@ struct ChatPreviewCard: View {
         let unreadCount = conversation.unreadCounts?[userId] ?? 0
         let hasUnread = unreadCount > 0
         
-        Button(action: onTap) {
-            HStack(spacing: 14) {
-                // MARK: Avatar with online dot
-                ZStack(alignment: .bottomTrailing) {
-                    LawMateAvatar(url: partner.image, name: partner.name, size: 54)
-                    
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 13, height: 13)
-                        .overlay(Circle().stroke(Color.white, lineWidth: 2))
-                        .offset(x: -2, y: -2)
-                }
-                
-                // MARK: Text Content
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(partner.name)
-                        .font(.system(size: 15, weight: hasUnread ? .bold : .semibold))
-                        .foregroundColor(.lmPrimary)
-                        .lineLimit(1)
-                    
-                    Text(conversation.lastMessage ?? "Start a conversation")
-                        .font(.system(size: 13, weight: hasUnread ? .medium : .regular))
-                        .foregroundColor(hasUnread ? .lmPrimary.opacity(0.7) : .lmTextSecondary)
-                        .lineLimit(1)
-                }
-                
-                Spacer()
-                
-                // MARK: Right side — date + unread badge + menu
-                VStack(alignment: .trailing, spacing: 6) {
-                    if let date = conversation.lastMessageAt {
-                        Text(formatDate(date))
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(hasUnread ? .lmPrimary : .lmTextSecondary)
+        ZStack(alignment: .trailing) {
+            // Main Button Area
+            Button(action: onTap) {
+                HStack(spacing: 14) {
+                    // MARK: Avatar with online dot
+                    ZStack(alignment: .bottomTrailing) {
+                        LawMateAvatar(url: partner.image, name: partner.name, size: 54)
+                        
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 13, height: 13)
+                            .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                            .offset(x: -2, y: -2)
                     }
                     
-                    if hasUnread {
-                        ZStack {
-                            Circle()
-                                .fill(Color.red)
-                                .frame(width: 20, height: 20)
-                            Text("\(min(unreadCount, 99))")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.white)
+                    // MARK: Text Content
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(partner.name)
+                            .font(.system(size: 15, weight: hasUnread ? .bold : .semibold))
+                            .foregroundColor(.lmPrimary)
+                            .lineLimit(1)
+                        
+                        Text(conversation.lastMessage ?? "Start a conversation")
+                            .font(.system(size: 13, weight: hasUnread ? .medium : .regular))
+                            .foregroundColor(hasUnread ? .lmPrimary.opacity(0.7) : .lmTextSecondary)
+                            .lineLimit(1)
+                    }
+                    
+                    Spacer()
+                    
+                    // MARK: Right side — date + unread badge
+                    VStack(alignment: .trailing, spacing: 6) {
+                        if let date = conversation.lastMessageAt {
+                            Text(formatDate(date))
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(hasUnread ? .lmPrimary : .lmTextSecondary)
                         }
-                    } else {
-                        // Space placeholder so layout stays consistent
-                        Color.clear.frame(width: 20, height: 20)
+                        
+                        if hasUnread {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 20, height: 20)
+                                Text("\(min(unreadCount, 99))")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                        } else {
+                            Color.clear.frame(width: 20, height: 20)
+                        }
                     }
+                    .padding(.trailing, 32) // Space for the floating ellipsis
                 }
-                
-                // MARK: Three-dot menu
-                Menu {
-                    Button(role: .destructive) {
-                        onDeleteRequest()
-                    } label: {
-                        Label("Delete Conversation", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.lmTextSecondary)
-                        .frame(width: 30, height: 30)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(hasUnread ? Color.lmPrimary.opacity(0.04) : Color.white.opacity(0.65))
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 20))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(hasUnread ? Color.lmPrimary.opacity(0.15) : Color.white.opacity(0.5), lineWidth: 1)
+                )
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(hasUnread ? Color.lmPrimary.opacity(0.04) : Color.white.opacity(0.65))
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(hasUnread ? Color.lmPrimary.opacity(0.15) : Color.white.opacity(0.5), lineWidth: 1)
-            )
-            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+            .buttonStyle(.plain)
+            
+            // MARK: Ellipsis Menu (Separate Hit Target)
+            Menu {
+                Button(role: .destructive) {
+                    onDeleteRequest()
+                } label: {
+                    Label("Delete Conversation", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.lmTextSecondary)
+                    .frame(width: 44, height: 44) // Generous hit target
+                    .contentShape(Rectangle())
+            }
+            .padding(.trailing, 8)
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
     }
     
     private func formatDate(_ date: Date) -> String {
@@ -298,42 +305,41 @@ struct NewChatSelectionView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.lmBackground.ignoresSafeArea()
+        ZStack(alignment: .top) {
+            Color.lmBackground.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Header
+                LawMateNavigationBar(
+                    title: "New Chat",
+                    showBack: true,
+                    onBack: { dismiss() }
+                )
+                .padding(.top, 20)
                 
-                VStack(spacing: 0) {
-                    ScrollView {
-                        VStack(spacing: 12) {
-                            if contacts.isEmpty {
-                                emptyState
-                            } else {
-                                ForEach(contacts) { contact in
-                                    Button {
-                                        onSelect(contact)
-                                        dismiss()
-                                    } label: {
-                                        ContactCard(contact: contact)
-                                    }
-                                    .buttonStyle(.plain)
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 12) {
+                        if contacts.isEmpty {
+                            emptyState
+                        } else {
+                            ForEach(contacts) { contact in
+                                Button {
+                                    onSelect(contact)
+                                    dismiss()
+                                } label: {
+                                    ContactCard(contact: contact)
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
-                        .padding(24)
                     }
+                    .padding(24)
                 }
             }
-            .navigationTitle("New Chat")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-            .onAppear {
-                if let user = auth.currentUser {
-                    firestore.listenForCases(role: user.role, userId: user.id)
-                }
+        }
+        .onAppear {
+            if let user = auth.currentUser {
+                firestore.listenForCases(role: user.role, userId: user.id)
             }
         }
     }

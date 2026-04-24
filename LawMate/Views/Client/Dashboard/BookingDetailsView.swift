@@ -116,7 +116,7 @@ private struct BookingCard: View {
                     Circle()
                         .fill(Color.lmPrimary.opacity(0.1))
                         .frame(width: 56, height: 56)
-                    Image(systemName: "person.fill")
+                    Image(systemName: "person")
                         .font(.system(size: 24))
                         .foregroundColor(.lmPrimary.opacity(0.5))
                 }

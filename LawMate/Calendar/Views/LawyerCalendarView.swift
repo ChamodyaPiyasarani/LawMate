@@ -146,8 +146,8 @@ struct LawyerCalendarView: View {
             // Days Grid
             let days = generateDaysInMonth(for: viewModel.currentMonth)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 15) {
-                ForEach(days, id: \.self) { date in
-                    if let date = date {
+                ForEach(days) { day in
+                    if let date = day.date {
                         DayCell(date: date, viewModel: viewModel)
                     } else {
                         Color.clear.frame(height: 40)
@@ -166,7 +166,7 @@ struct LawyerCalendarView: View {
     
     // MARK: - Helper Logic
     
-    private func generateDaysInMonth(for date: Date) -> [Date?] {
+    private func generateDaysInMonth(for date: Date) -> [CalendarDay] {
         let calendar = Calendar.current
         guard let monthRange = calendar.range(of: .day, in: .month, for: date),
               let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: date)) else {
@@ -176,11 +176,17 @@ struct LawyerCalendarView: View {
         let weekday = calendar.component(.weekday, from: startOfMonth)
         let leadingEmptyDays = weekday - 1
         
-        var days: [Date?] = Array(repeating: nil, count: leadingEmptyDays)
+        var days: [CalendarDay] = []
         
+        // Add leading empty days
+        for _ in 0..<leadingEmptyDays {
+            days.append(CalendarDay(date: nil))
+        }
+        
+        // Add actual days
         for day in 1...monthRange.count {
             if let date = calendar.date(byAdding: .day, value: day - 1, to: startOfMonth) {
-                days.append(date)
+                days.append(CalendarDay(date: date))
             }
         }
         
@@ -237,4 +243,8 @@ struct DayCell: View {
         }
         .buttonStyle(.plain)
     }
+}
+struct CalendarDay: Identifiable {
+    let id = UUID()
+    let date: Date?
 }

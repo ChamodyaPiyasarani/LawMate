@@ -49,8 +49,13 @@ struct LawMateBackButton: View {
 
 // MARK: - Notification Button
 struct NotificationButton: View {
-    var badgeCount: Int = 0
+    @StateObject private var firestore = FirestoreManager.shared
+    var badgeCount: Int? = nil // Optional override
     var action: () -> Void = {}
+
+    private var displayCount: Int {
+        badgeCount ?? firestore.unreadNotificationsCount
+    }
 
     var body: some View {
         Button(action: action) {
@@ -72,12 +77,12 @@ struct NotificationButton: View {
                         .foregroundColor(.lmPrimary)
                 }
 
-                if badgeCount > 0 {
+                if displayCount > 0 {
                     ZStack {
                         Circle()
                             .fill(Color.red)
                             .frame(width: 16, height: 16)
-                        Text("\(min(badgeCount, 99))")
+                        Text("\(min(displayCount, 99))")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.white)
                     }
@@ -86,7 +91,7 @@ struct NotificationButton: View {
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Notifications\(badgeCount > 0 ? ", \(badgeCount) unread" : "")")
+        .accessibilityLabel("Notifications\(displayCount > 0 ? ", \(displayCount) unread" : "")")
     }
 }
 

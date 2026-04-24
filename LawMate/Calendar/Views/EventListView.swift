@@ -110,7 +110,7 @@ struct EventListView: View {
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.lmPrimary)
                         
-                        LawMateTextField(icon: "person.badge.shield.fill", placeholder: "Search Client Name", text: $clientSearchName)
+                        LawMateTextField(icon: "person.fill", placeholder: "Search Client Name", text: $clientSearchName)
                             .onChange(of: clientSearchName) { _, newValue in
                                 let exactMatch = FirestoreManager.shared.clients.contains(where: { $0.fullName.lowercased() == newValue.lowercased() })
                                 showClientSuggestions = !newValue.isEmpty && !exactMatch

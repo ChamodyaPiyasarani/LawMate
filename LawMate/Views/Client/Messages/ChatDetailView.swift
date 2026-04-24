@@ -13,6 +13,11 @@ struct ChatDetailView: View {
     @State private var messageText: String = ""
     @StateObject private var firestore = FirestoreManager.shared
     @StateObject private var auth = AuthService.shared
+
+    private var validConversationId: String? {
+        let trimmed = conversation.id?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (trimmed?.isEmpty ?? true) ? nil : trimmed
+    }
     
     var partner: (id: String, name: String, image: String?) {
         conversation.partnerInfo(for: auth.currentUser?.id ?? "")
@@ -38,7 +43,9 @@ struct ChatDetailView: View {
                 ScrollViewReader { proxy in
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 16) {
-                            if firestore.messages.isEmpty {
+                            if validConversationId == nil {
+                                invalidState
+                            } else if firestore.messages.isEmpty {
                                 emptyState
                             } else {
                                 ForEach(firestore.messages) { message in
@@ -113,12 +120,15 @@ struct ChatDetailView: View {
         }
         .navigationBarBackButtonHidden(true)
         .onAppear {
-            if let conversationId = conversation.id {
+            if let conversationId = validConversationId {
                 firestore.listenForMessages(conversationId: conversationId)
                 if let userId = auth.currentUser?.id {
                     firestore.markConversationAsRead(id: conversationId, userId: userId)
                 }
             }
+        }
+        .onDisappear {
+            firestore.stopListeningForMessages()
         }
     }
     
@@ -133,10 +143,29 @@ struct ChatDetailView: View {
                 .foregroundColor(.lmTextSecondary)
         }
     }
+
+    private var invalidState: some View {
+        VStack(spacing: 12) {
+            Spacer().frame(height: 100)
+            Text("Chat unavailable")
+                .font(.lmHeading)
+                .foregroundColor(.lmPrimary.opacity(0.4))
+            Text("This conversation could not be loaded. Please try again.")
+                .font(.lmCaption)
+                .foregroundColor(.lmTextSecondary)
+                .multilineTextAlignment(.center)
+            Button("Go Back") {
+                dismiss()
+            }
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(.lmPrimary)
+            .padding(.top, 4)
+        }
+    }
     
     private func sendCurrentMessage() {
         guard !messageText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        guard let conversationId = conversation.id, let userId = auth.currentUser?.id else { return }
+        guard let conversationId = validConversationId, let userId = auth.currentUser?.id else { return }
         
         firestore.sendMessage(to: conversationId, text: messageText, senderId: userId)
         messageText = ""

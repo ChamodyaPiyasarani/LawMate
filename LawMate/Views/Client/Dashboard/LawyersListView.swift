@@ -132,7 +132,7 @@ struct LawyersListView: View {
                     
                     Spacer()
                     
-                    NotificationButton(badgeCount: 0)
+                    NotificationButton()
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 64)

@@ -4,7 +4,7 @@ import MapKit
 struct LawyerDetailView: View {
     let lawyer: Lawyer
     @Environment(\.dismiss) private var dismiss
-    @Binding var navPath: NavigationPath
+    @Binding var activeConversation: FBConversation?
     @State private var showRatingSheet = false
     
     private func startChat() {
@@ -14,12 +14,14 @@ struct LawyerDetailView: View {
         
         FirestoreManager.shared.getOrCreateConversation(between: currentUser.id, and: lawyer.id, partnerInfo: partnerInfo, currentUser: currentUser) { convId in
             if let conversation = FirestoreManager.shared.conversations.first(where: { $0.id == convId }) {
-                navPath.append(conversation)
+                activeConversation = conversation
             } else {
                 // Fallback: manually fetch if not in local list yet
                 FirestoreManager.shared.db.collection("conversations").document(convId).getDocument { snap, _ in
                     if let conversation = try? snap?.data(as: FBConversation.self) {
-                        navPath.append(conversation)
+                        DispatchQueue.main.async {
+                            activeConversation = conversation
+                        }
                     }
                 }
             }
@@ -230,7 +232,7 @@ struct LawyerDetailView: View {
             location: "Colombo, Sri Lanka",
             image: "person.fill",
             coordinate: .init(latitude: 6.9271, longitude: 79.8612)
-        ), navPath: .constant(NavigationPath()))
+        ), activeConversation: .constant(nil))
     }
 }
 

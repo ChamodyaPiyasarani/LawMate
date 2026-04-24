@@ -79,7 +79,7 @@ struct AddCaseView: View {
                         // MARK: Client Information Section
                         formSection(title: "Client Information") {
                             VStack(alignment: .leading, spacing: 8) {
-                                LawMateTextField(icon: "person.badge.shield.fill", placeholder: "Search Client Name", text: $clientName)
+                                LawMateTextField(icon: "person.fill", placeholder: "Search Client Name", text: $clientName)
                                     .onChange(of: clientName) { _, newValue in
                                         // Hide suggestions if exact match found
                                         let exactMatch = firestore.clients.contains(where: { $0.fullName.lowercased() == newValue.lowercased() })
