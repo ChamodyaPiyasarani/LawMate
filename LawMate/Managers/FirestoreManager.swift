@@ -616,11 +616,20 @@ class FirestoreManager: ObservableObject {
     
     // MARK: - Appointments
 
-    private func combineDateAndTime(day: Date, timeString: String) -> Date? {
+    func combineDateAndTime(day: Date, timeString: String) -> Date? {
+        let trimmed = timeString.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return day }
+        
+        // Robustness: Handle both 02:30 and 02.30 formats
+        let normalizedTime = trimmed.replacingOccurrences(of: ".", with: ":")
+        
         let formatter = DateFormatter()
         formatter.dateFormat = appointmentTimeFormat
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        guard let timeDate = formatter.date(from: timeString) else { return nil }
+        guard let timeDate = formatter.date(from: normalizedTime) else { 
+            print("DEBUG: Failed to parse time string: \(normalizedTime)")
+            return nil 
+        }
 
         let calendar = Calendar.current
         var components = calendar.dateComponents([.year, .month, .day], from: day)
@@ -631,14 +640,12 @@ class FirestoreManager: ObservableObject {
     }
 
     private func appointmentStartDate(date: Date, timeString: String?) -> Date? {
-        let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: date)
-        let minute = calendar.component(.minute, from: date)
-
-        if hour == 0 && minute == 0, let timeString, !timeString.isEmpty {
-            return combineDateAndTime(day: calendar.startOfDay(for: date), timeString: timeString)
+        // CRITICAL: If a time string is provided, it MUST take precedence over 
+        // any time component currently in the date object (e.g. current system time).
+        if let timeString = timeString, !timeString.isEmpty {
+            return combineDateAndTime(day: date, timeString: timeString)
         }
-
+        
         return date
     }
 
@@ -998,6 +1005,24 @@ class FirestoreManager: ObservableObject {
     
     func uploadFile(data: Data, path: String, fileName: String, completion: @escaping (Result<String, Error>) -> Void) {
         let storage = Storage.storage()
+        
+        // CRITICAL: Path Validation to prevent security rule violations
+        // Rules require: /cases/{id}/docs/{file} OR /cases/advisory_documents/{file}
+        let normalizedPath = path.lowercased()
+        if !normalizedPath.contains("/docs") && !normalizedPath.contains("advisory_documents") {
+            let error = NSError(domain: "Storage", code: 403, userInfo: [NSLocalizedDescriptionKey: "Security Violation: Upload path '\(path)' is not authorized. Must include '/docs' subfolder."])
+            print("CRITICAL SECURITY ERROR: Rejected upload to \(path)/\(fileName)")
+            completion(.failure(error))
+            return
+        }
+        
+        if normalizedPath.contains("unknown") || normalizedPath.contains("temp") {
+            let error = NSError(domain: "Storage", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid Case ID: The case ID is not yet synchronized. Please wait a moment."])
+            print("DEBUG: Rejected upload due to unsynced ID in path: \(path)")
+            completion(.failure(error))
+            return
+        }
+
         let storageRef = storage.reference().child(path).child(fileName)
         let metadata = StorageMetadata()
         
@@ -1019,31 +1044,37 @@ class FirestoreManager: ObservableObject {
         
         print("DEBUG: Starting upload to \(path)/\(fileName) (Type: \(metadata.contentType ?? "unknown"))")
         
-        // Path safety check
-        if path.contains("unknown") || path.contains("temp") {
-            let error = NSError(domain: "Storage", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid storage path. Case data may not be fully synchronized."])
-            completion(.failure(error))
-            return
-        }
-
-        storageRef.putData(data, metadata: metadata) { _, error in
+        storageRef.putData(data, metadata: metadata) { [weak self] _, error in
             if let error = error {
-                print("CRITICAL: Upload failed: \(error.localizedDescription)")
+                print("CRITICAL: Storage PutData failed: \(error.localizedDescription)")
                 completion(.failure(error))
                 return
             }
             
-            storageRef.downloadURL { url, error in
-                if let error = error {
-                    print("CRITICAL: Failed to get download URL: \(error.localizedDescription)")
-                    completion(.failure(error))
-                } else if let downloadURL = url?.absoluteString {
-                    print("DEBUG: Upload successful! URL: \(downloadURL)")
-                    completion(.success(downloadURL))
+            // Success - Get download URL with small delay to handle eventual consistency
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                storageRef.downloadURL { url, error in
+                    if let error = error {
+                        print("CRITICAL: Failed to get download URL for \(path)/\(fileName): \(error.localizedDescription)")
+                        // One-time retry
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            storageRef.downloadURL { url, error in
+                                if let error = error {
+                                    completion(.failure(error))
+                                } else if let downloadURL = url?.absoluteString {
+                                    completion(.success(downloadURL))
+                                }
+                            }
+                        }
+                    } else if let downloadURL = url?.absoluteString {
+                        print("DEBUG: Upload successful! URL: \(downloadURL)")
+                        completion(.success(downloadURL))
+                    }
                 }
             }
         }
     }
+
     
     /// Validates daily limit (max 3) AND checks for time slot conflict.
     /// Returns a tuple: (canBook: Bool, reason: String?)

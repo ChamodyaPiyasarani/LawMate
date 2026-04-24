@@ -425,13 +425,22 @@ struct PDFKitView: UIViewRepresentable {
     let url: URL
     
     func makeUIView(context: Context) -> WKWebView {
-        let webView = WKWebView()
+        let config = WKWebViewConfiguration()
+        config.allowsInlineMediaPlayback = true
+        
+        let webView = WKWebView(frame: .zero, configuration: config)
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
         
-        let request = URLRequest(url: url)
-        webView.load(request)
+        // Handle local files vs remote URLs
+        if url.isFileURL {
+            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        } else {
+            let request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 30)
+            webView.load(request)
+        }
+        
         return webView
     }
     
@@ -449,9 +458,6 @@ struct PDFKitViewerSheet: View {
                 
                 VStack(spacing: 0) {
                     if let urlString = document.fileURL, let url = URL(string: urlString) {
-                        // For remote URLs from Firebase, we don't check file size locally first
-                        // Instead, we just attempt to load it with PDFKitView
-                        
                         let ext = url.pathExtension.lowercased()
                         if ["jpg", "jpeg", "png", "heic"].contains(ext) {
                             // Image Viewer
@@ -467,19 +473,19 @@ struct PDFKitViewerSheet: View {
                                             .frame(maxWidth: .infinity)
                                             .padding(.top, 20)
                                     case .failure:
-                                        errorView(message: "Failed to load image from server.")
+                                        errorView(message: "Failed to load image. Check your internet connection.")
                                     @unknown default:
                                         errorView(message: "Unknown error loading image.")
                                     }
                                 }
                             }
                         } else {
-                            // PDF Viewer
+                            // Document Viewer (PDF/DOCX)
                             PDFKitView(url: url)
                                 .edgesIgnoringSafeArea(.bottom)
                         }
                     } else {
-                        errorView(message: "Document file not found. Please try uploading it again.")
+                        errorView(message: "Document file not found. It may have been removed or is still uploading.")
                     }
                 }
             }
@@ -492,10 +498,8 @@ struct PDFKitViewerSheet: View {
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    if document.fileURL != nil {
-                        Button {
-                            shareDocument()
-                        } label: {
+                    if let urlString = document.fileURL, let url = URL(string: urlString) {
+                        ShareLink(item: url) {
                             Image(systemName: "square.and.arrow.up")
                         }
                     }
@@ -506,9 +510,9 @@ struct PDFKitViewerSheet: View {
     
     private func errorView(message: String) -> some View {
         VStack(spacing: 20) {
-            Image(systemName: "doc.text.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.lmPrimary.opacity(0.2))
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 60))
+                .foregroundColor(.orange.opacity(0.8))
             
             Text("Preview Unavailable")
                 .font(.lmHeading)
@@ -521,16 +525,6 @@ struct PDFKitViewerSheet: View {
                 .padding(.horizontal, 40)
         }
         .frame(maxHeight: .infinity)
-    }
-    
-    private func shareDocument() {
-        guard let urlString = document.fileURL, let url = URL(string: urlString) else { return }
-        let activityVC = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootVC = windowScene.windows.first?.rootViewController {
-            rootVC.present(activityVC, animated: true)
-        }
     }
 }
 
@@ -545,17 +539,8 @@ struct LawMateDocumentViewer: View {
             ZStack {
                 Color.lmBackground.ignoresSafeArea()
                 
-                if url.scheme?.hasPrefix("http") == true {
-                    // Remote Viewer using WebView or Async Handling 
-                    // Note: In a real app, PDFKit can load remote URLs but it's flaky. 
-                    // We'll use a simple Safari-like approach or local download logic if needed.
-                    // For this implementation, we'll try to load it directly.
-                    PDFKitView(url: url)
-                        .edgesIgnoringSafeArea(.bottom)
-                } else {
-                    PDFKitView(url: url)
-                        .edgesIgnoringSafeArea(.bottom)
-                }
+                PDFKitView(url: url)
+                    .edgesIgnoringSafeArea(.bottom)
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -564,10 +549,17 @@ struct LawMateDocumentViewer: View {
                     Button("Done") { dismiss() }
                         .fontWeight(.bold)
                 }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    ShareLink(item: url) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
             }
         }
     }
 }
+
 
 // MARK: - Timeline Component
 struct TimelineNode: View {

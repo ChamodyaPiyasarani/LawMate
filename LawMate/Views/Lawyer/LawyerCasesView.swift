@@ -131,6 +131,8 @@ struct LawyerCaseCard: View {
                         Text(lawyerCase.clientName)
                             .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.lmPrimary)
+                            .lineLimit(1)
+                            .layoutPriority(1)
                         
                         Spacer()
                         
@@ -147,10 +149,12 @@ struct LawyerCaseCard: View {
                     Text(lawyerCase.title)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.lmPrimary.opacity(0.8))
+                        .lineLimit(1)
                     
                     Text(lawyerCase.caseNumber)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.lmTextSecondary)
+                        .lineLimit(1)
                 }
             }
             
@@ -323,19 +327,20 @@ struct LawyerCaseDetailView: View {
             
             do {
                 let data = try Data(contentsOf: url)
-                let fileName = url.lastPathComponent
+                let originalName = url.lastPathComponent
+                let safeStorageName = UUID().uuidString + "." + url.pathExtension
                 let fileType = url.pathExtension.uppercased()
-                let path = "cases/\(legalCase.id ?? "unknown")"
+                let path = "cases/\(legalCase.id ?? "unknown")/docs"
                 
                 ToastManager.shared.show(title: "Uploading", message: "Starting file upload...", type: .info)
                 
-                FirestoreManager.shared.uploadFile(data: data, path: path, fileName: fileName) { uploadResult in
+                FirestoreManager.shared.uploadFile(data: data, path: path, fileName: safeStorageName) { uploadResult in
                     switch uploadResult {
                     case .success(let downloadURL):
                         // Track the metadata in Firestore with the actual URL
                         FirestoreManager.shared.addDocument(
                             toCaseId: legalCase.id ?? "",
-                            fileName: fileName,
+                            fileName: originalName,
                             fileType: fileType,
                             fileURL: downloadURL,
                             stageIndex: stageIndex

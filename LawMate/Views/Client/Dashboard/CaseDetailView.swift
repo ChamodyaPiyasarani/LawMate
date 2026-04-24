@@ -326,13 +326,15 @@ struct CaseDetailView: View {
             return
         }
         
-        let name = "Doc_\(Int.random(in: 1000...9999)).\(ext.isEmpty ? "bin" : ext)"
+        let storageName = "\(UUID().uuidString).\(ext.isEmpty ? "bin" : ext)"
+        let displayName = "Doc_\(Int.random(in: 1000...9999)).\(ext.isEmpty ? "bin" : ext)"
         let type = ext.uppercased() == "PDF" ? "PDF" : "IMG"
-        FirestoreManager.shared.uploadFile(data: data, path: "cases/\(finalId)/docs", fileName: name) { result in
+        
+        FirestoreManager.shared.uploadFile(data: data, path: "cases/\(finalId)/docs", fileName: storageName) { result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let url):
-                    FirestoreManager.shared.addDocument(toCaseId: clientCase.id ?? "", fileName: name, fileType: type, fileURL: url, stageIndex: activeStageIndex)
+                    FirestoreManager.shared.addDocument(toCaseId: finalId, fileName: displayName, fileType: type, fileURL: url, stageIndex: activeStageIndex)
                     ToastManager.shared.show(title: "Success", message: "Document uploaded successfully.", type: .success)
                     refreshDocuments()
                     isUploading = false

@@ -360,18 +360,8 @@ struct BookingView: View {
         // Merge date and time string into a single Date object
         var bookingDate = selectedDate
         if let timeString = selectedTime {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "hh:mm a"
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            if let timeDate = formatter.date(from: timeString) {
-                let calendar = Calendar.current
-                var components = calendar.dateComponents([.year, .month, .day], from: selectedDate)
-                let timeComponents = calendar.dateComponents([.hour, .minute], from: timeDate)
-                components.hour = timeComponents.hour
-                components.minute = timeComponents.minute
-                if let combined = calendar.date(from: components) {
-                    bookingDate = combined
-                }
+            if let combined = FirestoreManager.shared.combineDateAndTime(day: selectedDate, timeString: timeString) {
+                bookingDate = combined
             }
         }
         

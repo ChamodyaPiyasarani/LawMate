@@ -364,19 +364,7 @@ struct EventListView: View {
     }
 
     private func combineDateAndTime(day: Date, timeString: String) -> Date {
-        let trimmed = timeString.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return day }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "hh:mm a"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        guard let timeDate = formatter.date(from: trimmed) else { return day }
-
-        let calendar = Calendar.current
-        var components = calendar.dateComponents([.year, .month, .day], from: day)
-        let timeComponents = calendar.dateComponents([.hour, .minute], from: timeDate)
-        components.hour = timeComponents.hour
-        components.minute = timeComponents.minute
-        return calendar.date(from: components) ?? day
+        return FirestoreManager.shared.combineDateAndTime(day: day, timeString: timeString) ?? day
     }
 }
 
