@@ -99,6 +99,38 @@ class FirestoreManager: ObservableObject {
         }
     }
     
+    func checkLawyerCapacity(lawyerId: String, date: Date, excludingAppointmentId: String? = nil, completion: @escaping (Bool) -> Void) {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: date)
+        let end = calendar.date(byAdding: .day, value: 1, to: start)!
+        
+        db.collection("appointments")
+            .whereField("lawyerId", isEqualTo: lawyerId)
+            .whereField("date", isGreaterThanOrEqualTo: start)
+            .whereField("date", isLessThan: end)
+            .getDocuments { snapshot, error in
+                guard let docs = snapshot?.documents else {
+                    completion(true) // Fallback to allowed if error
+                    return
+                }
+                
+                var appointments = docs.compactMap { try? $0.data(as: FBAppointment.self) }
+                
+                // Exclude the current appointment if we are rescheduling it
+                if let excludeId = excludingAppointmentId {
+                    appointments.removeAll { $0.id == excludeId }
+                }
+                
+                // Exclude cancelled/rejected appointments
+                appointments = appointments.filter { 
+                    let s = $0.status.lowercased()
+                    return s != "cancelled" && s != "rejected"
+                }
+                
+                completion(appointments.count < 3)
+            }
+    }
+    
     func rescheduleAppointment(appointmentId: String, newDate: Date, newTime: String, completion: @escaping (Bool) -> Void) {
         let currentUserId = AuthService.shared.currentUser?.id
         db.collection("appointments").document(appointmentId).updateData([

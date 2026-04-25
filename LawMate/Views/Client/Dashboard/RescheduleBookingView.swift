@@ -4,25 +4,18 @@ struct RescheduleBookingView: View {
     let appointment: FBAppointment
     @Environment(\.dismiss) private var dismiss
     @State private var selectedDate: Date
-    @State private var selectedTimeSlot: String?
     @State private var isUpdating = false
-    
-    let timeSlots = [
-        "09:00 AM", "10:00 AM", "11:00 AM",
-        "01:00 PM", "02:00 PM", "03:00 PM",
-        "04:00 PM", "05:00 PM"
-    ]
+    @State private var isDateValid = true
+    @State private var checkingCapacity = false
     
     init(appointment: FBAppointment) {
         self.appointment = appointment
-        let day = Calendar.current.startOfDay(for: appointment.date)
-        _selectedDate = State(initialValue: day)
-        _selectedTimeSlot = State(initialValue: appointment.time)
+        self._selectedDate = State(initialValue: appointment.date)
     }
 
     var body: some View {
         ZStack(alignment: .top) {
-            Color.white.ignoresSafeArea()
+            Color.lmBackground.ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // MARK: Custom Header
@@ -35,91 +28,52 @@ struct RescheduleBookingView: View {
                 .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 16) {
                         
-                        Text("Select New Date")
+                        Text("Select New Date & Time")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.lmPrimary)
-                            .padding(.top, 20)
+                            .padding(.top, 12)
                         
-                        // MARK: Mock Calendar Placeholder (DatePicker)
+                        // MARK: Unified Date & Time Picker
                         DatePicker(
-                            "Select Date",
+                            "Select Date & Time",
                             selection: $selectedDate,
                             in: Date()...,
-                            displayedComponents: [.date]
+                            displayedComponents: [.date, .hourAndMinute]
                         )
                         .datePickerStyle(.graphical)
-                        .padding()
-                        .background(Color.white.opacity(0.8))
-                        .background(.ultraThinMaterial)
+                        .padding(12)
+                        .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 24))
-                        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
                         
-                        Text("Select Time")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.lmPrimary)
-                            .padding(.top, 10)
-                        
-                        // MARK: Time Slots Grid
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                            ForEach(timeSlots, id: \.self) { slot in
-                                Button {
-                                    selectedTimeSlot = slot
-                                } label: {
-                                    Text(slot)
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(selectedTimeSlot == slot ? .white : .lmPrimary)
-                                        .padding(.vertical, 12)
-                                        .frame(maxWidth: .infinity)
-                                        .background(selectedTimeSlot == slot ? Color.lmPrimary : Color.white)
-                                        .clipShape(Capsule())
-                                        .overlay(
-                                            Capsule().stroke(Color.lmPrimary.opacity(0.2), lineWidth: 1)
-                                        )
-                                }
-                                .buttonStyle(.plain)
+                        if !isDateValid {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                Text("Lawyer is fully booked on this date (Max 3 appointments).")
                             }
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.red)
+                            .padding(.horizontal, 8)
                         }
                         
-                        Spacer(minLength: 40)
+                        if checkingCapacity {
+                            HStack {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("Checking availability...")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.lmTextSecondary)
+                            }
+                            .padding(.horizontal, 8)
+                        }
+                        
+                        Spacer(minLength: 20)
                         
                         // MARK: Confirm Button
                         Button {
-                            guard let appointmentId = appointment.id else {
-                                ToastManager.shared.show(title: "Update Failed", message: "Appointment not found.", type: .error)
-                                return
-                            }
-                            guard let timeSlot = selectedTimeSlot else { return }
-                            isUpdating = true
-
-                            FirestoreManager.shared.validateAppointmentSlot(lawyerId: appointment.lawyerId, date: selectedDate, time: timeSlot, excludingAppointmentId: appointmentId) { canBook, reason in
-                                DispatchQueue.main.async {
-                                    if canBook {
-                                        FirestoreManager.shared.updateAppointmentSchedule(appointmentId: appointmentId, newDate: selectedDate, newTime: timeSlot) { success, updateReason in
-                                            DispatchQueue.main.async {
-                                                isUpdating = false
-                                                if success {
-                                                    EventKitManager.shared.createEvent(
-                                                        title: "Rescheduled Consultation",
-                                                        startDate: selectedDate,
-                                                        endDate: selectedDate.addingTimeInterval(3600)
-                                                    ) { _, _ in
-                                                        DispatchQueue.main.async {
-                                                            dismiss()
-                                                        }
-                                                    }
-                                                } else {
-                                                    ToastManager.shared.show(title: "Booking Unavailable", message: updateReason ?? "This slot is not available.", type: .error)
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        isUpdating = false
-                                        ToastManager.shared.show(title: "Booking Unavailable", message: reason ?? "This slot is not available.", type: .error)
-                                    }
-                                }
-                            }
+                            saveReschedule()
                         } label: {
                             HStack {
                                 Spacer()
@@ -134,13 +88,13 @@ struct RescheduleBookingView: View {
                                 Spacer()
                             }
                             .padding(.vertical, 16)
-                            .background(selectedTimeSlot == nil || isUpdating ? Color.gray : Color.lmPrimary)
+                            .background(!isDateValid || isUpdating || checkingCapacity ? Color.gray : Color.lmPrimary)
                             .clipShape(Capsule())
-                            .shadow(color: selectedTimeSlot == nil || isUpdating ? .clear : Color.lmPrimary.opacity(0.3), radius: 10, x: 0, y: 5)
+                            .shadow(color: !isDateValid || isUpdating || checkingCapacity ? .clear : Color.lmPrimary.opacity(0.3), radius: 10, x: 0, y: 5)
                         }
-                        .disabled(selectedTimeSlot == nil || isUpdating)
+                        .disabled(!isDateValid || isUpdating || checkingCapacity)
                         .buttonStyle(.plain)
-                        .padding(.bottom, 120) // Moved significantly higher to avoid tab bar
+                        .padding(.bottom, 100) 
                     }
                     .padding(.horizontal, 24)
                 }
@@ -148,6 +102,82 @@ struct RescheduleBookingView: View {
             .ignoresSafeArea(edges: .top)
         }
         .navigationBarBackButtonHidden(true)
+        .onChange(of: selectedDate) { _, newValue in
+            validateDate(newValue)
+        }
+        .onAppear {
+            validateDate(selectedDate)
+        }
+    }
+    
+    private func validateDate(_ date: Date) {
+        checkingCapacity = true
+        FirestoreManager.shared.checkLawyerCapacity(
+            lawyerId: appointment.lawyerId,
+            date: date,
+            excludingAppointmentId: appointment.id
+        ) { available in
+            checkingCapacity = false
+            isDateValid = available
+        }
+    }
+    
+    private func saveReschedule() {
+        guard let appointmentId = appointment.id else {
+            ToastManager.shared.show(title: "Update Failed", message: "Appointment not found.", type: .error)
+            return
+        }
+        
+        isUpdating = true
+        let timeString = formatTime(selectedDate)
+        
+        FirestoreManager.shared.rescheduleAppointment(
+            appointmentId: appointmentId,
+            newDate: selectedDate,
+            newTime: timeString
+        ) { success in
+            if success {
+                // Sync to Local Calendar
+                EventKitManager.shared.createEvent(
+                    title: "Rescheduled Consultation",
+                    startDate: selectedDate,
+                    endDate: selectedDate.addingTimeInterval(3600)
+                ) { _, _ in }
+                
+                // Notify Lawyer
+                let senderName = AuthService.shared.currentUser?.fullName ?? "Client"
+                let notification = FBNotification(
+                    title: "Appointment Rescheduled",
+                    body: "\(senderName) has suggested a new time: \(timeString) on \(formatDate(selectedDate))",
+                    type: "appointment",
+                    timestamp: Date(),
+                    relatedId: appointmentId
+                )
+                FirestoreManager.shared.addNotification(notification, toUserId: appointment.lawyerId)
+                
+                DispatchQueue.main.async {
+                    isUpdating = false
+                    dismiss()
+                }
+            } else {
+                DispatchQueue.main.async {
+                    isUpdating = false
+                    ToastManager.shared.show(title: "Error", message: "Failed to reschedule. Please try again.", type: .error)
+                }
+            }
+        }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "hh:mm a"
+        return f.string(from: date)
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "MMM dd, yyyy"
+        return f.string(from: date)
     }
 }
 

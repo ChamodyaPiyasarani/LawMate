@@ -8,9 +8,10 @@ struct BookingView: View {
     
     @State private var selectedService = "Case Review (1 hour)"
     @State private var selectedDate = Date()
-    @State private var selectedTime: String? = nil
     @State private var isVideoCall = false
     @State private var caseDescription = ""
+    @State private var isDateValid = true
+    @State private var checkingCapacity = false
     
     // Lawyer Selection State
     @State private var selectedLawyer: Lawyer?
@@ -208,52 +209,45 @@ struct BookingView: View {
                         }
                         .padding(.horizontal, 24)
 
-                        // MARK: Calendar Card
+                        // MARK: Unified Date & Time Picker
                         VStack(alignment: .leading, spacing: 12) {
-                            SectionTitle(title: "Select Date")
+                            SectionTitle(title: "Select Date & Time")
                             
                             DatePicker(
-                                "Select Date",
+                                "Select Date & Time",
                                 selection: $selectedDate,
                                 in: Date()...,
-                                displayedComponents: [.date]
+                                displayedComponents: [.date, .hourAndMinute]
                             )
                             .datePickerStyle(.graphical)
-                            .padding()
-                            .background(Color.white.opacity(0.8))
-                            .background(.ultraThinMaterial)
+                            .padding(12)
+                            .background(Color.white)
                             .clipShape(RoundedRectangle(cornerRadius: 24))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 24)
-                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                            )
-                            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
-                        }
-                        .padding(.horizontal, 24)
-
-                        // MARK: Time Slots
-                        VStack(alignment: .leading, spacing: 16) {
-                            SectionTitle(title: "Available Time Slots")
+                            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
                             
-                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 2), spacing: 16) {
-                                ForEach(timeSlots, id: \.self) { time in
-                                    Button {
-                                        selectedTime = time
-                                    } label: {
-                                        Text(time)
-                                            .font(.system(size: 16, weight: .bold))
-                                            .foregroundColor(selectedTime == time ? .white : .lmTextPrimary)
-                                            .frame(maxWidth: .infinity)
-                                            .padding(.vertical, 16)
-                                            .background(selectedTime == time ? Color.lmPrimary : Color.white.opacity(0.6))
-                                            .clipShape(Capsule())
-                                            .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
-                                    }
-                                    .buttonStyle(.plain)
+                            if !isDateValid {
+                                HStack {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                    Text("Lawyer is fully booked on this date (Max 3 appointments).")
                                 }
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.red)
+                                .padding(.horizontal, 8)
+                            }
+                            
+                            if checkingCapacity {
+                                HStack {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                    Text("Checking availability...")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.lmTextSecondary)
+                                }
+                                .padding(.horizontal, 8)
                             }
                         }
                         .padding(.horizontal, 24)
+
 
                         // MARK: Service Selection (Video/InPerson)
                         VStack(alignment: .leading, spacing: 16) {
@@ -301,25 +295,7 @@ struct BookingView: View {
                         // MARK: Confirm Button
                         Button {
                             if validateForm() {
-                                guard let selectedLawyer = selectedLawyer else {
-                                    ToastManager.shared.show(title: "Select Lawyer", message: "Please select a lawyer from the suggestions.", type: .error)
-                                    return
-                                }
-                                guard let time = selectedTime, !time.isEmpty else {
-                                    ToastManager.shared.show(title: "Select Time", message: "Please select a time slot before confirming.", type: .error)
-                                    return
-                                }
-                                isBooking = true
-                                FirestoreManager.shared.validateAppointmentSlot(lawyerId: selectedLawyer.id, date: selectedDate, time: time) { canBook, reason in
-                                    DispatchQueue.main.async {
-                                        if canBook {
-                                            performBooking()
-                                        } else {
-                                            isBooking = false
-                                            ToastManager.shared.show(title: "Booking Unavailable", message: reason ?? "This slot is not available.", type: .error)
-                                        }
-                                    }
-                                }
+                                performBooking()
                             } else {
                                 ToastManager.shared.show(title: "Validation Error", message: "Please enter a case description.", type: .error)
                             }
@@ -331,39 +307,29 @@ struct BookingView: View {
                                 } else {
                                     Text("Confirm Appointment")
                                         .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.white)
                                 }
                             }
+                            .padding(.vertical, 16)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 56)
-                            .background(Color.lmPrimary)
-                            .foregroundColor(.white)
+                            .background(!isDateValid || isBooking || checkingCapacity || selectedLawyer == nil ? Color.gray : Color.lmPrimary)
                             .clipShape(Capsule())
+                            .shadow(color: !isDateValid || isBooking || checkingCapacity || selectedLawyer == nil ? .clear : Color.lmPrimary.opacity(0.3), radius: 10, x: 0, y: 5)
                         }
-                        .disabled(isBooking)
-                        .padding(.horizontal, 40)
-                        .padding(.top, 20)
-                        .padding(.bottom, 220) // Space for global TabBar
-                    }
-                    .padding(.top, 20)
+                        .disabled(!isDateValid || isBooking || checkingCapacity || selectedLawyer == nil)
+                        .buttonStyle(.plain)
+                        .padding(.bottom, 100) 
                 }
             }
-            .ignoresSafeArea(edges: .top)
         }
         .navigationBarBackButtonHidden(true)
     }
-    
-    private func performBooking() {
+}
+
+private func performBooking() {
         isBooking = true
         guard let currentLawyer = selectedLawyer else { return }
         let client = AuthService.shared.currentUser
-        
-        // Merge date and time string into a single Date object
-        var bookingDate = selectedDate
-        if let timeString = selectedTime {
-            if let combined = FirestoreManager.shared.combineDateAndTime(day: selectedDate, timeString: timeString) {
-                bookingDate = combined
-            }
-        }
         
         let appointment = FBAppointment(
             clientId: client?.id ?? "",
@@ -371,14 +337,14 @@ struct BookingView: View {
             lawyerId: currentLawyer.id,
             lawyerName: currentLawyer.name,
             service: selectedService,
-            date: bookingDate,
-            time: selectedTime ?? "TBD",
+            date: selectedDate,
+            time: formatTime(selectedDate),
             method: isVideoCall ? "Video Call" : "In Person",
             description: caseDescription,
-            status: "Pending"
+            status: "Pending",
+            lastActionBy: client?.id
         )
         
-        // Step 1: Save to Firestore
         FirestoreManager.shared.createAppointmentWithValidation(appointment) { success, reason in
             guard success else {
                 DispatchQueue.main.async {
@@ -388,7 +354,6 @@ struct BookingView: View {
                 return
             }
             
-            // Step 2: Send Notification to Lawyer
             let lawyerNotification = FBNotification(
                 title: "New Booking Request",
                 body: "A new consultation has been scheduled by \(client?.fullName ?? "a client").",
@@ -398,7 +363,6 @@ struct BookingView: View {
             )
             FirestoreManager.shared.addNotification(lawyerNotification, toUserId: currentLawyer.id)
             
-            // Step 3: Local Calendar Sync
             EventKitManager.shared.createEvent(
                 title: "Consultation with \(currentLawyer.name)",
                 startDate: selectedDate,
@@ -414,7 +378,7 @@ struct BookingView: View {
                     } else {
                         let errorMsg = calError?.localizedDescription ?? "Calendar access denied."
                         ToastManager.shared.show(title: "Booking Issue", message: "Database saved, but failed to sync to calendar: \(errorMsg)", type: .warning)
-                        dismiss() // Still dismiss because database save worked
+                        dismiss()
                     }
                 }
             }
@@ -423,11 +387,15 @@ struct BookingView: View {
     
     private func validateForm() -> Bool {
         var isValid = true
-        
         descriptionError = caseDescription.trimmingCharacters(in: .whitespaces).isEmpty ? "Description is required" : nil
         if descriptionError != nil { isValid = false }
-        
         return isValid
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "hh:mm a"
+        return formatter.string(from: date)
     }
 }
 
