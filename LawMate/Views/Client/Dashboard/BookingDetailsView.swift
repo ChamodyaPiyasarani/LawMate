@@ -4,6 +4,7 @@ import SwiftUI
 
 // MARK: - Booking Details View
 struct BookingDetailsView: View {
+    @Binding var navPath: NavigationPath
     var onBack: () -> Void = {}
     
     @StateObject private var firestore = FirestoreManager.shared
@@ -86,7 +87,9 @@ struct BookingDetailsView: View {
                                     .padding(.top, 40)
                             } else {
                                 ForEach(filteredBookings) { booking in
-                                    NavigationLink(value: booking) {
+                                    Button {
+                                        navPath.append(booking)
+                                    } label: {
                                         AppointmentRowView(appointment: booking)
                                     }
                                     .buttonStyle(.plain)
@@ -109,5 +112,5 @@ struct BookingDetailsView: View {
 
 
 #Preview {
-    BookingDetailsView()
+    BookingDetailsView(navPath: .constant(NavigationPath()))
 }

@@ -165,7 +165,7 @@ struct ClientHomeView: View {
                         })
                     } else if selectedTab == .booking {
                         // MARK: Booking Content
-                        BookingDetailsView(onBack: {
+                        BookingDetailsView(navPath: $navPath, onBack: {
                             selectedTab = .home
                         })
                     } else if selectedTab == .messages {
