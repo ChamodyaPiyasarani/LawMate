@@ -100,90 +100,290 @@ struct AppointmentRowView: View {
     let appointment: FBAppointment
     
     var body: some View {
-        HStack(spacing: 16) {
-            // Time Indicator (Left)
-            VStack(spacing: 4) {
-                Text(appointment.time.components(separatedBy: " ").first ?? "")
-                    .font(.system(size: 11, weight: .black))
-                    .foregroundColor(.lmPrimary)
-                
-                Rectangle()
-                    .fill(Color.lmPrimary.opacity(0.2))
-                    .frame(width: 2, height: 24)
-            }
-            .frame(width: 50)
-            
-            // Info (Center - Left Aligned)
-            VStack(alignment: .leading, spacing: 4) {
-                let currentRole = AuthService.shared.currentUser?.role ?? .client
-                let displayName = currentRole == .lawyer ? appointment.clientName : appointment.lawyerName
-                
-                HStack(spacing: 8) {
-                    Text(displayName)
-                        .font(.system(size: 15, weight: .bold))
+        VStack(spacing: 12) {
+            HStack(alignment: .center, spacing: 16) {
+                // Time (Left)
+                VStack(spacing: 4) {
+                    Text(appointment.time.components(separatedBy: " ").first ?? "")
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.lmPrimary)
+                    
+                    Rectangle()
+                        .fill(Color.lmPrimary.opacity(0.2))
+                        .frame(width: 2, height: 24)
+                }
+                .frame(width: 50)
+                
+                // Info (Center - Left Aligned)
+                VStack(alignment: .leading, spacing: 4) {
+                    let currentRole = AuthService.shared.currentUser?.role ?? .client
+                    let displayName = currentRole == .lawyer ? appointment.clientName : appointment.lawyerName
+                    
+                    HStack(spacing: 8) {
+                        Text(displayName)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                            .lineLimit(1)
+                        
+                        if let specialty = appointment.lawyerSpecialty {
+                            HStack(spacing: 4) {
+                                Image(systemName: appointment.specialtyIcon)
+                                    .font(.system(size: 8))
+                                Text(specialty)
+                                    .font(.system(size: 8, weight: .bold))
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.lmPrimary.opacity(0.1))
+                            .foregroundColor(.lmPrimary)
+                            .clipShape(Capsule())
+                            .layoutPriority(1)
+                        }
+                    }
+                    
+                    Text(appointment.service)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.lmTextSecondary)
                         .lineLimit(1)
                     
-                    if let specialty = appointment.lawyerSpecialty {
-                        HStack(spacing: 4) {
-                            Image(systemName: appointment.specialtyIcon)
-                                .font(.system(size: 8))
-                            Text(specialty)
-                                .font(.system(size: 8, weight: .bold))
-                                .lineLimit(1)
-                        }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.lmPrimary.opacity(0.1))
-                        .foregroundColor(.lmPrimary)
-                        .clipShape(Capsule())
-                        .layoutPriority(1)
-                    }
+                    Text(appointment.description)
+                        .font(.system(size: 11))
+                        .foregroundColor(.lmTextSecondary.opacity(0.7))
+                        .lineLimit(1)
                 }
                 
-                Text(appointment.service)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.lmTextSecondary)
-                    .lineLimit(1)
+                Spacer(minLength: 8)
                 
-                Text(appointment.description)
-                    .font(.system(size: 11))
-                    .foregroundColor(.lmTextSecondary.opacity(0.7))
-                    .lineLimit(1)
+                // Status & Method (Right)
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text(appointment.status)
+                        .font(.system(size: 9, weight: .black))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(statusColor.opacity(0.12))
+                        .foregroundColor(statusColor)
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(statusColor.opacity(0.3), lineWidth: 1))
+                    
+                    Image(systemName: appointment.method == "Video Call" ? "video.fill" : "building.2.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(.lmPrimary.opacity(0.4))
+                }
             }
             
-            Spacer(minLength: 8)
+            // Confirm/Reschedule/Reject Actions (Bidirectional)
+            let currentUserId = AuthService.shared.currentUser?.id ?? ""
+            let isPendingOrRescheduled = appointment.status.lowercased() == "pending" || appointment.status.lowercased() == "rescheduled"
+            let isRecipient = appointment.lastActionBy != currentUserId
             
-            // Status & Method (Right)
-            VStack(alignment: .trailing, spacing: 6) {
-                Text(appointment.status)
-                    .font(.system(size: 9, weight: .black))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(statusColor.opacity(0.12))
-                    .foregroundColor(statusColor)
-                    .clipShape(Capsule())
-                    .overlay(Capsule().stroke(statusColor.opacity(0.3), lineWidth: 1))
-                
-                Image(systemName: appointment.method == "Video Call" ? "video.fill" : "building.2.fill")
-                    .font(.system(size: 12))
-                    .foregroundColor(.lmPrimary.opacity(0.4))
+            if isPendingOrRescheduled && isRecipient {
+                HStack(spacing: 8) {
+                    Button {
+                        FirestoreManager.shared.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Confirmed") { success in
+                            if success {
+                                let targetUserId = (AuthService.shared.currentUser?.role == .lawyer) ? appointment.clientId : appointment.lawyerId
+                                let senderName = AuthService.shared.currentUser?.fullName ?? "Someone"
+                                let notification = FBNotification(
+                                    title: "Appointment Confirmed",
+                                    body: "\(senderName) has confirmed the appointment for \(appointment.time) on \(formatDate(appointment.date)).",
+                                    type: "appointment",
+                                    timestamp: Date(),
+                                    relatedId: appointment.id
+                                )
+                                FirestoreManager.shared.addNotification(notification, toUserId: targetUserId)
+                            }
+                        }
+                    } label: {
+                        Text("Confirm")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.green)
+                            .clipShape(Capsule())
+                    }
+                    
+                    Button {
+                        showReschedulePicker = true
+                    } label: {
+                        Text("Reschedule")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.blue)
+                            .clipShape(Capsule())
+                    }
+                    
+                    Button {
+                        FirestoreManager.shared.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Rejected") { success in
+                            if success {
+                                let targetUserId = (AuthService.shared.currentUser?.role == .lawyer) ? appointment.clientId : appointment.lawyerId
+                                let senderName = AuthService.shared.currentUser?.fullName ?? "Someone"
+                                let notification = FBNotification(
+                                    title: "Appointment Rejected",
+                                    body: "\(senderName) has declined the appointment request.",
+                                    type: "appointment",
+                                    timestamp: Date(),
+                                    relatedId: appointment.id
+                                )
+                                FirestoreManager.shared.addNotification(notification, toUserId: targetUserId)
+                            }
+                        }
+                    } label: {
+                        Text("Reject")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.red)
+                            .clipShape(Capsule())
+                    }
+                }
+                .padding(.top, 4)
             }
         }
         .padding(16)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
+        .sheet(isPresented: $showReschedulePicker) {
+            ReschedulePickerSheet(appointment: appointment)
+        }
     }
+    
+    @State private var showReschedulePicker = false
     
     private var statusColor: Color {
         switch appointment.status.lowercased() {
         case "confirmed": return .green
         case "pending": return .orange
-        case "cancelled": return .red
+        case "rescheduled": return .blue
+        case "cancelled", "rejected": return .red
         case "in progress": return .blue
         default: return .gray
         }
+    }
+
+    private func formatDate(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "MMM dd, yyyy"
+        return f.string(from: date)
+    }
+}
+
+// MARK: - Reschedule Picker Sheet
+struct ReschedulePickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let appointment: FBAppointment
+    
+    @State private var selectedDate: Date
+    @State private var isSaving = false
+    
+    init(appointment: FBAppointment) {
+        self.appointment = appointment
+        self._selectedDate = State(initialValue: appointment.date)
+    }
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 32) {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Select New Date & Time")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.lmPrimary)
+                    
+                    DatePicker(
+                        "Reschedule",
+                        selection: $selectedDate,
+                        in: Date()...,
+                        displayedComponents: [.date, .hourAndMinute]
+                    )
+                    .datePickerStyle(.graphical)
+                    .tint(.lmPrimary)
+                }
+                .padding(20)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 24))
+                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                
+                Spacer()
+                
+                Button {
+                    saveReschedule()
+                } label: {
+                    if isSaving {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Text("Confirm Reschedule")
+                            .font(.lmButton)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(Color.lmPrimary)
+                            .clipShape(Capsule())
+                    }
+                }
+                .disabled(isSaving)
+            }
+            .padding(24)
+            .background(Color.lmBackground)
+            .navigationTitle("Reschedule")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.large])
+    }
+    
+    private func saveReschedule() {
+        isSaving = true
+        
+        let timeString = formatTime(selectedDate)
+        
+        FirestoreManager.shared.rescheduleAppointment(
+            appointmentId: appointment.id ?? "",
+            newDate: selectedDate,
+            newTime: timeString
+        ) { success in
+            isSaving = false
+            if success {
+                // Notify Other Party
+                let isLawyer = AuthService.shared.currentUser?.role == .lawyer
+                let targetUserId = isLawyer ? appointment.clientId : appointment.lawyerId
+                let senderName = AuthService.shared.currentUser?.fullName ?? "Someone"
+                
+                let notification = FBNotification(
+                    title: "Appointment Rescheduled",
+                    body: "\(senderName) has suggested a new time: \(timeString) on \(formatDate(selectedDate))",
+                    type: "appointment",
+                    timestamp: Date(),
+                    relatedId: appointment.id
+                )
+                FirestoreManager.shared.addNotification(notification, toUserId: targetUserId)
+                
+                dismiss()
+            } else {
+                ToastManager.shared.show(title: "Error", message: "Failed to reschedule. Please try again.", type: .error)
+            }
+        }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "hh:mm a"
+        return f.string(from: date)
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "MMM dd, yyyy"
+        return f.string(from: date)
     }
 }
 
@@ -455,6 +655,8 @@ struct PDFKitView: UIViewRepresentable {
 struct PDFKitViewerSheet: View {
     @Environment(\.dismiss) private var dismiss
     let document: FBAdvisoryDocument
+    @State private var localURL: URL? = nil
+    @State private var isLoading = true
     
     var body: some View {
         NavigationStack {
@@ -462,33 +664,29 @@ struct PDFKitViewerSheet: View {
                 Color.lmBackground.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
-                    if let urlString = document.fileURL, let url = URL(string: urlString) {
+                    if isLoading {
+                        ProgressView("Preparing document...")
+                            .frame(maxHeight: .infinity)
+                    } else if let url = localURL {
                         let ext = url.pathExtension.lowercased()
                         if ["jpg", "jpeg", "png", "heic"].contains(ext) {
                             // Image Viewer
                             ScrollView([.horizontal, .vertical], showsIndicators: false) {
-                                AsyncImage(url: url) { phase in
-                                    switch phase {
-                                    case .empty:
-                                        ProgressView()
-                                    case .success(let image):
-                                        image
-                                            .resizable()
-                                            .scaledToFit()
-                                            .frame(maxWidth: .infinity)
-                                            .padding(.top, 20)
-                                    case .failure:
-                                        errorView(message: "Failed to load image. Check your internet connection.")
-                                    @unknown default:
-                                        errorView(message: "Unknown error loading image.")
-                                    }
-                                }
+                                Image(uiImage: UIImage(contentsOfFile: url.path) ?? UIImage())
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.top, 20)
                             }
                         } else {
                             // Document Viewer (PDF/DOCX)
                             PDFKitView(url: url)
                                 .edgesIgnoringSafeArea(.bottom)
                         }
+                    } else if let urlString = document.fileURL, let url = URL(string: urlString) {
+                        // Fallback to URL if no Base64 (Old documents)
+                        PDFKitView(url: url)
+                            .edgesIgnoringSafeArea(.bottom)
                     } else {
                         errorView(message: "Document file not found. It may have been removed or is still uploading.")
                     }
@@ -503,13 +701,48 @@ struct PDFKitViewerSheet: View {
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    if let urlString = document.fileURL, let url = URL(string: urlString) {
+                    if let url = localURL {
+                        ShareLink(item: url) {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                    } else if let urlString = document.fileURL, let url = URL(string: urlString) {
                         ShareLink(item: url) {
                             Image(systemName: "square.and.arrow.up")
                         }
                     }
                 }
             }
+            .onAppear {
+                prepareDocument()
+            }
+        }
+    }
+    
+    private func prepareDocument() {
+        // If we have Base64, decode it to a temp file
+        if let base64 = document.fileBase64 {
+            DispatchQueue.global(qos: .userInitiated).async {
+                if let data = Data(base64Encoded: base64) {
+                    let tempDir = FileManager.default.temporaryDirectory
+                    let fileName = document.title.replacingOccurrences(of: " ", with: "_") + "." + (document.fileType.lowercased())
+                    let fileURL = tempDir.appendingPathComponent(fileName)
+                    
+                    try? data.write(to: fileURL)
+                    
+                    DispatchQueue.main.async {
+                        self.localURL = fileURL
+                        self.isLoading = false
+                    }
+                } else {
+                    DispatchQueue.main.async { self.isLoading = false }
+                }
+            }
+        } else if let urlString = document.fileURL, let url = URL(string: urlString) {
+            // Already a URL, just use it
+            self.localURL = url
+            self.isLoading = false
+        } else {
+            self.isLoading = false
         }
     }
     

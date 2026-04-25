@@ -12,6 +12,9 @@ struct NotificationModel: Identifiable, Hashable {
 }
 
 struct NotificationsView: View {
+    @Binding var navPath: NavigationPath
+    @Binding var activeConversation: FBConversation?
+    
     @Environment(\.dismiss) private var dismiss
     @StateObject private var firestore = FirestoreManager.shared
     @State private var showClearAlert = false
@@ -49,7 +52,6 @@ struct NotificationsView: View {
                         Spacer()
                         Image(systemName: "bell.slash")
                             .font(.system(size: 60))
-                            .foregroundColor(.lmPrimary.opacity(0.3))
                         Text("No notifications yet")
                             .font(.lmBody)
                             .foregroundColor(.lmTextSecondary)
@@ -61,13 +63,13 @@ struct NotificationsView: View {
                             let (today, week, earlier) = groupedNotifications
                             
                             if !today.isEmpty {
-                                NotificationSection(title: "Today", notifications: today)
+                                NotificationSection(title: "Today", notifications: today, onTap: handleNotificationTap)
                             }
                             if !week.isEmpty {
-                                NotificationSection(title: "This Week", notifications: week)
+                                NotificationSection(title: "This Week", notifications: week, onTap: handleNotificationTap)
                             }
                             if !earlier.isEmpty {
-                                NotificationSection(title: "Earlier", notifications: earlier)
+                                NotificationSection(title: "Earlier", notifications: earlier, onTap: handleNotificationTap)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -90,13 +92,50 @@ struct NotificationsView: View {
         }
         .onAppear {
             if let user = AuthService.shared.currentUser {
-                // Start real-time listener first so UI populates immediately
                 firestore.listenForNotifications(userId: user.id)
-                // Mark as read after a short delay so unread indicators are visible briefly
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                     firestore.markNotificationsAsRead(userId: user.id)
                 }
             }
+        }
+    }
+    
+    private func handleNotificationTap(_ notification: FBNotification) {
+        // Mark individual as read immediately
+        if let userId = auth.currentUser?.id, let notificationId = notification.id {
+            firestore.markNotificationAsRead(userId: userId, notificationId: notificationId)
+        }
+        
+        let type = notification.type
+        guard let relatedId = notification.relatedId else { return }
+        
+        switch type {
+        case "message":
+            if let conv = firestore.conversations.first(where: { $0.id == relatedId }) {
+                activeConversation = conv
+                dismiss() // Go back to messages view (or it will push if in Home)
+            } else {
+                ToastManager.shared.show(title: "Not Found", message: "This conversation is no longer available.", type: .error)
+            }
+            
+        case "case", "document":
+            if let clientCase = firestore.cases.first(where: { $0.id == relatedId }) {
+                navPath.append(clientCase)
+                dismiss()
+            } else {
+                ToastManager.shared.show(title: "Not Found", message: "This case could not be found.", type: .error)
+            }
+            
+        case "booking", "appointment":
+            if let appointment = firestore.appointments.first(where: { $0.id == relatedId }) {
+                navPath.append(appointment)
+                dismiss()
+            } else {
+                ToastManager.shared.show(title: "Not Found", message: "This appointment could not be found.", type: .error)
+            }
+            
+        default:
+            print("Unhandled notification type: \(type)")
         }
     }
     
@@ -128,6 +167,7 @@ struct NotificationsView: View {
 struct NotificationSection: View {
     let title: String
     let notifications: [FBNotification]
+    let onTap: (FBNotification) -> Void
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -138,7 +178,12 @@ struct NotificationSection: View {
             
             VStack(spacing: 0) {
                 ForEach(Array(notifications.enumerated()), id: \.element.id) { index, item in
-                    NotificationRow(notification: item)
+                    Button {
+                        onTap(item)
+                    } label: {
+                        NotificationRow(notification: item)
+                    }
+                    .buttonStyle(.plain)
                     
                     if index < notifications.count - 1 {
                         Divider()
@@ -195,11 +240,13 @@ struct NotificationRow: View {
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.lmTextSecondary.opacity(0.9))
                     .lineSpacing(4)
+                    .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.vertical, 16)
         .padding(.trailing, 16)
+        .contentShape(Rectangle())
     }
     
     /* Dynamic properties moved to FBNotification model */
@@ -212,5 +259,5 @@ struct NotificationRow: View {
 }
 
 #Preview {
-    NotificationsView()
+    NotificationsView(navPath: .constant(NavigationPath()), activeConversation: .constant(nil))
 }

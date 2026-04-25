@@ -25,6 +25,8 @@ struct ProfileView: View {
     @State private var showSourceSelection = false
     @State private var isUploading = false
     @State private var showNotifications = false
+    @Binding var navPath: NavigationPath
+    @Binding var activeConversation: FBConversation?
     
     var onBack: () -> Void = {}
     
@@ -142,7 +144,7 @@ struct ProfileView: View {
             }
         }
         .sheet(isPresented: $showNotifications) {
-            NotificationsView()
+            NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
         }
     }
     
@@ -299,5 +301,5 @@ struct ProfileView: View {
 }
 
 #Preview {
-    ProfileView()
+    ProfileView(navPath: .constant(NavigationPath()), activeConversation: .constant(nil))
 }

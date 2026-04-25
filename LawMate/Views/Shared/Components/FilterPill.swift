@@ -1,7 +1,7 @@
 import SwiftUI
 
 // MARK: - Filter Pill
-struct FilterPill: View {
+struct LawMateFilterPill: View {
     let icon: String
     let title: String
     var isActive: Bool = false

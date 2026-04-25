@@ -92,7 +92,7 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
     }
     
     var wrappedDocuments: [FBDocument] {
-        documents ?? []
+        FirestoreManager.shared.caseDocuments.filter { $0.legalCaseId == id }
     }
     
     // Hashable conformance for navigation routing
@@ -149,6 +149,7 @@ struct FBDocument: Identifiable, Codable, Hashable {
     var stageIndex: Int? // Optional linkage to a specific Case Lifecycle stage
     var uploadedAt: Date
     var localFileName: String?
+    var fileBase64: String?
 }
 
 struct FBAdvisoryDocument: Identifiable, Codable, Hashable {
@@ -164,6 +165,7 @@ struct FBAdvisoryDocument: Identifiable, Codable, Hashable {
     var localFileName: String?
     var lawyerId: String? // To easily match which lawyer uploaded it
     var visibility: String = "Public" // "Public" or "Private"
+    var fileBase64: String?
 }
 
 struct FBConversation: Identifiable, Codable, Hashable {
@@ -326,14 +328,17 @@ struct FBAppointment: Identifiable, Codable, Hashable {
     var method: String
     var description: String
     var status: String
+    var lastActionBy: String?
     
     var statusTitle: String { status }
     
     var statusColor: Color {
         switch status.lowercased() {
         case "confirmed": return .green
-        case "pending": return .red
-        case "in progress": return .orange
+        case "pending": return .orange
+        case "rescheduled": return .blue
+        case "cancelled", "rejected": return .red
+        case "in progress": return .blue
         case "done": return .gray
         default: return .gray
         }
@@ -342,13 +347,13 @@ struct FBAppointment: Identifiable, Codable, Hashable {
     var specialtyIcon: String {
         guard let spec = lawyerSpecialty?.lowercased() else { return "briefcase.fill" }
         if spec.contains("family") { return "house.fill" }
-        if spec.contains("criminal") { return "gavel.fill" }
+        if spec.contains("criminal") { return "building.columns.fill" }
         if spec.contains("civil") { return "person.2.fill" }
         if spec.contains("business") || spec.contains("corporate") { return "briefcase.fill" }
         return "briefcase.fill"
     }
     
-    init(id: String? = nil, clientId: String, clientName: String, clientImage: String? = nil, lawyerId: String, lawyerName: String, lawyerImage: String? = nil, lawyerSpecialty: String? = nil, service: String, date: Date, time: String, method: String, description: String, status: String) {
+    init(id: String? = nil, clientId: String, clientName: String, clientImage: String? = nil, lawyerId: String, lawyerName: String, lawyerImage: String? = nil, lawyerSpecialty: String? = nil, service: String, date: Date, time: String, method: String, description: String, status: String, lastActionBy: String? = nil) {
         self._id = DocumentID(wrappedValue: id)
         self.clientId = clientId
         self.clientName = clientName
@@ -363,6 +368,7 @@ struct FBAppointment: Identifiable, Codable, Hashable {
         self.method = method
         self.description = description
         self.status = status
+        self.lastActionBy = lastActionBy
     }
 }
 

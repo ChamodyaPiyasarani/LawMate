@@ -34,15 +34,15 @@ struct EventListView: View {
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.lmPrimary)
                     
-                    let totalCount = viewModel.appointmentsForSelectedDate.count
-                    Text("\(totalCount) Appointments scheduled")
+                    let activeCount = viewModel.upcomingAppointments.count
+                    Text("\(activeCount) \(activeCount == 1 ? "Appointment" : "Appointments") scheduled")
                         .font(.system(size: 13))
                         .foregroundColor(.lmTextSecondary)
                 }
                 
                 Spacer()
                 
-                if (viewModel.eventsForSelectedDate.count + viewModel.appointmentsForSelectedDate.count) < 5 {
+                if (viewModel.eventsForSelectedDate.count + viewModel.upcomingAppointments.count) < 5 {
                     Button {
                         showingAddEvent = true
                     } label: {
@@ -320,7 +320,7 @@ struct EventListView: View {
             time: selectedTime ?? "TBD",
             method: isVideoCall ? "Video Call" : "In Person",
             description: caseDescription,
-            status: "Confirmed"
+            status: "Pending"
         )
 
         FirestoreManager.shared.createAppointmentWithValidation(appointment) { success, reason in
@@ -408,7 +408,7 @@ struct EventRow: View {
     }
     
     private var typeIcon: String {
-        if event.title.contains("Hearing") { return "gavel.fill" }
+        if event.title.contains("Hearing") { return "building.columns.fill" }
         if event.title.contains("Consultation") { return "person.2.fill" }
         return "calendar"
     }

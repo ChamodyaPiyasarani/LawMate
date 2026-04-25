@@ -162,6 +162,6 @@ struct RescheduleBookingView: View {
         time: "09:00 AM",
         method: "Video Call",
         description: "",
-        status: "Confirmed"
+        status: "Pending"
     ))
 }

@@ -191,13 +191,13 @@ struct LawyersListView: View {
                             Button(specialty) { selectedSpecialty = specialty }
                         }
                     } label: {
-                        FilterPill(icon: "line.3.horizontal.decrease", 
+                        LawMateFilterPill(icon: "line.3.horizontal.decrease", 
                                   title: selectedSpecialty ?? "Category", 
                                   isActive: selectedSpecialty != nil,
                                   maxWidth: .infinity) {}
                     }
                     
-                    FilterPill(icon: "star.fill", 
+                    LawMateFilterPill(icon: "star.fill", 
                               title: minRating > 0 ? "\(String(format: "%.1f", minRating))+" : "Rate", 
                               isActive: minRating > 0,
                               maxWidth: .infinity) {
@@ -217,7 +217,7 @@ struct LawyersListView: View {
                             }
                         }
                     } label: {
-                        FilterPill(icon: "scope", 
+                        LawMateFilterPill(icon: "scope", 
                                   title: selectedLocation ?? "Location", 
                                   isActive: selectedLocation != nil,
                                   maxWidth: .infinity) {}
@@ -229,13 +229,13 @@ struct LawyersListView: View {
                             Button(option.rawValue) { sortOption = option }
                         }
                     } label: {
-                        FilterPill(icon: "arrow.up.arrow.down", 
+                        LawMateFilterPill(icon: "arrow.up.arrow.down", 
                                   title: sortOption.rawValue, 
                                   isActive: sortOption != .alphabetical,
                                   maxWidth: .infinity) {}
                     }
                     
-                    FilterPill(icon: "mappin.and.ellipse", 
+                    LawMateFilterPill(icon: "mappin.and.ellipse", 
                                title: "Map", 
                                isActive: isMapViewActive,
                                maxWidth: .infinity) {
@@ -443,7 +443,7 @@ struct LawyerRow: View {
                         HStack(spacing: 4) {
                             let spec = lawyer.specialty.lowercased()
                             let icon = spec.contains("family") ? "house.fill" : 
-                                      spec.contains("criminal") ? "gavel.fill" : 
+                                      spec.contains("criminal") ? "building.columns.fill" : 
                                       spec.contains("civil") ? "person.2.fill" : "briefcase.fill"
                             
                             Image(systemName: icon)

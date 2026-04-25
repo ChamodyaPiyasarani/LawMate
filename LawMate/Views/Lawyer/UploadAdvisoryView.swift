@@ -60,13 +60,22 @@ struct UploadAdvisoryView: View {
                         VStack(spacing: 20) {
                             // Category Picker
                             pickerRow(title: "Category", icon: "tag.fill") {
-                                Picker("", selection: $category) {
-                                    ForEach(categories, id: \.self) { cat in
-                                        Text(cat).tag(cat)
+                                Menu {
+                                    Picker("", selection: $category) {
+                                        ForEach(categories, id: \.self) { cat in
+                                            Text(cat).tag(cat)
+                                        }
                                     }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text(category)
+                                            .font(.system(size: 14, weight: .bold))
+                                        Image(systemName: "chevron.up.chevron.down")
+                                            .font(.system(size: 10))
+                                    }
+                                    .foregroundColor(.lmPrimary)
+                                    .fixedSize(horizontal: true, vertical: false)
                                 }
-                                .pickerStyle(.menu)
-                                .accentColor(.lmPrimary)
                             }
                             
                             LawMateTextField(icon: "doc.text.fill", placeholder: "Enter document title", text: $title)
@@ -128,18 +137,40 @@ struct UploadAdvisoryView: View {
 
                             // Tags
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("Tags (Press comma to add)")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(.lmTextSecondary)
+                                // Suggested Tags
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        let suggestedTags = ["Divorce", "Custody", "Contract", "Property", "Criminal", "Civil", "Corporate", "Lease", "Agreement"]
+                                        ForEach(suggestedTags, id: \.self) { tag in
+                                            Button {
+                                                if !tags.contains(tag) {
+                                                    tags.append(tag)
+                                                }
+                                            } label: {
+                                                Text(tag)
+                                                    .font(.system(size: 12, weight: .bold))
+                                                    .padding(.horizontal, 12)
+                                                    .padding(.vertical, 6)
+                                                    .background(Color.lmPrimary.opacity(0.1))
+                                                    .foregroundColor(.lmPrimary)
+                                                    .clipShape(Capsule())
+                                            }
+                                        }
+                                    }
                                     .padding(.leading, 4)
+                                }
                                 
-                                LawMateTextField(icon: "tag.circle.fill", placeholder: "e.g. divorce, custody", text: $tagInput)
+                                LawMateTextField(icon: "tag.circle.fill", placeholder: "Or enter custom tags...", text: $tagInput)
                                     .onChange(of: tagInput) { _, newValue in
                                         if newValue.contains(",") {
                                             let newTags = newValue.components(separatedBy: ",")
                                                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                                                 .filter { !$0.isEmpty }
-                                            tags.append(contentsOf: newTags)
+                                            for tag in newTags {
+                                                if !tags.contains(tag) {
+                                                    tags.append(tag)
+                                                }
+                                            }
                                             tagInput = ""
                                         }
                                     }
@@ -156,9 +187,17 @@ struct UploadAdvisoryView: View {
 
                         // MARK: Publish Button
                         LawMatePrimaryButton(title: "Publish Document") {
-                            ToastManager.shared.show(title: "Publishing...", message: "Uploading your document.", type: .info)
-                            
                             if let url = selectedFile {
+                                // 1MB Validation for Database Storage
+                                if let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+                                   let fileSize = attributes[.size] as? Int64,
+                                   fileSize > 1_000_000 {
+                                    ToastManager.shared.show(title: "File Too Large", message: "Document must be under 1MB for database storage.", type: .error)
+                                    return
+                                }
+                                
+                                ToastManager.shared.show(title: "Publishing...", message: "Uploading your document.", type: .info)
+                                
                                 FirestoreManager.shared.uploadAdvisoryDocument(
                                     title: title,
                                     category: category,
@@ -182,6 +221,13 @@ struct UploadAdvisoryView: View {
                             } else if let image = selectedImage {
                                 // Save image to temporary file first
                                 if let data = image.jpegData(compressionQuality: 0.8) {
+                                    if data.count > 1_000_000 {
+                                        ToastManager.shared.show(title: "Image Too Large", message: "Image must be under 1MB for database storage.", type: .error)
+                                        return
+                                    }
+                                    
+                                    ToastManager.shared.show(title: "Publishing...", message: "Uploading your document.", type: .info)
+                                    
                                     let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
                                     try? data.write(to: tempURL)
                                     FirestoreManager.shared.uploadAdvisoryDocument(

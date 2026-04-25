@@ -9,6 +9,8 @@ struct LawyerCasesView: View {
     
     @StateObject private var firestore = FirestoreManager.shared
     @State private var showNotifications = false
+    @Binding var navPath: NavigationPath
+    @Binding var activeConversation: FBConversation?
     
     var filteredCases: [FBLegalCase] {
         firestore.cases.filter { c in
@@ -55,7 +57,7 @@ struct LawyerCasesView: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
                                 ForEach(statuses, id: \.self) { status in
-                                    FilterPill(
+                                    LawMateFilterPill(
                                         icon: statusIcon(for: status),
                                         title: status,
                                         isActive: selectedStatus == status,
@@ -100,7 +102,7 @@ struct LawyerCasesView: View {
                 }
             }
             .sheet(isPresented: $showNotifications) {
-                NotificationsView()
+                NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
             }
         }
     }
@@ -204,7 +206,7 @@ struct LawyerCaseCard: View {
 
 #Preview {
     NavigationStack {
-        LawyerCasesView()
+        LawyerCasesView(navPath: .constant(NavigationPath()), activeConversation: .constant(nil))
     }
 }
 
@@ -272,6 +274,11 @@ struct LawyerCaseDetailView: View {
                 }
             }
         }
+        .onAppear {
+            if let caseId = legalCase.id {
+                FirestoreManager.shared.listenForDocuments(forCaseId: caseId)
+            }
+        }
         .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .fileImporter(
@@ -295,7 +302,8 @@ struct LawyerCaseDetailView: View {
                 fileType: doc.fileType,
                 fileURL: doc.fileURL,
                 lawyerId: "",
-                visibility: "Private"
+                visibility: "Private",
+                fileBase64: doc.fileBase64
             )
             PDFKitViewerSheet(document: dummyDoc)
         }
@@ -351,36 +359,35 @@ struct LawyerCaseDetailView: View {
             
             do {
                 let data = try Data(contentsOf: url)
-                let originalName = url.lastPathComponent
-                let safeStorageName = UUID().uuidString + "." + url.pathExtension
-                let fileType = url.pathExtension.uppercased()
-                let path = "cases/\(legalCase.id ?? "unknown")/docs"
                 
-                ToastManager.shared.show(title: "Uploading", message: "Starting file upload...", type: .info)
-                
-                FirestoreManager.shared.uploadFile(data: data, path: path, fileName: safeStorageName) { uploadResult in
-                    switch uploadResult {
-                    case .success(let downloadURL):
-                        // Track the metadata in Firestore with the actual URL
-                        FirestoreManager.shared.addDocument(
-                            toCaseId: legalCase.id ?? "",
-                            fileName: originalName,
-                            fileType: fileType,
-                            fileURL: downloadURL,
-                            stageIndex: stageIndex
-                        )
-                        
-                        // Update the stage to indicate a file was uploaded
-                        var updatedCase = legalCase
-                        updatedCase.stages[stageIndex].description += " (File attached)"
-                        FirestoreManager.shared.updateCase(updatedCase)
-                        
-                        ToastManager.shared.show(title: "Success", message: "File uploaded successfully.", type: .success)
-                        
-                    case .failure(let error):
-                        ToastManager.shared.show(title: "Upload Failed", message: error.localizedDescription, type: .error)
-                    }
+                // 1MB Validation for Database Storage
+                if data.count > 1_000_000 {
+                    ToastManager.shared.show(title: "File Too Large", message: "Document must be under 1MB for database storage.", type: .error)
+                    return
                 }
+                
+                let originalName = url.lastPathComponent
+                let base64String = data.base64EncodedString()
+                let fileType = url.pathExtension.uppercased()
+                
+                ToastManager.shared.show(title: "Uploading", message: "Processing your document...", type: .info)
+                
+                // Save to Firestore directly using Base64
+                FirestoreManager.shared.addDocument(
+                    toCaseId: legalCase.id ?? "",
+                    fileName: originalName,
+                    fileType: fileType,
+                    fileURL: nil,
+                    fileBase64: base64String,
+                    stageIndex: stageIndex
+                )
+                
+                // Update the stage to indicate a file was uploaded
+                var updatedCase = legalCase
+                updatedCase.stages[stageIndex].description += " (File attached)"
+                FirestoreManager.shared.updateCase(updatedCase)
+                
+                ToastManager.shared.show(title: "Success", message: "File uploaded successfully.", type: .success)
             } catch {
                 ToastManager.shared.show(title: "Access Error", message: "Could not read file data.", type: .error)
             }
@@ -393,21 +400,20 @@ struct LawyerCaseDetailView: View {
     private func handleScannedDocuments(_ urls: [URL]) {
         for url in urls {
             if let data = try? Data(contentsOf: url) {
-                let originalName = url.lastPathComponent
-                let safeStorageName = UUID().uuidString + ".jpg"
-                let fileType = "JPG"
-                let path = "cases/\(legalCase.id ?? "unknown")/docs"
+                // 1MB Validation
+                if data.count > 1_000_000 { continue }
                 
-                FirestoreManager.shared.uploadFile(data: data, path: path, fileName: safeStorageName) { uploadResult in
-                    if case .success(let downloadURL) = uploadResult {
-                        FirestoreManager.shared.addDocument(
-                            toCaseId: legalCase.id ?? "",
-                            fileName: originalName,
-                            fileType: fileType,
-                            fileURL: downloadURL
-                        )
-                    }
-                }
+                let originalName = url.lastPathComponent
+                let base64String = data.base64EncodedString()
+                let fileType = "JPG"
+                
+                FirestoreManager.shared.addDocument(
+                    toCaseId: legalCase.id ?? "",
+                    fileName: originalName,
+                    fileType: fileType,
+                    fileURL: nil,
+                    fileBase64: base64String
+                )
             }
         }
         ToastManager.shared.show(title: "Success", message: "Scanned documents uploaded.", type: .success)
@@ -483,9 +489,9 @@ struct LawyerCaseDetailView: View {
             
             // Case Stats (Progress Summary)
             HStack(spacing: 30) {
-                statItem(title: "Status", value: legalCase.status, icon: "clock.badge.checkmark", color: .orange)
-                statItem(title: "Progress", value: "\(Int(legalCase.progressProgress * 100))%", icon: "chart.bar.fill", color: .lmPrimary)
-                statItem(title: "Files", value: "0", icon: "doc.fill", color: .blue) // Documents list migration handled separately
+                statItem(title: "Status", value: currentCase.status, icon: "clock.badge.checkmark", color: .orange)
+                statItem(title: "Progress", value: "\(Int(currentCase.progressProgress * 100))%", icon: "chart.bar.fill", color: .lmPrimary)
+                statItem(title: "Files", value: "\(currentCase.wrappedDocuments.count)", icon: "doc.fill", color: .blue)
             }
         }
         .padding(24)
@@ -553,6 +559,7 @@ struct LawyerCaseDetailView: View {
                             showFilePicker = true
                         }
                     )
+                    .padding(.bottom, 24)
                 }
             }
         }

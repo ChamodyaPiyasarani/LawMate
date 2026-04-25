@@ -122,14 +122,15 @@ struct LawyerMyUploadsView: View {
                             Label("Make Private", systemImage: "lock.fill")
                         }
                     } label: {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 3) {
                             Image(systemName: doc.visibility == "Public" ? "globe" : "lock.fill")
-                                .font(.system(size: 10))
+                                .font(.system(size: 9))
                             Text(doc.visibility)
                                 .font(.system(size: 10, weight: .bold))
+                                .fixedSize(horizontal: true, vertical: false)
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
                         .background(doc.visibility == "Public" ? Color.green.opacity(0.15) : Color.orange.opacity(0.15))
                         .foregroundColor(doc.visibility == "Public" ? .green : .orange)
                         .clipShape(Capsule())

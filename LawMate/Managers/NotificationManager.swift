@@ -83,17 +83,8 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
         let userInfo = response.notification.request.content.userInfo
         print("Tapped notification with userInfo: \(userInfo)")
         
-        let relatedId = userInfo["relatedId"] as? String
-        let type = userInfo["type"] as? String
-        
         DispatchQueue.main.async {
-            if let relatedId = relatedId, type == "message" {
-                self.pendingRoute = .chat(conversationId: relatedId)
-            } else if type == "case" {
-                self.pendingRoute = .myCases
-            } else {
-                self.pendingRoute = .notificationCenter
-            }
+            self.pendingRoute = .notificationCenter
         }
         
         completionHandler()

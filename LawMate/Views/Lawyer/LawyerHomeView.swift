@@ -25,7 +25,10 @@ struct LawyerHomeView: View {
     var todayAppointments: [FBAppointment] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        return firestore.appointments.filter { calendar.startOfDay(for: $0.date) == today }
+        return firestore.appointments.filter { 
+            let s = $0.status.lowercased()
+            return calendar.startOfDay(for: $0.date) == today && s != "cancelled" && s != "rejected"
+        }
     }
 
     var body: some View {
@@ -175,7 +178,7 @@ struct LawyerHomeView: View {
                             }
                         }
                     } else if selectedTab == .cases {
-                        LawyerCasesView()
+                        LawyerCasesView(navPath: $navPath, activeConversation: $activeConversation)
                     } else if selectedTab == .calendar {
                         LawyerCalendarView(showBack: false)
                     } else if selectedTab == .messages {
@@ -183,12 +186,20 @@ struct LawyerHomeView: View {
                             activeConversation = conversation
                         })
                     } else {
-                        ProfileView(onBack: { selectedTab = .home })
+                        ProfileView(navPath: $navPath, activeConversation: $activeConversation, onBack: { selectedTab = .home })
                     }
                 }
                 .navigationBarHidden(true)
                 .navigationDestination(item: $activeConversation) { conversation in
                     ChatDetailView(conversation: conversation)
+                }
+                .navigationDestination(for: FBLegalCase.self) { lawyerCase in
+                    LawyerCaseDetailView(legalCase: lawyerCase)
+                }
+                .navigationDestination(for: FBAppointment.self) { appointment in
+                    // Lawyers might not have a specific appointment detail yet, but we can reuse or create one.
+                    // For now, let's go to the calendar or a placeholder if needed.
+                    LawyerCalendarView(showBack: true) 
                 }
                 .navigationDestination(for: LawyerRoute.self) { route in
                     switch route {
@@ -197,7 +208,7 @@ struct LawyerHomeView: View {
                     case .uploadAdvisory:
                         UploadAdvisoryView()
                     case .notifications:
-                        NotificationsView()
+                        NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
                     }
                 }
                 .navigationDestination(for: ProfileRoute.self) { route in

@@ -13,7 +13,6 @@ struct CaseDetailView: View {
     }
     
     @State private var selectedTab = 0 // 0: Progress, 1: Documents
-    @State private var documents: [FBDocument] = []
     @State private var selectedDocument: FBDocument? = nil
     
     // Upload State
@@ -148,15 +147,26 @@ struct CaseDetailView: View {
         }
         .navigationBarBackButtonHidden(true)
         .onAppear {
-            refreshDocuments()
+            if let caseId = clientCase.id {
+                FirestoreManager.shared.listenForDocuments(forCaseId: caseId)
+            }
         }
         .sheet(item: $selectedDocument) { doc in
-            if let urlString = doc.fileURL, let url = URL(string: urlString) {
-                LawMateDocumentViewer(title: doc.fileName, url: url)
-            } else {
-                Text("Error: Document URL is missing.")
-                    .padding()
-            }
+            let dummyDoc = FBAdvisoryDocument(
+                id: doc.id ?? UUID().uuidString,
+                title: doc.fileName,
+                description: "",
+                category: "Case Document",
+                tags: [],
+                lawyerName: "",
+                date: ISO8601DateFormatter().string(from: doc.uploadedAt),
+                fileType: doc.fileType,
+                fileURL: doc.fileURL,
+                lawyerId: "",
+                visibility: "Private",
+                fileBase64: doc.fileBase64
+            )
+            PDFKitViewerSheet(document: dummyDoc)
         }
         .onChange(of: selectedImage) { _, _ in
             handleImageUpload()
@@ -170,12 +180,6 @@ struct CaseDetailView: View {
         }
         .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.pdf, .png, .jpeg]) { result in
             handleFileURLUpload(result: result)
-        }
-    }
-    
-    private func refreshDocuments() {
-        FirestoreManager.shared.fetchDocuments(forCaseId: clientCase.id ?? "") { fetchedDocs in
-            self.documents = fetchedDocs
         }
     }
     
@@ -193,72 +197,69 @@ struct CaseDetailView: View {
                         isActive: isActive,
                         canEdit: isLawyer && (stage.isCompleted || (index == 0 || currentCase.stages[index-1].isCompleted)),
                         onToggle: {
-                            // Sequential logic: Only allow toggling if it's the current active one 
-                            // or if we are uncompleting the LAST completed one.
+                            // Sequential logic
                             let isNext = !stage.isCompleted && (index == 0 || currentCase.stages[index-1].isCompleted)
                             let isLastCompleted = stage.isCompleted && (index == currentCase.stages.count - 1 || !currentCase.stages[index+1].isCompleted)
                             
                             if isNext || isLastCompleted {
                                 FirestoreManager.shared.updateCaseStage(caseId: currentCase.id ?? "", stageIndex: index, isCompleted: !stage.isCompleted)
-                                // UI will update via Firestore listener
                             } else {
                                 ToastManager.shared.show(title: "Sequential Progress", message: "Please complete previous steps first.", type: .warning)
                             }
                         },
                         onUpload: {
                             activeStageIndex = index
-                            showUploadOptions = true
+                            showFilePicker = true
                         }
                     )
-                    .overlay(
-                        VStack(alignment: .leading, spacing: 12) {
-                            // Upload Buttons (Lawyer only)
-                            if isLawyer && (isActive || stage.isCompleted) {
-                                StageUploadButton(selectedItem: $selectedImage) {
-                                    activeStageIndex = index
-                                    showFilePicker = true
-                                }
-                                .padding(.top, 40)
+                    
+                    // NEW: Content below node (fixes overlap)
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Upload Buttons (Lawyer only)
+                        if isLawyer && (isActive || stage.isCompleted) {
+                            StageUploadButton(selectedItem: $selectedImage) {
+                                activeStageIndex = index
+                                showFilePicker = true
                             }
-                            
-                            // Show Attached Files if any
-                            let stageDocs = documents.filter { $0.stageIndex == index }
-                            if !stageDocs.isEmpty {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Shared Files:")
-                                        .font(.system(size: 11, weight: .black))
-                                        .foregroundColor(.lmPrimary.opacity(0.4))
-                                        .textCase(.uppercase)
-                                    
-                                    ForEach(stageDocs) { doc in
-                                        Button {
-                                            selectedDocument = doc
-                                        } label: {
-                                            HStack {
-                                                Image(systemName: doc.fileType == "PDF" ? "doc.fill" : "photo.fill")
-                                                    .font(.system(size: 12))
-                                                Text(doc.fileName)
-                                                    .font(.system(size: 12, weight: .bold))
-                                                Spacer()
-                                                Image(systemName: "chevron.right")
-                                                    .font(.system(size: 10, weight: .bold))
-                                            }
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 10)
-                                            .background(Color.white)
-                                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                                            .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
+                            .padding(.top, 12)
+                        }
+                        
+                        // Show Attached Files if any
+                        let stageDocs = firestore.caseDocuments.filter { $0.stageIndex == index }
+                        if !stageDocs.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Shared Files:")
+                                    .font(.system(size: 11, weight: .black))
+                                    .foregroundColor(.lmPrimary.opacity(0.4))
+                                    .textCase(.uppercase)
+                                    .padding(.top, (isLawyer && (isActive || stage.isCompleted)) ? 4 : 12)
+                                
+                                ForEach(stageDocs) { doc in
+                                    Button {
+                                        selectedDocument = doc
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: doc.fileType == "PDF" ? "doc.fill" : "photo.fill")
+                                                .font(.system(size: 12))
+                                            Text(doc.fileName)
+                                                .font(.system(size: 12, weight: .bold))
+                                            Spacer()
+                                            Image(systemName: "chevron.right")
+                                                .font(.system(size: 10, weight: .bold))
                                         }
-                                        .buttonStyle(.plain)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 10)
+                                        .background(Color.white)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
                                     }
+                                    .buttonStyle(.plain)
                                 }
-                                .padding(.top, (isLawyer && (isActive || stage.isCompleted)) ? 0 : 40)
                             }
                         }
-                        .padding(.leading, 42)
-                        .padding(.top, 50)
-                        , alignment: .topLeading
-                    )
+                    }
+                    .padding(.leading, 42)
+                    .padding(.bottom, 30) // Space before next node
                 }
                 .padding(.horizontal, 24)
             }
@@ -269,7 +270,7 @@ struct CaseDetailView: View {
     // MARK: - Documents Section
     private var documentsSection: some View {
         VStack(spacing: 16) {
-            ForEach(documents) { doc in
+            ForEach(firestore.caseDocuments) { doc in
                 HStack(spacing: 16) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 14)
@@ -307,7 +308,7 @@ struct CaseDetailView: View {
                 .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
             }
             
-            if documents.isEmpty {
+            if firestore.caseDocuments.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "doc.text.magnifyingglass")
                         .font(.system(size: 48))
@@ -391,25 +392,28 @@ struct CaseDetailView: View {
             return
         }
         
-        let storageName = "\(UUID().uuidString).\(ext.isEmpty ? "bin" : ext)"
+        // 1MB Validation for Database Storage
+        if data.count > 1_000_000 {
+            isUploading = false
+            ToastManager.shared.show(title: "File Too Large", message: "Document must be under 1MB for database storage.", type: .error)
+            return
+        }
+        
+        let base64String = data.base64EncodedString()
         let displayName = "Doc_\(Int.random(in: 1000...9999)).\(ext.isEmpty ? "bin" : ext)"
         let type = ext.uppercased() == "PDF" ? "PDF" : "IMG"
         
-        FirestoreManager.shared.uploadFile(data: data, path: "cases/\(finalId)/docs", fileName: storageName) { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let url):
-                    FirestoreManager.shared.addDocument(toCaseId: finalId, fileName: displayName, fileType: type, fileURL: url, stageIndex: activeStageIndex)
-                    ToastManager.shared.show(title: "Success", message: "Document uploaded successfully.", type: .success)
-                    refreshDocuments()
-                    isUploading = false
-                case .failure(let error):
-                    isUploading = false
-                    ToastManager.shared.show(title: "Upload Failed", message: error.localizedDescription, type: .error)
-                    print("Upload failed: \(error)")
-                }
-            }
-        }
+        FirestoreManager.shared.addDocument(
+            toCaseId: finalId,
+            fileName: displayName,
+            fileType: type,
+            fileURL: nil,
+            fileBase64: base64String,
+            stageIndex: activeStageIndex
+        )
+        
+        ToastManager.shared.show(title: "Success", message: "Document uploaded successfully.", type: .success)
+        isUploading = false
     }
 }
 

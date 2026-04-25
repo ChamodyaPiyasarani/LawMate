@@ -22,6 +22,7 @@ struct AddCaseView: View {
     // MARK: Attachments State
     @State private var selectedItems: [PhotosPickerItem] = []
     @State private var selectedImages: [UIImage] = []
+    @State private var selectedFiles: [URL] = []
     @State private var isFileImporterPresented = false
     
     // MARK: Search State
@@ -66,12 +67,22 @@ struct AddCaseView: View {
                                 
                                 // Case Type Picker
                                 pickerField(title: "Case Type", icon: "tag.fill") {
-                                    Picker("", selection: $caseType) {
-                                        ForEach(caseTypes, id: \.self) { type in
-                                            Text(type).tag(type)
+                                    Menu {
+                                        Picker("", selection: $caseType) {
+                                            ForEach(caseTypes, id: \.self) { type in
+                                                Text(type).tag(type)
+                                            }
                                         }
+                                    } label: {
+                                        HStack(spacing: 4) {
+                                            Text(caseType)
+                                                .font(.system(size: 14, weight: .bold))
+                                            Image(systemName: "chevron.up.chevron.down")
+                                                .font(.system(size: 10))
+                                        }
+                                        .foregroundColor(.lmPrimary)
+                                        .fixedSize(horizontal: true, vertical: false)
                                     }
-                                    .pickerStyle(.menu)
                                 }
                             }
                         }
@@ -181,7 +192,63 @@ struct AddCaseView: View {
                                     Button {
                                         isFileImporterPresented = true
                                     } label: {
-                                        attachmentButton(title: "Attach Files", icon: "doc.badge.plus")
+                                        attachmentButton(title: selectedFiles.isEmpty ? "Attach Files" : "\(selectedFiles.count) Files Attached", icon: selectedFiles.isEmpty ? "doc.badge.plus" : "doc.on.doc.fill")
+                                    }
+                                }
+                                
+                                // Attachment Previews
+                                if !selectedImages.isEmpty || !selectedFiles.isEmpty {
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 12) {
+                                            ForEach(selectedImages, id: \.self) { img in
+                                                Image(uiImage: img)
+                                                    .resizable()
+                                                    .scaledToFill()
+                                                    .frame(width: 60, height: 60)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                                    .overlay(
+                                                        Button {
+                                                            if let idx = selectedImages.firstIndex(of: img) {
+                                                                selectedImages.remove(at: idx)
+                                                                if idx < selectedItems.count { selectedItems.remove(at: idx) }
+                                                            }
+                                                        } label: {
+                                                            Image(systemName: "xmark.circle.fill")
+                                                                .foregroundColor(.red)
+                                                                .background(Color.white.clipShape(Circle()))
+                                                        }
+                                                        .offset(x: 25, y: -25)
+                                                    )
+                                            }
+                                            
+                                            ForEach(selectedFiles, id: \.self) { url in
+                                                VStack(spacing: 4) {
+                                                    Image(systemName: "doc.fill")
+                                                        .font(.system(size: 24))
+                                                        .foregroundColor(.lmPrimary)
+                                                    Text(url.lastPathComponent)
+                                                        .font(.system(size: 8, weight: .bold))
+                                                        .lineLimit(1)
+                                                        .frame(width: 60)
+                                                }
+                                                .frame(width: 60, height: 60)
+                                                .background(Color.lmPrimary.opacity(0.1))
+                                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                                .overlay(
+                                                    Button {
+                                                        if let idx = selectedFiles.firstIndex(of: url) {
+                                                            selectedFiles.remove(at: idx)
+                                                        }
+                                                    } label: {
+                                                        Image(systemName: "xmark.circle.fill")
+                                                            .foregroundColor(.red)
+                                                            .background(Color.white.clipShape(Circle()))
+                                                    }
+                                                    .offset(x: 25, y: -25)
+                                                )
+                                            }
+                                        }
+                                        .padding(.vertical, 8)
                                     }
                                 }
                                 
@@ -224,7 +291,10 @@ struct AddCaseView: View {
                             let lawyerId = currUser?.id ?? ""
                             let lawyerImage = currUser?.profileImage
                             
+                            let tempCaseId = UUID().uuidString
+                            
                             let newCase = FBLegalCase(
+                                id: tempCaseId,
                                 caseNumber: "LAW-\(Int.random(in: 1000...9999))",
                                 title: caseTitle.isEmpty ? "Untitled Case" : caseTitle,
                                 clientName: clientName.isEmpty ? "Unknown Client" : clientName,
@@ -247,13 +317,45 @@ struct AddCaseView: View {
                             
                             FirestoreManager.shared.addCase(newCase)
                             
+                            // Upload Attached Photos (Base64)
+                            for image in selectedImages {
+                                if let data = image.jpegData(compressionQuality: 0.7) {
+                                    if data.count <= 1_000_000 {
+                                        let base64 = data.base64EncodedString()
+                                        FirestoreManager.shared.addDocument(
+                                            toCaseId: tempCaseId,
+                                            fileName: "Photo_\(UUID().uuidString.prefix(4)).jpg",
+                                            fileType: "JPG",
+                                            fileURL: nil,
+                                            fileBase64: base64
+                                        )
+                                    }
+                                }
+                            }
+                            
+                            // Upload Attached Files (Base64)
+                            for url in selectedFiles {
+                                if let data = try? Data(contentsOf: url) {
+                                    if data.count <= 1_000_000 {
+                                        let base64 = data.base64EncodedString()
+                                        FirestoreManager.shared.addDocument(
+                                            toCaseId: tempCaseId,
+                                            fileName: url.lastPathComponent,
+                                            fileType: url.pathExtension.uppercased(),
+                                            fileURL: nil,
+                                            fileBase64: base64
+                                        )
+                                    }
+                                }
+                            }
+                            
                             // Send notification to the client
                             let clientNotification = FBNotification(
                                 title: "New Case Created",
                                 body: "\(lawyerName) created '\(newCase.title)' for you.",
                                 type: "case",
                                 timestamp: Date(),
-                                relatedId: nil // Can be updated if addCase returns an ID
+                                relatedId: tempCaseId
                             )
                             FirestoreManager.shared.addNotification(clientNotification, toUserId: selectedClientId)
 
@@ -283,8 +385,13 @@ struct AddCaseView: View {
                 }
             }
         }
-        .fileImporter(isPresented: $isFileImporterPresented, allowedContentTypes: [.pdf, .text], allowsMultipleSelection: true) { result in
-            // Handle files
+        .fileImporter(isPresented: $isFileImporterPresented, allowedContentTypes: [.pdf, .plainText], allowsMultipleSelection: true) { result in
+            switch result {
+            case .success(let urls):
+                selectedFiles.append(contentsOf: urls)
+            case .failure(let error):
+                print("DEBUG: File selection error: \(error)")
+            }
         }
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showMapPicker) {

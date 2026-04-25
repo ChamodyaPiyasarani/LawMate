@@ -177,7 +177,7 @@ struct ClientHomeView: View {
                         })
                     } else {
                         // MARK: Profile Content
-                        ProfileView(onBack: {
+                        ProfileView(navPath: $navPath, activeConversation: $activeConversation, onBack: {
                             selectedTab = .home
                         })
                     }
@@ -195,7 +195,7 @@ struct ClientHomeView: View {
                     case .documents:
                         AdvisoryListView()
                     case .notifications:
-                        NotificationsView()
+                        NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
                     case .booking(let lawyer):
                         BookingView(lawyer: lawyer)
                     case .allAppointments:

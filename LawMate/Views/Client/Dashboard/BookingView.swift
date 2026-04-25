@@ -375,7 +375,7 @@ struct BookingView: View {
             time: selectedTime ?? "TBD",
             method: isVideoCall ? "Video Call" : "In Person",
             description: caseDescription,
-            status: "Confirmed"
+            status: "Pending"
         )
         
         // Step 1: Save to Firestore

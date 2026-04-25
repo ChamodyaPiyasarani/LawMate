@@ -21,6 +21,7 @@ class FirestoreManager: ObservableObject {
     @Published var notifications: [FBNotification] = []
     @Published var appointments: [FBAppointment] = []
     @Published var advisoryDocuments: [FBAdvisoryDocument] = []
+    @Published var caseDocuments: [FBDocument] = []
     
     private var casesListener: ListenerRegistration?
     private var lawyersListener: ListenerRegistration?
@@ -30,6 +31,7 @@ class FirestoreManager: ObservableObject {
     private var notificationsListener: ListenerRegistration?
     private var appointmentsListener: ListenerRegistration?
     private var advisoryDocumentsListener: ListenerRegistration?
+    private var documentsListener: ListenerRegistration?
     private var lastKnownMessageDate: Date? = Date()
     private var lastKnownNotificationDate: Date? = Date()
     /// IDs of conversations deleted locally — prevents the snapshot listener from re-adding them
@@ -82,6 +84,38 @@ class FirestoreManager: ObservableObject {
     
     // MARK: - Cases
     
+    func updateAppointmentStatus(appointmentId: String, status: String, completion: @escaping (Bool) -> Void) {
+        let currentUserId = AuthService.shared.currentUser?.id
+        db.collection("appointments").document(appointmentId).updateData([
+            "status": status,
+            "lastActionBy": currentUserId as Any
+        ]) { error in
+            if let error = error {
+                print("Error updating appointment status: \(error)")
+                completion(false)
+            } else {
+                completion(true)
+            }
+        }
+    }
+    
+    func rescheduleAppointment(appointmentId: String, newDate: Date, newTime: String, completion: @escaping (Bool) -> Void) {
+        let currentUserId = AuthService.shared.currentUser?.id
+        db.collection("appointments").document(appointmentId).updateData([
+            "date": newDate,
+            "time": newTime,
+            "status": "Rescheduled",
+            "lastActionBy": currentUserId as Any
+        ]) { error in
+            if let error = error {
+                print("Error rescheduling appointment: \(error)")
+                completion(false)
+            } else {
+                completion(true)
+            }
+        }
+    }
+    
     func listenForCases(role: UserRole, userId: String) {
         // Query cases where user is either client or lawyer depending on role
         var query: Query = db.collection("cases")
@@ -124,6 +158,7 @@ class FirestoreManager: ObservableObject {
         notificationsListener?.remove()
         appointmentsListener?.remove()
         advisoryDocumentsListener?.remove()
+        documentsListener?.remove()
     }
     
     func startSync(role: UserRole, userId: String) {
@@ -141,7 +176,11 @@ class FirestoreManager: ObservableObject {
     
     func addCase(_ newCase: FBLegalCase) {
         do {
-            let _ = try db.collection("cases").addDocument(from: newCase)
+            if let id = newCase.id {
+                try db.collection("cases").document(id).setData(from: newCase)
+            } else {
+                let _ = try db.collection("cases").addDocument(from: newCase)
+            }
         } catch {
             print("Error creating case: \(error)")
         }
@@ -183,14 +222,15 @@ class FirestoreManager: ObservableObject {
     
     // MARK: - Documents
     
-    func addDocument(toCaseId caseId: String, fileName: String, fileType: String, fileURL: String? = nil, stageIndex: Int? = nil) {
+    func addDocument(toCaseId caseId: String, fileName: String, fileType: String, fileURL: String? = nil, fileBase64: String? = nil, stageIndex: Int? = nil) {
         let newDoc = FBDocument(
             legalCaseId: caseId,
             fileName: fileName,
             fileType: fileType,
             fileURL: fileURL,
             stageIndex: stageIndex,
-            uploadedAt: Date()
+            uploadedAt: Date(),
+            fileBase64: fileBase64
         )
         do {
             let _ = try db.collection("documents").addDocument(from: newDoc)
@@ -231,6 +271,26 @@ class FirestoreManager: ObservableObject {
             }
     }
     
+    func listenForDocuments(forCaseId caseId: String) {
+        documentsListener?.remove()
+        
+        documentsListener = db.collection("documents")
+            .whereField("legalCaseId", isEqualTo: caseId)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let docs = snapshot?.documents else {
+                    print("DEBUG: Error listening for documents: \(error?.localizedDescription ?? "Unknown")")
+                    return
+                }
+                
+                let documents = docs.compactMap { try? $0.data(as: FBDocument.self) }
+                let sortedDocs = documents.sorted { ($0.uploadedAt) > ($1.uploadedAt) }
+                
+                DispatchQueue.main.async {
+                    self?.caseDocuments = sortedDocs
+                }
+            }
+    }
+    
     // MARK: - Advisory Documents
     
     func listenForAdvisoryDocuments() {
@@ -258,42 +318,29 @@ class FirestoreManager: ObservableObject {
     
     func uploadAdvisoryDocument(title: String, category: String, description: String, tags: [String], visibility: String, lawyerName: String, lawyerId: String, tempURL: URL, completion: @escaping (Bool, String?) -> Void) {
         let fileExtension = tempURL.pathExtension
-        let fileName = "\(UUID().uuidString).\(fileExtension)"
-        let storagePath = "cases/advisory_documents"
         
         do {
             let data = try Data(contentsOf: tempURL)
-            uploadFile(data: data, path: storagePath, fileName: fileName) { [weak self] result in
-                switch result {
-                case .success(let downloadURL):
-                    let newDoc = FBAdvisoryDocument(
-                        title: title,
-                        description: description,
-                        category: category,
-                        tags: tags,
-                        lawyerName: lawyerName,
-                        date: self?.formatDate(Date()) ?? "",
-                        fileType: fileExtension.uppercased(),
-                        fileURL: downloadURL,
-                        lawyerId: lawyerId,
-                        visibility: visibility
-                    )
-                    
-                    do {
-                        let _ = try self?.db.collection("advisoryDocuments").addDocument(from: newDoc)
-                        completion(true, nil)
-                    } catch {
-                        print("Error saving advisory document metadata: \(error)")
-                        completion(false, error.localizedDescription)
-                    }
-                    
-                case .failure(let error):
-                    print("Error uploading advisory document file: \(error)")
-                    completion(false, error.localizedDescription)
-                }
-            }
+            let base64String = data.base64EncodedString()
+            
+            let newDoc = FBAdvisoryDocument(
+                title: title,
+                description: description,
+                category: category,
+                tags: tags,
+                lawyerName: lawyerName,
+                date: self.formatDate(Date()),
+                fileType: fileExtension.uppercased(),
+                fileURL: nil,
+                lawyerId: lawyerId,
+                visibility: visibility,
+                fileBase64: base64String
+            )
+            
+            try self.db.collection("advisoryDocuments").addDocument(from: newDoc)
+            completion(true, nil)
         } catch {
-            print("Failed to read tempURL data: \(error)")
+            print("Error uploading advisory document: \(error.localizedDescription)")
             completion(false, error.localizedDescription)
         }
     }
@@ -726,6 +773,7 @@ class FirestoreManager: ObservableObject {
 
     func createAppointmentWithValidation(_ appointment: FBAppointment, completion: @escaping (Bool, String?) -> Void) {
         var normalizedAppointment = appointment
+        normalizedAppointment.lastActionBy = AuthService.shared.currentUser?.id
 
         if let combined = combineDateAndTime(day: appointment.date, timeString: appointment.time) {
             normalizedAppointment.date = combined
@@ -908,6 +956,7 @@ class FirestoreManager: ObservableObject {
 
                     existing.date = combinedDate
                     existing.time = newTime
+                    existing.status = "Pending"
 
                     var documents: [DocumentSnapshot] = []
                     documents.reserveCapacity(docRefs.count)

@@ -17,14 +17,14 @@ class CalendarViewModel: ObservableObject {
     var upcomingAppointments: [FBAppointment] {
         appointmentsForSelectedDate.filter { 
             let s = $0.status.lowercased()
-            return s == "confirmed" || s == "pending" || s == "in progress"
+            return s == "confirmed" || s == "pending" || s == "in progress" || s == "rescheduled"
         }
     }
     
     var completedAppointments: [FBAppointment] {
         appointmentsForSelectedDate.filter {
             let s = $0.status.lowercased()
-            return s == "done" || s == "cancelled"
+            return s == "done" || s == "cancelled" || s == "rejected"
         }
     }
     
@@ -160,7 +160,12 @@ class CalendarViewModel: ObservableObject {
     func getColor(for date: Date) -> Color {
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
-        let firestoreCount = monthAppointmentsMap[day]?.count ?? 0
+        let appointments = monthAppointmentsMap[day] ?? []
+        let activeAppointments = appointments.filter { 
+            let s = $0.status.lowercased()
+            return s != "cancelled" && s != "rejected"
+        }
+        let firestoreCount = activeAppointments.count
         
         if firestoreCount == 0 {
             return .clear
@@ -174,7 +179,11 @@ class CalendarViewModel: ObservableObject {
     func getStatusColor(for date: Date) -> Color {
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
-        let count = monthAppointmentsMap[day]?.count ?? 0
+        let appointments = monthAppointmentsMap[day] ?? []
+        let count = appointments.filter { 
+            let s = $0.status.lowercased()
+            return s != "cancelled" && s != "rejected"
+        }.count
         
         if count == 0 {
             return .clear
@@ -188,7 +197,11 @@ class CalendarViewModel: ObservableObject {
     func getTextColor(for date: Date) -> Color {
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
-        let count = monthAppointmentsMap[day]?.count ?? 0
+        let appointments = monthAppointmentsMap[day] ?? []
+        let count = appointments.filter { 
+            let s = $0.status.lowercased()
+            return s != "cancelled" && s != "rejected"
+        }.count
         
         if count >= 3 {
             return .white
