@@ -808,6 +808,7 @@ struct TimelineNode: View {
     let canEdit: Bool
     var onToggle: () -> Void = {}
     var onUpload: () -> Void = {}
+    var onDateChange: ((Date) -> Void)? = nil
     
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
@@ -894,6 +895,26 @@ struct TimelineNode: View {
                     .font(.system(size: 13))
                     .foregroundColor(.lmTextSecondary)
                     .lineLimit(2)
+                
+                if let onDateChange = onDateChange, stage.title.lowercased().contains("hearing") {
+                    HStack(spacing: 8) {
+                        Image(systemName: "calendar.badge.clock")
+                            .font(.system(size: 14))
+                            .foregroundColor(.lmPrimary)
+                        
+                        DatePicker(
+                            "Set Hearing",
+                            selection: Binding(
+                                get: { stage.date ?? Date() },
+                                set: { onDateChange($0) }
+                            ),
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                        .labelsHidden()
+                        .datePickerStyle(.compact)
+                    }
+                    .padding(.top, 4)
+                }
                 
                 if canEdit {
                     Button(action: onUpload) {

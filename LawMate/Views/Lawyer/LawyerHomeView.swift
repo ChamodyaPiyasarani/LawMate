@@ -21,6 +21,7 @@ struct LawyerHomeView: View {
     @StateObject private var notifications = NotificationManager.shared
     @ObservedObject private var auth = AuthService.shared
     @State private var todayEvents: [EKEvent] = []
+    @State private var weekEvents: [EKEvent] = []
     
     var todayAppointments: [FBAppointment] {
         let calendar = Calendar.current
@@ -29,6 +30,36 @@ struct LawyerHomeView: View {
             let s = $0.status.lowercased()
             return calendar.startOfDay(for: $0.date) == today && s != "cancelled" && s != "rejected"
         }
+    }
+    
+    var todayCaseHearings: [FBLegalCase] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        return firestore.cases.filter {
+            if let hDate = $0.hearingDate {
+                return calendar.startOfDay(for: hDate) == today
+            }
+            return false
+        }
+    }
+    
+    var hearingsThisWeekCount: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let endOfWeek = calendar.date(byAdding: .day, value: 7, to: today) ?? today
+        
+        let caseHearings = firestore.cases.filter {
+            if let hDate = $0.hearingDate {
+                return hDate >= today && hDate <= endOfWeek
+            }
+            return false
+        }.count
+        
+        let calendarHearings = weekEvents.filter { 
+            $0.title.lowercased().contains("hearing")
+        }.count
+        
+        return caseHearings + calendarHearings
     }
 
     var body: some View {
@@ -92,7 +123,7 @@ struct LawyerHomeView: View {
                                         .padding(.horizontal, 24)
 
                                         // MARK: Hearings Card
-                                        HearingsCard(count: String(format: "%02d", todayEvents.filter({ $0.title.lowercased().contains("hearing") }).count))
+                                        HearingsCard(count: String(format: "%02d", hearingsThisWeekCount))
                                             .padding(.horizontal, 24)
 
                                         // MARK: Action Buttons
@@ -128,13 +159,22 @@ struct LawyerHomeView: View {
                                             .padding(.horizontal, 24)
 
                                             VStack(spacing: 16) {
-                                                if todayEvents.isEmpty && todayAppointments.isEmpty {
+                                                if todayEvents.isEmpty && todayAppointments.isEmpty && todayCaseHearings.isEmpty {
                                                     Text("No schedules for today")
                                                         .font(.lmCaption)
                                                         .foregroundColor(.lmTextSecondary.opacity(0.5))
                                                         .padding()
                                                 } else {
-                                                    // LawMate Appointments (Priority)
+                                                    // Case Hearings (Priority)
+                                                    ForEach(todayCaseHearings) { lCase in
+                                                        ScheduleRow(
+                                                            time: formatTime(lCase.hearingDate ?? Date()),
+                                                            event: "Hearing: \(lCase.title)",
+                                                            category: lCase.clientName
+                                                        )
+                                                    }
+                                                    
+                                                    // LawMate Appointments
                                                     ForEach(todayAppointments) { appointment in
                                                         Button {
                                                             withAnimation(.spring()) {
@@ -314,10 +354,12 @@ struct LawyerHomeView: View {
     private func fetchTodayEvents() {
         if eventService.isAuthorized {
             todayEvents = eventService.fetchEvents(for: Date())
+            weekEvents = eventService.fetchEventsForWeek(from: Date())
         } else {
             eventService.requestAccess { granted in
                 if granted {
                     todayEvents = eventService.fetchEvents(for: Date())
+                    weekEvents = eventService.fetchEventsForWeek(from: Date())
                 }
             }
         }

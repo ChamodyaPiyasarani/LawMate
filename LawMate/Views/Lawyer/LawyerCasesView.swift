@@ -333,9 +333,13 @@ struct LawyerCaseDetailView: View {
         var updatedCase = currentCase
         updatedCase.stages[index].isCompleted.toggle()
         if updatedCase.stages[index].isCompleted {
-            updatedCase.stages[index].date = Date()
+            if updatedCase.stages[index].date == nil {
+                updatedCase.stages[index].date = Date()
+            }
         } else {
-            updatedCase.stages[index].date = nil
+            if !updatedCase.stages[index].title.lowercased().contains("hearing") {
+                updatedCase.stages[index].date = nil
+            }
         }
         
         // Update status logic
@@ -343,6 +347,18 @@ struct LawyerCaseDetailView: View {
             updatedCase.status = "Closed"
         } else if updatedCase.stages.contains(where: { $0.isCompleted }) {
             updatedCase.status = "Active"
+        }
+        
+        FirestoreManager.shared.updateCase(updatedCase)
+    }
+    
+    private func updateStageDate(at index: Int, date: Date) {
+        var updatedCase = currentCase
+        updatedCase.stages[index].date = date
+        
+        // If it's a hearing step, also update the case's main hearingDate
+        if updatedCase.stages[index].title.lowercased().contains("hearing") {
+            updatedCase.hearingDate = date
         }
         
         FirestoreManager.shared.updateCase(updatedCase)
@@ -557,6 +573,9 @@ struct LawyerCaseDetailView: View {
                         onUpload: {
                             selectedStageIndex = index
                             showFilePicker = true
+                        },
+                        onDateChange: { newDate in
+                            updateStageDate(at: index, date: newDate)
                         }
                     )
                     .padding(.bottom, 24)

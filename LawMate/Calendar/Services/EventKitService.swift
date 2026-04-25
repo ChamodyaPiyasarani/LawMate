@@ -54,6 +54,20 @@ class EventKitService: ObservableObject {
         
         return eventStore.events(matching: predicate)
     }
+
+    func fetchEventsForWeek(from date: Date) -> [EKEvent] {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfWeek = calendar.date(byAdding: .day, value: 7, to: startOfDay)!
+        
+        let predicate = eventStore.predicateForEvents(
+            withStart: startOfDay,
+            end: endOfWeek,
+            calendars: nil
+        )
+        
+        return eventStore.events(matching: predicate)
+    }
     
     func fetchEventsForMonth(date: Date) -> [Date: [EKEvent]] {
         let calendar = Calendar.current
