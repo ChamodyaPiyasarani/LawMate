@@ -87,7 +87,7 @@ struct SignUpView: View {
 
                                 HStack(spacing: 16) {
                                     RoleButton(title: "Lawyer",
-                                               icon: "briefcase.fill",
+                                               icon: "briefcase",
                                                isSystemIcon: true,
                                                isSelected: role == .lawyer) {
                                         role = (role == .lawyer) ? .none : .lawyer
@@ -107,7 +107,7 @@ struct SignUpView: View {
                             // MARK: Conditional Lawyer Fields
                             if role == .lawyer {
                                 VStack(spacing: 20) {
-                                    LawMateTextField(icon: "star.fill",
+                                    LawMateTextField(icon: "star",
                                                     placeholder: "Years of Experience",
                                                     text: $experience,
                                                     keyboardType: .numberPad,
@@ -122,7 +122,7 @@ struct SignUpView: View {
                                         }
                                     } label: {
                                         HStack {
-                                            Image(systemName: "briefcase.fill")
+                                            Image(systemName: "briefcase")
                                                 .foregroundColor(.lmTextSecondary)
                                                 .frame(width: 24)
                                             
@@ -150,7 +150,7 @@ struct SignUpView: View {
                                                     placeholder: "Small Description",
                                                     text: $bio)
                                     
-                                    LawMateTextField(icon: "trophy.fill",
+                                    LawMateTextField(icon: "trophy",
                                                     placeholder: "Cases Won (e.g. 100+)",
                                                     text: $casesWon)
                                 }

@@ -11,6 +11,7 @@ struct ClientHomeView: View {
     @State private var showBiometricOptIn = false
     @StateObject private var firestore = FirestoreManager.shared
     @StateObject private var notifications = NotificationManager.shared
+    @ObservedObject private var auth = AuthService.shared
     
     // Simple routes for screens without complex data models
     enum AppRoute: Hashable {
@@ -35,7 +36,7 @@ struct ClientHomeView: View {
                                     // MARK: Top bar
                                     HStack(alignment: .top) {
                                         VStack(alignment: .leading, spacing: 4) {
-                                            Text("Welcome to LawMate !")
+                                            Text("Hello, \(auth.currentUser?.fullName.split(separator: " ").first ?? "User") !")
                                                 .font(.system(size: 14, weight: .semibold))
                                                 .foregroundColor(.lmPrimary)
 
@@ -264,6 +265,10 @@ struct ClientHomeView: View {
                         tryNavigateToPendingChat()
                     case .notificationCenter:
                         navPath.append(AppRoute.notifications)
+                    case .myCases:
+                        // Switch to home and navigate to my cases
+                        selectedTab = .home
+                        navPath.append(AppRoute.myCases)
                     }
                     
                     // Clear the pending route

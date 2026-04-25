@@ -175,7 +175,7 @@ struct AddCaseView: View {
                                 // Attachments
                                 HStack(spacing: 12) {
                                     PhotosPicker(selection: $selectedItems, matching: .images) {
-                                        attachmentButton(title: "Attach Photos", icon: "photo.on.rectangle.angled")
+                                        attachmentButton(title: selectedImages.isEmpty ? "Attach Photos" : "\(selectedImages.count) Photos Attached", icon: selectedImages.isEmpty ? "photo.on.rectangle.angled" : "photo.fill.on.rectangle.fill")
                                     }
                                     
                                     Button {
@@ -236,11 +236,27 @@ struct AddCaseView: View {
                                 type: caseType,
                                 status: status,
                                 priority: priority,
+                                description: description,
+                                hearingDate: isHearingDateSet ? hearingDate : nil,
+                                locationLat: location?.latitude,
+                                locationLng: location?.longitude,
+                                address: selectedAddress,
                                 createdDate: Date(),
-                                stages: [FBCaseStage(title: "Draft Phase", description: "Case initialized in system.", isCompleted: false)]
+                                stages: FBCaseStage.defaultStages
                             )
                             
                             FirestoreManager.shared.addCase(newCase)
+                            
+                            // Send notification to the client
+                            let clientNotification = FBNotification(
+                                title: "New Case Created",
+                                body: "\(lawyerName) created '\(newCase.title)' for you.",
+                                type: "case",
+                                timestamp: Date(),
+                                relatedId: nil // Can be updated if addCase returns an ID
+                            )
+                            FirestoreManager.shared.addNotification(clientNotification, toUserId: selectedClientId)
+
                             NotificationManager.shared.scheduleNotification(
                                 title: "Case Added", 
                                 body: "Successfully created active case: \(newCase.title)"
@@ -253,6 +269,17 @@ struct AddCaseView: View {
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 20)
+                }
+            }
+        }
+        .onChange(of: selectedItems) { _, items in
+            Task {
+                selectedImages.removeAll()
+                for item in items {
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        selectedImages.append(image)
+                    }
                 }
             }
         }

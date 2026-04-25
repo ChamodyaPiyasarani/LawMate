@@ -15,15 +15,20 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
     var type: String
     var status: String
     var priority: String
-    var createdDate: Date? // Optional to prevent decoding failures if missing in Firestore
+    var description: String?
+    var hearingDate: Date?
+    var locationLat: Double?
+    var locationLng: Double?
+    var address: String?
+    var createdDate: Date?
     var stages: [FBCaseStage] = []
     var documents: [FBDocument]? = nil
     
     enum CodingKeys: String, CodingKey {
-        case id, caseNumber, title, clientName, clientId, clientImage, lawyerName, lawyerId, lawyerImage, type, status, priority, createdDate, stages, documents
+        case id, caseNumber, title, clientName, clientId, clientImage, lawyerName, lawyerId, lawyerImage, type, status, priority, description, hearingDate, locationLat, locationLng, address, createdDate, stages, documents
     }
     
-    init(id: String? = nil, caseNumber: String, title: String, clientName: String, clientId: String, clientImage: String? = nil, lawyerName: String, lawyerId: String, lawyerImage: String? = nil, type: String, status: String, priority: String, createdDate: Date? = nil, stages: [FBCaseStage] = [], documents: [FBDocument]? = nil) {
+    init(id: String? = nil, caseNumber: String, title: String, clientName: String, clientId: String, clientImage: String? = nil, lawyerName: String, lawyerId: String, lawyerImage: String? = nil, type: String, status: String, priority: String, description: String? = nil, hearingDate: Date? = nil, locationLat: Double? = nil, locationLng: Double? = nil, address: String? = nil, createdDate: Date? = nil, stages: [FBCaseStage] = [], documents: [FBDocument]? = nil) {
         self._id = DocumentID(wrappedValue: id)
         self.caseNumber = caseNumber
         self.title = title
@@ -36,6 +41,11 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
         self.type = type
         self.status = status
         self.priority = priority
+        self.description = description
+        self.hearingDate = hearingDate
+        self.locationLat = locationLat
+        self.locationLng = locationLng
+        self.address = address
         self.createdDate = createdDate
         self.stages = stages
         self.documents = documents
@@ -53,6 +63,11 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
         type = try container.decode(String.self, forKey: .type)
         status = try container.decode(String.self, forKey: .status)
         priority = try container.decode(String.self, forKey: .priority)
+        description = try? container.decode(String.self, forKey: .description)
+        hearingDate = try? container.decode(Date.self, forKey: .hearingDate)
+        locationLat = try? container.decode(Double.self, forKey: .locationLat)
+        locationLng = try? container.decode(Double.self, forKey: .locationLng)
+        address = try? container.decode(String.self, forKey: .address)
         createdDate = try? container.decode(Date.self, forKey: .createdDate)
         stages = (try? container.decode([FBCaseStage].self, forKey: .stages)) ?? []
         documents = try? container.decode([FBDocument].self, forKey: .documents)
@@ -101,6 +116,28 @@ struct FBCaseStage: Identifiable, Codable, Hashable {
     var description: String
     var isCompleted: Bool
     var date: Date?
+    
+    static var defaultStages: [FBCaseStage] {
+        [
+            FBCaseStage(title: "Client Consultation", description: "Initial meeting and preliminary legal advice.", isCompleted: false),
+            FBCaseStage(title: "Case Evaluation", description: "Review of facts, evidence, and legal validity.", isCompleted: false),
+            FBCaseStage(title: "Agreement / Engagement", description: "Formal hiring and agreement on terms.", isCompleted: false),
+            FBCaseStage(title: "Legal Research & Preparation", description: "Collection of evidence and witness details.", isCompleted: false),
+            FBCaseStage(title: "Filing the Case", description: "Submission of legal documents to the court.", isCompleted: false),
+            FBCaseStage(title: "Case Number & Assignment", description: "Allocation of case number and judge.", isCompleted: false),
+            FBCaseStage(title: "Summons / Notice", description: "Notice sent to the opponent party.", isCompleted: false),
+            FBCaseStage(title: "Opponent Response", description: "Opponent files their answer or defense.", isCompleted: false),
+            FBCaseStage(title: "Preliminary Hearings", description: "Initial court sessions to set timelines.", isCompleted: false),
+            FBCaseStage(title: "Interim Applications", description: "Requests for bail, injunctions, or orders.", isCompleted: false),
+            FBCaseStage(title: "Evidence Submission", description: "Submission of documents and proof.", isCompleted: false),
+            FBCaseStage(title: "Witness Examination", description: "Witness statements and cross-examination.", isCompleted: false),
+            FBCaseStage(title: "Arguments / Trial", description: "Final arguments presented in court.", isCompleted: false),
+            FBCaseStage(title: "Judgment", description: "Court issues the final verdict.", isCompleted: false),
+            FBCaseStage(title: "Post-Judgment Actions", description: "Enforcement or settlement execution.", isCompleted: false),
+            FBCaseStage(title: "Appeal (Optional)", description: "Opportunity to appeal to a higher court.", isCompleted: false),
+            FBCaseStage(title: "Case Closure", description: "Case is officially completed and closed.", isCompleted: false)
+        ]
+    }
 }
 
 struct FBDocument: Identifiable, Codable, Hashable {

@@ -1081,7 +1081,7 @@ class FirestoreManager: ObservableObject {
         
         print("DEBUG: Starting upload to \(path)/\(fileName) (Type: \(metadata.contentType ?? "unknown"))")
         
-        storageRef.putData(data, metadata: metadata) { [weak self] _, error in
+        storageRef.putData(data, metadata: metadata) { _, error in
             if let error = error {
                 print("CRITICAL: Storage PutData failed: \(error.localizedDescription)")
                 completion(.failure(error))

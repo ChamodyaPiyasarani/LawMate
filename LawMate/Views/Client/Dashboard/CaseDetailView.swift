@@ -6,6 +6,11 @@ import UniformTypeIdentifiers
 struct CaseDetailView: View {
     @State var clientCase: FBLegalCase
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var firestore = FirestoreManager.shared
+    
+    private var currentCase: FBLegalCase {
+        firestore.cases.first(where: { $0.id == clientCase.id }) ?? clientCase
+    }
     
     @State private var selectedTab = 0 // 0: Progress, 1: Documents
     @State private var documents: [FBDocument] = []
@@ -16,6 +21,11 @@ struct CaseDetailView: View {
     @State private var isUploading = false
     @State private var activeStageIndex: Int? = nil
     @State private var showFilePicker = false
+    @State private var showScanner = false
+    
+    private var isLawyer: Bool {
+        AuthService.shared.currentUser?.role == .lawyer
+    }
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -30,8 +40,10 @@ struct CaseDetailView: View {
                 LawMateNavigationBar(
                     title: "Case Details",
                     showBack: true,
-                    showNotification: true,
-                    onBack: { dismiss() }
+                    showNotification: !isLawyer,
+                    showCamera: isLawyer,
+                    onBack: { dismiss() },
+                    onCamera: { showScanner = true }
                 )
                 .padding(.top, 64)
                 .zIndex(10)
@@ -39,17 +51,17 @@ struct CaseDetailView: View {
                 // MARK: Case Header Summary
                 HStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(clientCase.caseNumber)
+                        Text(currentCase.caseNumber)
                             .font(.system(size: 12, weight: .black))
                             .foregroundColor(.lmPrimary.opacity(0.5))
-                        Text(clientCase.title)
+                        Text(currentCase.title)
                             .font(.system(size: 20, weight: .bold))
                             .foregroundColor(.lmPrimary)
                     }
                     Spacer()
                     
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text("\(Int(clientCase.progressProgress * 100))%")
+                        Text("\(Int(currentCase.progressProgress * 100))%")
                             .font(.system(size: 16, weight: .black))
                             .foregroundColor(.lmPrimary)
                         Text("Progress")
@@ -59,6 +71,36 @@ struct CaseDetailView: View {
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
+                
+                if let desc = currentCase.description, !desc.isEmpty {
+                    Text(desc)
+                        .font(.system(size: 13))
+                        .foregroundColor(.lmTextSecondary)
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 12)
+                }
+                
+                if let hDate = currentCase.hearingDate {
+                    HStack {
+                        Image(systemName: "calendar")
+                        Text("Hearing: \(hDate, style: .date)")
+                        Spacer()
+                        if let address = currentCase.address {
+                            Image(systemName: "mappin")
+                            Text(address).lineLimit(1)
+                        }
+                    }
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.lmPrimary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.lmPrimary.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal, 24)
+                    .padding(.top, 12)
+                }
                 
                 // MARK: Segmented Control
                 HStack(spacing: 0) {
@@ -119,6 +161,13 @@ struct CaseDetailView: View {
         .onChange(of: selectedImage) { _, _ in
             handleImageUpload()
         }
+        .sheet(isPresented: $showScanner) {
+            DocumentScannerView(isPresented: $showScanner) { urls in
+                handleScannedDocuments(urls)
+            } onError: { error in
+                ToastManager.shared.show(title: "Scanning Error", message: error.localizedDescription, type: .error)
+            }
+        }
         .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.pdf, .png, .jpeg]) { result in
             handleFileURLUpload(result: result)
         }
@@ -133,20 +182,28 @@ struct CaseDetailView: View {
     // MARK: - Progress Section
     private var progressSection: some View {
         VStack(spacing: 0) {
-            ForEach(Array(clientCase.stages.enumerated()), id: \.offset) { index, stage in
-                let isActive = !stage.isCompleted && (index == 0 || clientCase.stages[index-1].isCompleted)
-                let isLawyer = AuthService.shared.currentUser?.role == .lawyer
+            ForEach(Array(currentCase.stages.enumerated()), id: \.offset) { index, stage in
+                let isActive = !stage.isCompleted && (index == 0 || currentCase.stages[index-1].isCompleted)
                 
                 VStack(alignment: .leading, spacing: 0) {
                     TimelineNode(
                         index: index,
                         stage: stage,
-                        isLast: index == clientCase.stages.count - 1,
+                        isLast: index == currentCase.stages.count - 1,
                         isActive: isActive,
-                        canEdit: isLawyer,
+                        canEdit: isLawyer && (stage.isCompleted || (index == 0 || currentCase.stages[index-1].isCompleted)),
                         onToggle: {
-                            FirestoreManager.shared.updateCaseStage(caseId: clientCase.id ?? "", stageIndex: index, isCompleted: !stage.isCompleted)
-                            clientCase.stages[index].isCompleted.toggle()
+                            // Sequential logic: Only allow toggling if it's the current active one 
+                            // or if we are uncompleting the LAST completed one.
+                            let isNext = !stage.isCompleted && (index == 0 || currentCase.stages[index-1].isCompleted)
+                            let isLastCompleted = stage.isCompleted && (index == currentCase.stages.count - 1 || !currentCase.stages[index+1].isCompleted)
+                            
+                            if isNext || isLastCompleted {
+                                FirestoreManager.shared.updateCaseStage(caseId: currentCase.id ?? "", stageIndex: index, isCompleted: !stage.isCompleted)
+                                // UI will update via Firestore listener
+                            } else {
+                                ToastManager.shared.show(title: "Sequential Progress", message: "Please complete previous steps first.", type: .warning)
+                            }
                         },
                         onUpload: {
                             activeStageIndex = index
@@ -307,6 +364,14 @@ struct CaseDetailView: View {
             }
         case .failure(let error):
             ToastManager.shared.show(title: "Selection Error", message: error.localizedDescription, type: .error)
+        }
+    }
+    
+    private func handleScannedDocuments(_ urls: [URL]) {
+        for url in urls {
+            if let data = try? Data(contentsOf: url) {
+                uploadData(data, ext: "jpg")
+            }
         }
     }
     

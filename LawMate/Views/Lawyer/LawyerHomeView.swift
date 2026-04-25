@@ -19,6 +19,7 @@ struct LawyerHomeView: View {
     @StateObject private var firestore = FirestoreManager.shared
     @StateObject private var eventService = EventKitService.shared
     @StateObject private var notifications = NotificationManager.shared
+    @ObservedObject private var auth = AuthService.shared
     @State private var todayEvents: [EKEvent] = []
     
     var todayAppointments: [FBAppointment] {
@@ -45,7 +46,7 @@ struct LawyerHomeView: View {
                                 // MARK: Fixed Header (Sticky)
                                 HStack(alignment: .top) {
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("Welcome to LawMate !")
+                                        Text("Hello, \(auth.currentUser?.fullName.split(separator: " ").first ?? "User") !")
                                             .font(.system(size: 14, weight: .semibold))
                                             .foregroundColor(.lmPrimary)
 
@@ -238,6 +239,9 @@ struct LawyerHomeView: View {
                         tryNavigateToPendingChat()
                     case .notificationCenter:
                         navPath.append(LawyerRoute.notifications)
+                    case .myCases:
+                        // For a lawyer, go to home and then navigate to cases tab
+                        selectedTab = .cases
                     }
                     
                     // Clear the pending route

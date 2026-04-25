@@ -21,8 +21,7 @@ struct LawyerCasesView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ZStack(alignment: .top) {
+        ZStack(alignment: .top) {
                 Color.lmBackground.ignoresSafeArea()
                 
                 // Flipped Green blob (Lawyer Style)
@@ -94,16 +93,15 @@ struct LawyerCasesView: View {
                         .padding(.bottom, 150)
                     }
                 }
-            }
             .ignoresSafeArea(edges: .top)
             .onAppear {
                 if let currentUser = AuthService.shared.currentUser {
                     firestore.listenForCases(role: currentUser.role, userId: currentUser.id)
                 }
             }
-        }
-        .sheet(isPresented: $showNotifications) {
-            NotificationsView()
+            .sheet(isPresented: $showNotifications) {
+                NotificationsView()
+            }
         }
     }
     
@@ -217,11 +215,17 @@ struct LawyerCaseDetailView: View {
     @Environment(\.dismiss) private var dismiss
     
     var legalCase: FBLegalCase
+    @ObservedObject private var firestore = FirestoreManager.shared
+    
+    private var currentCase: FBLegalCase {
+        firestore.cases.first(where: { $0.id == legalCase.id }) ?? legalCase
+    }
     
     @State private var selectedTab = 0 // 0: Progress, 1: Documents
     @State private var showFilePicker = false
     @State private var selectedStageIndex: Int? = nil
     @State private var selectedDocument: FBDocument? = nil
+    @State private var showScanner = false
     
     init(legalCase: FBLegalCase) {
         self.legalCase = legalCase
@@ -241,7 +245,9 @@ struct LawyerCaseDetailView: View {
                 LawMateNavigationBar(
                     title: "Case Details",
                     showBack: true,
-                    onBack: { dismiss() }
+                    showCamera: true,
+                    onBack: { dismiss() },
+                    onCamera: { showScanner = true }
                 )
                 .padding(.top, 64)
                 
@@ -293,12 +299,30 @@ struct LawyerCaseDetailView: View {
             )
             PDFKitViewerSheet(document: dummyDoc)
         }
+        .sheet(isPresented: $showScanner) {
+            DocumentScannerView(isPresented: $showScanner) { urls in
+                handleScannedDocuments(urls)
+            } onError: { error in
+                ToastManager.shared.show(title: "Scanning Error", message: error.localizedDescription, type: .error)
+            }
+        }
     }
     
     // MARK: - Logic
     
     private func toggleStageCompletion(at index: Int) {
-        var updatedCase = legalCase
+        // Sequential logic: Only allow toggling if it's the current active one 
+        // or if we are uncompleting the LAST completed one.
+        let stage = currentCase.stages[index]
+        let isNext = !stage.isCompleted && (index == 0 || currentCase.stages[index-1].isCompleted)
+        let isLastCompleted = stage.isCompleted && (index == currentCase.stages.count - 1 || !currentCase.stages[index+1].isCompleted)
+        
+        guard isNext || isLastCompleted else {
+            ToastManager.shared.show(title: "Sequential Progress", message: "Please complete previous steps first.", type: .warning)
+            return
+        }
+
+        var updatedCase = currentCase
         updatedCase.stages[index].isCompleted.toggle()
         if updatedCase.stages[index].isCompleted {
             updatedCase.stages[index].date = Date()
@@ -366,23 +390,46 @@ struct LawyerCaseDetailView: View {
         }
     }
     
+    private func handleScannedDocuments(_ urls: [URL]) {
+        for url in urls {
+            if let data = try? Data(contentsOf: url) {
+                let originalName = url.lastPathComponent
+                let safeStorageName = UUID().uuidString + ".jpg"
+                let fileType = "JPG"
+                let path = "cases/\(legalCase.id ?? "unknown")/docs"
+                
+                FirestoreManager.shared.uploadFile(data: data, path: path, fileName: safeStorageName) { uploadResult in
+                    if case .success(let downloadURL) = uploadResult {
+                        FirestoreManager.shared.addDocument(
+                            toCaseId: legalCase.id ?? "",
+                            fileName: originalName,
+                            fileType: fileType,
+                            fileURL: downloadURL
+                        )
+                    }
+                }
+            }
+        }
+        ToastManager.shared.show(title: "Success", message: "Scanned documents uploaded.", type: .success)
+    }
+    
     // MARK: - Subviews
     
     private var caseProfileHeader: some View {
         VStack(spacing: 20) {
             HStack(alignment: .top, spacing: 16) {
-                LawMateAvatar(url: legalCase.clientImage, name: legalCase.clientName, size: 72)
+                LawMateAvatar(url: currentCase.clientImage, name: currentCase.clientName, size: 72)
                 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text(legalCase.caseNumber)
+                        Text(currentCase.caseNumber)
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(.lmPrimary)
                         
                         Spacer()
                         
                         // Priority Badge
-                        Text(legalCase.priority)
+                        Text(currentCase.priority)
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.white)
                             .padding(.horizontal, 8)
@@ -391,15 +438,44 @@ struct LawyerCaseDetailView: View {
                             .clipShape(Capsule())
                     }
                     
-                    Text(legalCase.title)
+                    Text(currentCase.title)
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(.lmPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     
-                    Text(legalCase.clientName)
+                    Text(currentCase.clientName)
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(.lmTextSecondary)
                 }
+            }
+            
+            if let desc = currentCase.description, !desc.isEmpty {
+                Text(desc)
+                    .font(.system(size: 13))
+                    .foregroundColor(.lmTextSecondary)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            
+            if let hDate = currentCase.hearingDate {
+                HStack {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 12))
+                    Text("Next Hearing: \(hDate, style: .date)")
+                        .font(.system(size: 12, weight: .bold))
+                    Spacer()
+                    if let address = currentCase.address {
+                        Image(systemName: "mappin.and.ellipse")
+                            .font(.system(size: 12))
+                        Text(address)
+                            .font(.system(size: 12))
+                            .lineLimit(1)
+                    }
+                }
+                .foregroundColor(.lmPrimary)
+                .padding(12)
+                .background(Color.lmPrimary.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             
             Divider()
@@ -461,14 +537,14 @@ struct LawyerCaseDetailView: View {
                 .padding(.bottom, 24)
             
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(0..<legalCase.stages.count, id: \.self) { index in
-                    let stage = legalCase.stages[index]
-                    let isActive = !stage.isCompleted && (index == 0 || legalCase.stages[index-1].isCompleted)
+                ForEach(0..<currentCase.stages.count, id: \.self) { index in
+                    let stage = currentCase.stages[index]
+                    let isActive = !stage.isCompleted && (index == 0 || currentCase.stages[index-1].isCompleted)
                     
                     TimelineNode(
                         index: index,
                         stage: stage,
-                        isLast: index == legalCase.stages.count - 1,
+                        isLast: index == currentCase.stages.count - 1,
                         isActive: isActive,
                         canEdit: true,
                         onToggle: { toggleStageCompletion(at: index) },
@@ -496,12 +572,12 @@ struct LawyerCaseDetailView: View {
                 
                 Spacer()
                 
-                Text("\(legalCase.wrappedDocuments.count) Files")
+                Text("\(currentCase.wrappedDocuments.count) Files")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.lmTextSecondary)
             }
             
-            if legalCase.wrappedDocuments.isEmpty {
+            if currentCase.wrappedDocuments.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "doc.text.magnifyingglass")
                         .font(.system(size: 40))
@@ -513,7 +589,7 @@ struct LawyerCaseDetailView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
             } else {
-                ForEach(legalCase.wrappedDocuments) { doc in
+                ForEach(currentCase.wrappedDocuments) { doc in
                     caseDocumentRow(doc)
                 }
             }

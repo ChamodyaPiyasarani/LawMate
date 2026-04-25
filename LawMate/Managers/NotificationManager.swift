@@ -8,11 +8,12 @@ class NotificationManager: NSObject, ObservableObject {
     @Published var isAuthorized = false
     
     // For Deep Linking
-    enum AppRoute: Hashable {
+    enum DeepLinkRoute: Hashable {
         case chat(conversationId: String)
         case notificationCenter // to go to the notifications tab
+        case myCases
     }
-    @Published var pendingRoute: AppRoute? = nil
+    @Published var pendingRoute: DeepLinkRoute? = nil
     
     override init() {
         super.init()
@@ -88,6 +89,8 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
         DispatchQueue.main.async {
             if let relatedId = relatedId, type == "message" {
                 self.pendingRoute = .chat(conversationId: relatedId)
+            } else if type == "case" {
+                self.pendingRoute = .myCases
             } else {
                 self.pendingRoute = .notificationCenter
             }
