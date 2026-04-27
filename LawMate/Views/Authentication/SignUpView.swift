@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 struct SignUpView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
@@ -8,6 +9,7 @@ struct SignUpView: View {
     @State private var username:  String = ""
     @State private var email:     String = ""
     @State private var contact:   String = ""
+    @State private var address:   String = ""
     @State private var password:  String = ""
     @State private var role:      UserRole = .none
     
@@ -23,6 +25,7 @@ struct SignUpView: View {
     @State private var usernameError: String?
     @State private var emailError: String?
     @State private var contactError: String?
+    @State private var addressError: String?
     @State private var passwordError: String?
     @State private var experienceError: String?
     
@@ -76,6 +79,11 @@ struct SignUpView: View {
                                                 text: $contact,
                                                 keyboardType: .phonePad,
                                                 errorMessage: contactError)
+
+                                LawMateTextField(icon: "mappin.and.ellipse",
+                                                placeholder: "Address",
+                                                text: $address,
+                                                errorMessage: addressError)
                             }
                             .padding(.horizontal, 24)
 
@@ -170,27 +178,36 @@ struct SignUpView: View {
 
                             LawMatePrimaryButton(title: "Sign up") {
                                 if validateForm() {
-                                    let profileData: [String: String] = [
-                                        "fullName": username,
-                                        "phone": contact,
-                                        "specialty": specialty,
-                                        "experience": experience,
-                                        "bio": bio,
-                                        "casesWon": casesWon
-                                    ]
-                                    
                                     ToastManager.shared.show(title: "Creating account...", message: "Please wait.", type: .info)
                                     
-                                    AuthService.shared.signUp(email: email, role: role, password: password, profile: profileData) { result in
-                                        switch result {
-                                        case .success:
-                                            ToastManager.shared.show(title: "Success", message: "Account created successfully!", type: .success)
-                                            NotificationManager.shared.scheduleNotification(
-                                                title: "Welcome to LawMate!",
-                                                body: "Your account has been registered successfully."
-                                            )
-                                        case .failure(let error):
-                                            ToastManager.shared.show(title: "Registration Failed", message: error.localizedDescription, type: .error)
+                                    // Geocode address first
+                                    geocodeAddress(address) { coordinate in
+                                        var profileData: [String: Any] = [
+                                            "fullName": username,
+                                            "phone": contact,
+                                            "specialty": specialty,
+                                            "experience": experience,
+                                            "bio": bio,
+                                            "casesWon": casesWon,
+                                            "address": address
+                                        ]
+                                        
+                                        if let coord = coordinate {
+                                            profileData["latitude"] = coord.latitude
+                                            profileData["longitude"] = coord.longitude
+                                        }
+                                        
+                                        AuthService.shared.signUp(email: email, role: role, password: password, profile: profileData) { result in
+                                            switch result {
+                                            case .success:
+                                                ToastManager.shared.show(title: "Success", message: "Account created successfully!", type: .success)
+                                                NotificationManager.shared.scheduleNotification(
+                                                    title: "Welcome to LawMate!",
+                                                    body: "Your account has been registered successfully."
+                                                )
+                                            case .failure(let error):
+                                                ToastManager.shared.show(title: "Registration Failed", message: error.localizedDescription, type: .error)
+                                            }
                                         }
                                     }
                                 } else {
@@ -241,6 +258,9 @@ struct SignUpView: View {
         contactError = contact.count < 10 ? "Enter a valid phone number" : nil
         if contactError != nil { isValid = false }
         
+        addressError = address.isEmpty ? "Address cannot be empty" : nil
+        if addressError != nil { isValid = false }
+        
         passwordError = password.count < 6 ? "Password must be at least 6 characters" : nil
         if passwordError != nil { isValid = false }
         
@@ -255,6 +275,18 @@ struct SignUpView: View {
         }
         
         return isValid
+    }
+
+    private func geocodeAddress(_ address: String, completion: @escaping (CLLocationCoordinate2D?) -> Void) {
+        let geocoder = CLGeocoder()
+        geocoder.geocodeAddressString(address) { placemarks, error in
+            if let error = error {
+                print("Geocoding error: \(error.localizedDescription)")
+                completion(nil)
+                return
+            }
+            completion(placemarks?.first?.location?.coordinate)
+        }
     }
 }
 

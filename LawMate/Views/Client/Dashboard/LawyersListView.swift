@@ -73,6 +73,9 @@ struct LawyersListView: View {
             let expValue = Int(user.experience?.components(separatedBy: CharacterSet.decimalDigits.inverted).filter { !$0.isEmpty }.first ?? "0") ?? 0
             let wonValue = Int(user.casesWon?.components(separatedBy: CharacterSet.decimalDigits.inverted).filter { !$0.isEmpty }.first ?? "0") ?? 0
             
+            let lat = user.latitude ?? 6.9271
+            let lng = user.longitude ?? 79.8612
+            
             return Lawyer(
                 id: user.id,
                 name: user.fullName,
@@ -84,9 +87,9 @@ struct LawyersListView: View {
                 casesWon: user.casesWon ?? "0",
                 wonCount: wonValue,
                 rating: 4.8, // Default rating for now
-                location: "Colombo, Sri Lanka",
+                location: user.address ?? "Colombo, Sri Lanka",
                 image: user.profileImage ?? "",
-                coordinate: CLLocationCoordinate2D(latitude: 6.9271, longitude: 79.8612)
+                coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng)
             )
         }
     }

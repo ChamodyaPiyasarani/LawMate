@@ -119,7 +119,7 @@ class AuthService: ObservableObject {
         }
     }
     
-    func updateUserProfile(fullName: String? = nil, phoneNumber: String? = nil, specialty: String? = nil, experience: String? = nil, bio: String? = nil, casesWon: String? = nil, profileImage: String? = nil, textScale: Double? = nil, highContrast: Bool? = nil, completion: ((Bool) -> Void)? = nil) {
+    func updateUserProfile(fullName: String? = nil, phoneNumber: String? = nil, specialty: String? = nil, experience: String? = nil, bio: String? = nil, casesWon: String? = nil, profileImage: String? = nil, textScale: Double? = nil, highContrast: Bool? = nil, address: String? = nil, latitude: Double? = nil, longitude: Double? = nil, completion: ((Bool) -> Void)? = nil) {
         guard let uid = Auth.auth().currentUser?.uid else { 
             completion?(false)
             return 
@@ -136,6 +136,9 @@ class AuthService: ObservableObject {
         if let profileImage = profileImage { updateData["profileImage"] = profileImage }
         if let textScale = textScale { updateData["textScale"] = textScale }
         if let highContrast = highContrast { updateData["highContrast"] = highContrast }
+        if let address = address { updateData["address"] = address }
+        if let latitude = latitude { updateData["latitude"] = latitude }
+        if let longitude = longitude { updateData["longitude"] = longitude }
         
         guard !updateData.isEmpty else { 
             completion?(true)
@@ -168,6 +171,9 @@ class AuthService: ObservableObject {
                     if let profileImage = profileImage { user.profileImage = profileImage }
                     if let textScale = textScale { user.textScale = textScale }
                     if let highContrast = highContrast { user.highContrast = highContrast }
+                    if let address = address { user.address = address }
+                    if let latitude = latitude { user.latitude = latitude }
+                    if let longitude = longitude { user.longitude = longitude }
                     
                     DispatchQueue.main.async {
                         self?.currentUser = user
@@ -190,7 +196,7 @@ class AuthService: ObservableObject {
         }
     }
     
-    func signUp(email: String, role: UserRole, password: String, profile: [String: String]? = nil, completion: @escaping (Result<Void, Error>) -> Void) {
+    func signUp(email: String, role: UserRole, password: String, profile: [String: Any]? = nil, completion: @escaping (Result<Void, Error>) -> Void) {
         Auth.auth().createUser(withEmail: email, password: password) { [weak self] result, error in
             if let error = error {
                 completion(.failure(error))
@@ -200,15 +206,18 @@ class AuthService: ObservableObject {
             if let user = result?.user {
                 let newUser = User(
                     id: user.uid,
-                    fullName: profile?["fullName"] ?? "New \(role.rawValue)",
+                    fullName: profile?["fullName"] as? String ?? "New \(role.rawValue)",
                     email: email,
                     role: role,
-                    phoneNumber: profile?["phone"] ?? "",
-                    specialty: profile?["specialty"],
-                    experience: profile?["experience"],
-                    bio: profile?["bio"],
-                    casesWon: profile?["casesWon"],
-                    password: password
+                    phoneNumber: profile?["phone"] as? String ?? "",
+                    specialty: profile?["specialty"] as? String,
+                    experience: profile?["experience"] as? String,
+                    bio: profile?["bio"] as? String,
+                    casesWon: profile?["casesWon"] as? String,
+                    password: password,
+                    address: profile?["address"] as? String,
+                    latitude: profile?["latitude"] as? Double,
+                    longitude: profile?["longitude"] as? Double
                 )
                 
                 do {

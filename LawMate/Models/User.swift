@@ -46,12 +46,18 @@ struct User: Identifiable, Codable, Hashable {
     // UI Preference / Testing
     var password: String?
     
+    // Location Information
+    var address: String?
+    var latitude: Double?
+    var longitude: Double?
+    
     enum CodingKeys: String, CodingKey {
         case id, fullName, email, role, profileImage, phoneNumber
         case specialty, experience, bio, casesWon, fcmToken, textScale, highContrast, password
+        case address, latitude, longitude
     }
     
-    init(id: String, fullName: String, email: String, role: UserRole, profileImage: String? = nil, phoneNumber: String = "", specialty: String? = nil, experience: String? = nil, bio: String? = nil, casesWon: String? = nil, fcmToken: String? = nil, textScale: Double = 1.0, highContrast: Bool = false, password: String? = nil) {
+    init(id: String, fullName: String, email: String, role: UserRole, profileImage: String? = nil, phoneNumber: String = "", specialty: String? = nil, experience: String? = nil, bio: String? = nil, casesWon: String? = nil, fcmToken: String? = nil, textScale: Double = 1.0, highContrast: Bool = false, password: String? = nil, address: String? = nil, latitude: Double? = nil, longitude: Double? = nil) {
         self.id = id
         self.fullName = fullName
         self.email = email
@@ -66,6 +72,9 @@ struct User: Identifiable, Codable, Hashable {
         self.textScale = textScale
         self.highContrast = highContrast
         self.password = password
+        self.address = address
+        self.latitude = latitude
+        self.longitude = longitude
     }
     
     init(from decoder: Decoder) throws {
@@ -94,6 +103,9 @@ struct User: Identifiable, Codable, Hashable {
         textScale = (try? container.decode(Double.self, forKey: .textScale)) ?? 1.0
         highContrast = (try? container.decode(Bool.self, forKey: .highContrast)) ?? false
         password = try? container.decode(String.self, forKey: .password)
+        address = try? container.decode(String.self, forKey: .address)
+        latitude = try? container.decode(Double.self, forKey: .latitude)
+        longitude = try? container.decode(Double.self, forKey: .longitude)
     }
 }
 

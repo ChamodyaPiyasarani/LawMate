@@ -324,7 +324,10 @@ private struct FindLawyerCard: View {
 
     var lawyers: [Lawyer] {
         FirestoreManager.shared.lawyers.map { user in
-            Lawyer(
+            let lat = user.latitude ?? 6.9271
+            let lng = user.longitude ?? 79.8612
+            
+            return Lawyer(
                 id: user.id,
                 name: user.fullName,
                 specialty: user.specialty ?? "General Practice",
@@ -335,9 +338,9 @@ private struct FindLawyerCard: View {
                 casesWon: user.casesWon ?? "0",
                 wonCount: 0,
                 rating: 4.8,
-                location: "Colombo, Sri Lanka",
+                location: user.address ?? "Colombo, Sri Lanka",
                 image: user.profileImage ?? "",
-                coordinate: CLLocationCoordinate2D(latitude: 6.9271, longitude: 79.8612)
+                coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng)
             )
         }
     }

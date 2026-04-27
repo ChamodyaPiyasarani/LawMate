@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 struct PersonalInfoView: View {
     @Environment(\.dismiss) private var dismiss
@@ -11,6 +12,7 @@ struct PersonalInfoView: View {
     @State private var specialty = ""
     @State private var experience = ""
     @State private var bio = ""
+    @State private var address = ""
     
     // Validation Errors
     @State private var fullNameError: String?
@@ -33,6 +35,7 @@ struct PersonalInfoView: View {
                             .disabled(true)
                             .opacity(0.6)
                         ProfileInputRow(icon: "phone.fill", title: "Phone Number", text: $phone, errorMessage: phoneError)
+                        ProfileInputRow(icon: "mappin.and.ellipse", title: "Address", text: $address)
                         
                         if authService.currentUser?.role == .lawyer {
                             VStack(alignment: .leading, spacing: 8) {
@@ -71,15 +74,21 @@ struct PersonalInfoView: View {
                         
                         Button {
                             if validateForm() {
-                                authService.updateUserProfile(
-                                    fullName: fullName,
-                                    phoneNumber: phone,
-                                    specialty: specialty.isEmpty ? nil : specialty,
-                                    experience: experience.isEmpty ? nil : experience,
-                                    bio: bio.isEmpty ? nil : bio
-                                )
-                                ToastManager.shared.show(title: "Profile Updated", message: "Your changes have been saved.", type: .success)
-                                dismiss()
+                                // Geocode before updating
+                                geocodeAddress(address) { coordinate in
+                                    authService.updateUserProfile(
+                                        fullName: fullName,
+                                        phoneNumber: phone,
+                                        specialty: specialty.isEmpty ? nil : specialty,
+                                        experience: experience.isEmpty ? nil : experience,
+                                        bio: bio.isEmpty ? nil : bio,
+                                        address: address,
+                                        latitude: coordinate?.latitude,
+                                        longitude: coordinate?.longitude
+                                    )
+                                    ToastManager.shared.show(title: "Profile Updated", message: "Your changes have been saved.", type: .success)
+                                    dismiss()
+                                }
                             } else {
                                 ToastManager.shared.show(title: "Update Failed", message: "Please resolve the errors.", type: .error)
                             }
@@ -107,10 +116,18 @@ struct PersonalInfoView: View {
                     specialty = user.specialty ?? ""
                     experience = user.experience ?? ""
                     bio = user.bio ?? ""
+                    address = user.address ?? ""
                 }
             }
         }
         .navigationBarBackButtonHidden(true)
+    }
+
+    private func geocodeAddress(_ address: String, completion: @escaping (CLLocationCoordinate2D?) -> Void) {
+        let geocoder = CLGeocoder()
+        geocoder.geocodeAddressString(address) { placemarks, error in
+            completion(placemarks?.first?.location?.coordinate)
+        }
     }
     
     private func validateForm() -> Bool {
