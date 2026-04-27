@@ -727,7 +727,7 @@ struct LawyerCaseDetailView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.lmPrimary.opacity(0.1))
                     .frame(width: 48, height: 48)
-                Image(systemName: "doc.fill")
+                Image(systemName: doc.fileType.uppercased() == "PDF" ? "doc.richtext.fill" : "doc.fill")
                     .foregroundColor(.lmPrimary)
             }
             

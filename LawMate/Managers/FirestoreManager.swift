@@ -50,7 +50,11 @@ class FirestoreManager: ObservableObject {
                     print("Error fetching lawyers: \(error?.localizedDescription ?? "Unknown")")
                     return
                 }
-                let fetched = documents.compactMap { try? $0.data(as: User.self) }
+                let fetched = documents.compactMap { doc -> User? in
+                    var u = try? doc.data(as: User.self)
+                    if u?.id == nil { u?.id = doc.documentID }
+                    return u
+                }
                 DispatchQueue.main.async {
                     self?.lawyers = fetched
                 }
@@ -66,7 +70,11 @@ class FirestoreManager: ObservableObject {
                     print("Error fetching clients: \(error?.localizedDescription ?? "Unknown")")
                     return
                 }
-                let fetched = documents.compactMap { try? $0.data(as: User.self) }
+                let fetched = documents.compactMap { doc -> User? in
+                    var u = try? doc.data(as: User.self)
+                    if u?.id == nil { u?.id = doc.documentID }
+                    return u
+                }
                 DispatchQueue.main.async {
                     self?.clients = fetched
                 }
@@ -128,7 +136,11 @@ class FirestoreManager: ObservableObject {
                     return
                 }
                 
-                let fetched = documents.compactMap { try? $0.data(as: FBReview.self) }
+                let fetched = documents.compactMap { doc -> FBReview? in
+                    var r = try? doc.data(as: FBReview.self)
+                    if r?.id == nil { r?.id = doc.documentID }
+                    return r
+                }
                 DispatchQueue.main.async {
                     self?.lawyerReviews = fetched
                 }
@@ -167,7 +179,11 @@ class FirestoreManager: ObservableObject {
                     return
                 }
                 
-                var appointments = docs.compactMap { try? $0.data(as: FBAppointment.self) }
+                var appointments = docs.compactMap { doc -> FBAppointment? in
+                    var a = try? doc.data(as: FBAppointment.self)
+                    if a?.id == nil { a?.id = doc.documentID }
+                    return a
+                }
                 
                 // Exclude the current appointment if we are rescheduling it
                 if let excludeId = excludingAppointmentId {
@@ -360,7 +376,11 @@ class FirestoreManager: ObservableObject {
                     return
                 }
                 
-                let documents = docs.compactMap { try? $0.data(as: FBDocument.self) }
+                let documents = docs.compactMap { doc -> FBDocument? in
+                    var d = try? doc.data(as: FBDocument.self)
+                    if d?.id == nil { d?.id = doc.documentID }
+                    return d
+                }
                 // Sort by uploadedAt descending in memory to avoid index requirements
                 let sortedDocs = documents.sorted { ($0.uploadedAt) > ($1.uploadedAt) }
                 completion(sortedDocs)
@@ -378,7 +398,11 @@ class FirestoreManager: ObservableObject {
                     return
                 }
                 
-                let documents = docs.compactMap { try? $0.data(as: FBDocument.self) }
+                let documents = docs.compactMap { doc -> FBDocument? in
+                    var d = try? doc.data(as: FBDocument.self)
+                    if d?.id == nil { d?.id = doc.documentID }
+                    return d
+                }
                 let sortedDocs = documents.sorted { ($0.uploadedAt) > ($1.uploadedAt) }
                 
                 DispatchQueue.main.async {
@@ -398,7 +422,11 @@ class FirestoreManager: ObservableObject {
                     return
                 }
                 
-                let fetched = documents.compactMap { try? $0.data(as: FBAdvisoryDocument.self) }
+                let fetched = documents.compactMap { doc -> FBAdvisoryDocument? in
+                    var d = try? doc.data(as: FBAdvisoryDocument.self)
+                    if d?.id == nil { d?.id = doc.documentID }
+                    return d
+                }
                 DispatchQueue.main.async {
                     self?.advisoryDocuments = fetched
                 }
@@ -471,7 +499,11 @@ class FirestoreManager: ObservableObject {
                     return
                 }
                 
-                var fetched = documents.compactMap { try? $0.data(as: FBConversation.self) }
+                var fetched = documents.compactMap { doc -> FBConversation? in
+                    var c = try? doc.data(as: FBConversation.self)
+                    if c?.id == nil { c?.id = doc.documentID }
+                    return c
+                }
                 
                 // Locally filter out deleted conversations
                 if let deletedIds = self?.deletedConversationIds {
@@ -498,7 +530,11 @@ class FirestoreManager: ObservableObject {
                     return
                 }
                 
-                let fetched = documents.compactMap { try? $0.data(as: FBMessage.self) }
+                let fetched = documents.compactMap { doc -> FBMessage? in
+                    var m = try? doc.data(as: FBMessage.self)
+                    if m?.id == nil { m?.id = doc.documentID }
+                    return m
+                }
                 DispatchQueue.main.async {
                     self?.messages = fetched
                 }
@@ -843,7 +879,11 @@ class FirestoreManager: ObservableObject {
                 return
             }
             
-            let fetched = documents.compactMap { try? $0.data(as: FBAppointment.self) }
+            let fetched = documents.compactMap { doc -> FBAppointment? in
+                var a = try? doc.data(as: FBAppointment.self)
+                if a?.id == nil { a?.id = doc.documentID }
+                return a
+            }
             DispatchQueue.main.async {
                 self?.appointments = fetched.sorted { ($0.date) > ($1.date) }
                 
