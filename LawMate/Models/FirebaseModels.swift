@@ -4,23 +4,23 @@ import FirebaseFirestore
 
 struct FBLegalCase: Identifiable, Codable, Hashable {
     @DocumentID var id: String?
-    var caseNumber: String
-    var title: String
-    var clientName: String
-    var clientId: String // Linked client ID
-    var clientImage: String? // Linked client profile image
-    var lawyerName: String
-    var lawyerId: String // Linked lawyer ID
-    var lawyerImage: String? // Linked lawyer profile image
-    var type: String
-    var status: String
-    var priority: String
-    var description: String?
-    var hearingDate: Date?
-    var locationLat: Double?
-    var locationLng: Double?
-    var address: String?
-    var createdDate: Date?
+    var caseNumber: String = ""
+    var title: String = ""
+    var clientName: String = ""
+    var clientId: String = ""
+    var clientImage: String? = nil
+    var lawyerName: String = ""
+    var lawyerId: String = ""
+    var lawyerImage: String? = nil
+    var type: String = "General"
+    var status: String = "Pending"
+    var priority: String = "Medium"
+    var description: String? = nil
+    var hearingDate: Date? = nil
+    var locationLat: Double? = nil
+    var locationLng: Double? = nil
+    var address: String? = nil
+    var createdDate: Date? = nil
     var stages: [FBCaseStage] = []
     var documents: [FBDocument]? = nil
     
@@ -268,12 +268,12 @@ struct FBMessage: Identifiable, Codable, Hashable {
 
 struct FBNotification: Identifiable, Codable, Hashable {
     @DocumentID var id: String?
-    var title: String
-    var body: String
-    var type: String // e.g., "message", "case", "booking", "appointment"
-    var timestamp: Date
+    var title: String = "Notification"
+    var body: String = ""
+    var type: String = "system" // e.g., "message", "case", "booking", "appointment"
+    var timestamp: Date = Date()
     var isRead: Bool = false
-    var relatedId: String? // e.g., conversationId or caseId or appointmentId
+    var relatedId: String? = nil // e.g., conversationId or caseId or appointmentId
     
     var iconName: String {
         switch type {
@@ -311,15 +311,6 @@ struct FBNotification: Identifiable, Codable, Hashable {
         self.relatedId = relatedId
     }
     
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        title = (try? container.decode(String.self, forKey: .title)) ?? "Notification"
-        body = (try? container.decode(String.self, forKey: .body)) ?? ""
-        type = (try? container.decode(String.self, forKey: .type)) ?? "system"
-        timestamp = (try? container.decode(Date.self, forKey: .timestamp)) ?? Date()
-        isRead = (try? container.decode(Bool.self, forKey: .isRead)) ?? false
-        relatedId = try? container.decode(String.self, forKey: .relatedId)
-    }
 }
 
 struct FBAppointment: Identifiable, Codable, Hashable {

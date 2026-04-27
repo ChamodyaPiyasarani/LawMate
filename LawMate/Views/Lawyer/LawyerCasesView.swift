@@ -251,6 +251,7 @@ struct LawyerCaseDetailView: View {
     
     var legalCase: FBLegalCase
     @EnvironmentObject var firestore: FirestoreManager
+    @EnvironmentObject var auth: AuthService
     
     private var currentCase: FBLegalCase {
         firestore.cases.first(where: { $0.id == legalCase.id }) ?? legalCase
@@ -352,8 +353,9 @@ struct LawyerCaseDetailView: View {
     // MARK: - Logic
     
     private func toggleStageCompletion(at index: Int) {
-        // Sequential logic: Only allow toggling if it's the current active one 
-        // or if we are uncompleting the LAST completed one.
+        // Ensure only lawyers can toggle
+        guard auth.currentUser?.role == .lawyer else { return }
+        
         let stage = currentCase.stages[index]
         let isNext = !stage.isCompleted && (index == 0 || currentCase.stages[index-1].isCompleted)
         let isLastCompleted = stage.isCompleted && (index == currentCase.stages.count - 1 || !currentCase.stages[index+1].isCompleted)
@@ -365,7 +367,9 @@ struct LawyerCaseDetailView: View {
 
         var updatedCase = currentCase
         updatedCase.stages[index].isCompleted.toggle()
-        if updatedCase.stages[index].isCompleted {
+        let isNowCompleted = updatedCase.stages[index].isCompleted
+        
+        if isNowCompleted {
             if updatedCase.stages[index].date == nil {
                 updatedCase.stages[index].date = Date()
             }
@@ -382,7 +386,19 @@ struct LawyerCaseDetailView: View {
             updatedCase.status = "Active"
         }
         
-        FirestoreManager.shared.updateCase(updatedCase)
+        firestore.updateCase(updatedCase)
+        
+        // Notify the client about progress
+        let notification = FBNotification(
+            title: "Case Progress Update",
+            body: "Step '\(updatedCase.stages[index].title)' is now \(isNowCompleted ? "Completed" : "In Progress").",
+            type: "case",
+            timestamp: Date(),
+            relatedId: updatedCase.id
+        )
+        firestore.addNotification(notification, toUserId: updatedCase.clientId)
+        
+        ToastManager.shared.show(title: "Progress Updated", message: "Stage marked as \(isNowCompleted ? "complete" : "pending").", type: .success)
     }
     
     private func updateStageDate(at index: Int, date: Date) {
@@ -394,7 +410,7 @@ struct LawyerCaseDetailView: View {
             updatedCase.hearingDate = date
         }
         
-        FirestoreManager.shared.updateCase(updatedCase)
+        firestore.updateCase(updatedCase)
     }
     
     private func handleFileUpload(result: Result<[URL], Error>, stageIndex: Int) {
@@ -422,8 +438,8 @@ struct LawyerCaseDetailView: View {
                 ToastManager.shared.show(title: "Uploading", message: "Processing your document...", type: .info)
                 
                 // Save to Firestore directly using Base64
-                FirestoreManager.shared.addDocument(
-                    toCaseId: legalCase.id ?? "",
+                firestore.addDocument(
+                    toCaseId: currentCase.id ?? "",
                     fileName: originalName,
                     fileType: fileType,
                     fileURL: nil,
@@ -432,9 +448,9 @@ struct LawyerCaseDetailView: View {
                 )
                 
                 // Update the stage to indicate a file was uploaded
-                var updatedCase = legalCase
+                var updatedCase = currentCase
                 updatedCase.stages[stageIndex].description += " (File attached)"
-                FirestoreManager.shared.updateCase(updatedCase)
+                firestore.updateCase(updatedCase)
                 
                 ToastManager.shared.show(title: "Success", message: "File uploaded successfully.", type: .success)
             } catch {
@@ -456,8 +472,8 @@ struct LawyerCaseDetailView: View {
                 let base64String = data.base64EncodedString()
                 let fileType = "JPG"
                 
-                FirestoreManager.shared.addDocument(
-                    toCaseId: legalCase.id ?? "",
+                firestore.addDocument(
+                    toCaseId: currentCase.id ?? "",
                     fileName: originalName,
                     fileType: fileType,
                     fileURL: nil,
@@ -601,7 +617,7 @@ struct LawyerCaseDetailView: View {
                         stage: stage,
                         isLast: index == currentCase.stages.count - 1,
                         isActive: isActive,
-                        canEdit: true,
+                        canEdit: auth.currentUser?.role == .lawyer,
                         onToggle: { toggleStageCompletion(at: index) },
                         onUpload: {
                             selectedStageIndex = index
@@ -734,7 +750,7 @@ struct LawyerCaseDetailView: View {
     }
     
     private var priorityColor: Color {
-        switch legalCase.priority.lowercased() {
+        switch currentCase.priority.lowercased() {
         case "high": return .red
         case "medium": return .orange
         case "low": return .green

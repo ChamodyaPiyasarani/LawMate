@@ -224,7 +224,9 @@ class FirestoreManager: ObservableObject {
             }
             
             let fetchedCases = documents.compactMap { doc -> FBLegalCase? in
-                try? doc.data(as: FBLegalCase.self)
+                var c = try? doc.data(as: FBLegalCase.self)
+                if c?.id == nil { c?.id = doc.documentID }
+                return c
             }
             
             DispatchQueue.main.async {
@@ -274,6 +276,14 @@ class FirestoreManager: ObservableObject {
     
     func updateCase(_ modifiedCase: FBLegalCase) {
         guard let id = modifiedCase.id else { return }
+        
+        // Optimistic update for immediate UI feedback
+        DispatchQueue.main.async {
+            if let index = self.cases.firstIndex(where: { $0.id == id }) {
+                self.cases[index] = modifiedCase
+            }
+        }
+        
         do {
             try db.collection("cases").document(id).setData(from: modifiedCase)
         } catch {
@@ -685,7 +695,11 @@ class FirestoreManager: ObservableObject {
                     return
                 }
                 
-                let fetched = documents.compactMap { try? $0.data(as: FBNotification.self) }
+                let fetched = documents.compactMap { doc -> FBNotification? in
+                    var n = try? doc.data(as: FBNotification.self)
+                    if n?.id == nil { n?.id = doc.documentID }
+                    return n
+                }
                 DispatchQueue.main.async {
                     // Trigger local notifications for new unread notifications
                     if let lastDate = self?.lastKnownNotificationDate {
@@ -703,7 +717,8 @@ class FirestoreManager: ObservableObject {
                     
                     self?.notifications = fetched
                     // EXCLUDE chat messages from the Notification UI count (they have their own tab badge)
-                    self?.unreadNotificationsCount = fetched.filter { !$0.isRead && $0.type != "message" }.count
+                    let unreadCount = fetched.filter { !$0.isRead && $0.type != "message" }.count
+                    self?.unreadNotificationsCount = unreadCount
                     self?.updateTotalUnreadCount()
                     self?.lastKnownNotificationDate = fetched.first?.timestamp ?? Date()
                 }

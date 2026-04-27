@@ -52,9 +52,7 @@ struct MyCasesView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
                         ForEach(firestore.cases) { clientCase in
-                            NavigationLink {
-                                LawyerCaseDetailView(legalCase: clientCase)
-                            } label: {
+                            NavigationLink(value: clientCase) {
                                 MyCaseCard(clientCase: clientCase, onDelete: {
                                     firestore.deleteCase(id: clientCase.id ?? "")
                                 }, onEdit: {
