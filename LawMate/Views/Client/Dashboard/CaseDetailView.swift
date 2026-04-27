@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 struct CaseDetailView: View {
     @State var clientCase: FBLegalCase
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var firestore = FirestoreManager.shared
+    @EnvironmentObject var firestore: FirestoreManager
     
     private var currentCase: FBLegalCase {
         firestore.cases.first(where: { $0.id == clientCase.id }) ?? clientCase

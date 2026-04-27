@@ -4,7 +4,7 @@ import CoreLocation
 struct PersonalInfoView: View {
     @Environment(\.dismiss) private var dismiss
     
-    @StateObject private var authService = AuthService.shared
+    @EnvironmentObject var auth: AuthService
     
     @State private var fullName = ""
     @State private var email = ""
@@ -37,7 +37,7 @@ struct PersonalInfoView: View {
                         ProfileInputRow(icon: "phone.fill", title: "Phone Number", text: $phone, errorMessage: phoneError)
                         ProfileInputRow(icon: "mappin.and.ellipse", title: "Address", text: $address)
                         
-                        if authService.currentUser?.role == .lawyer {
+                        if auth.currentUser?.role == .lawyer {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Professional Details")
                                     .font(.system(size: 15, weight: .bold))
@@ -76,7 +76,7 @@ struct PersonalInfoView: View {
                             if validateForm() {
                                 // Geocode before updating
                                 geocodeAddress(address) { coordinate in
-                                    authService.updateUserProfile(
+                                    auth.updateUserProfile(
                                         fullName: fullName,
                                         phoneNumber: phone,
                                         specialty: specialty.isEmpty ? nil : specialty,
@@ -109,7 +109,7 @@ struct PersonalInfoView: View {
             }
             .ignoresSafeArea(edges: .top)
             .onAppear {
-                if let user = authService.currentUser {
+                if let user = auth.currentUser {
                     fullName = user.fullName
                     email = user.email
                     phone = user.phoneNumber

@@ -16,9 +16,9 @@ struct NotificationsView: View {
     @Binding var activeConversation: FBConversation?
     
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var firestore = FirestoreManager.shared
+    @EnvironmentObject var firestore: FirestoreManager
+    @EnvironmentObject var auth: AuthService
     @State private var showClearAlert = false
-    @StateObject private var auth = AuthService.shared
     
     var body: some View {
         ZStack(alignment: .top) {

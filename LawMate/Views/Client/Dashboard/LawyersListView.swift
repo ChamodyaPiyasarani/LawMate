@@ -12,6 +12,7 @@ struct Lawyer: Identifiable, Hashable {
     let casesWon: String
     let wonCount: Int // For sorting
     let rating: Double
+    let reviewCount: Int
     let location: String
     let image: String
     let coordinate: CLLocationCoordinate2D
@@ -28,7 +29,7 @@ enum SortingOption: String, CaseIterable {
 
 struct LawyersListView: View {
     var onBack: () -> Void = {}
-    @StateObject private var firestore = FirestoreManager.shared
+    @EnvironmentObject var firestore: FirestoreManager
     @State private var searchText = ""
     @State private var selectedSpecialty: String? = nil
     @State private var minRating: Double = 0.0
@@ -86,7 +87,8 @@ struct LawyersListView: View {
                 experienceYears: expValue,
                 casesWon: user.casesWon ?? "0",
                 wonCount: wonValue,
-                rating: 4.8, // Default rating for now
+                rating: user.rating ?? 0.0,
+                reviewCount: user.reviewCount ?? 0,
                 location: user.address ?? "Colombo, Sri Lanka",
                 image: user.profileImage ?? "",
                 coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng)
@@ -479,7 +481,7 @@ struct LawyerRow: View {
                     Text(String(format: "%.1f", lawyer.rating))
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.lmPrimary)
-                    Text("(120+ Reviews)")
+                    Text("(\(lawyer.reviewCount) Reviews)")
                         .font(.system(size: 10))
                         .foregroundColor(.lmTextSecondary.opacity(0.7))
                         .lineLimit(1)

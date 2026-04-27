@@ -49,7 +49,7 @@ struct LawMateBackButton: View {
 
 // MARK: - Notification Button
 struct NotificationButton: View {
-    @StateObject private var firestore = FirestoreManager.shared
+    @EnvironmentObject var firestore: FirestoreManager
     var badgeCount: Int? = nil // Optional override
     var action: () -> Void = {}
 
@@ -95,9 +95,30 @@ struct NotificationButton: View {
     }
 }
 
-// MARK: - Shared Appointment Row
 struct AppointmentRowView: View {
     let appointment: FBAppointment
+    @EnvironmentObject var auth: AuthService
+    @EnvironmentObject var firestore: FirestoreManager
+    
+    @State private var showRejectAlert = false
+    @State private var showReschedulePicker = false
+    
+    private func confirmReject() {
+        firestore.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Rejected") { success in
+            if success {
+                let targetUserId = (auth.currentUser?.role == .lawyer) ? appointment.clientId : appointment.lawyerId
+                let senderName = auth.currentUser?.fullName ?? "Someone"
+                let notification = FBNotification(
+                    title: "Appointment Rejected",
+                    body: "\(senderName) has rejected the appointment request for \(appointment.time) on \(formatDate(appointment.date)).",
+                    type: "appointment",
+                    timestamp: Date(),
+                    relatedId: appointment.id
+                )
+                firestore.addNotification(notification, toUserId: targetUserId)
+            }
+        }
+    }
     
     var body: some View {
         VStack(spacing: 12) {
@@ -116,7 +137,7 @@ struct AppointmentRowView: View {
                 
                 // Info (Center - Left Aligned)
                 VStack(alignment: .leading, spacing: 4) {
-                    let currentRole = AuthService.shared.currentUser?.role ?? .client
+                    let currentRole = auth.currentUser?.role ?? .client
                     let displayName = currentRole == .lawyer ? appointment.clientName : appointment.lawyerName
                     
                     HStack(spacing: 8) {
@@ -157,14 +178,14 @@ struct AppointmentRowView: View {
                 
                 // Status & Method (Right)
                 VStack(alignment: .trailing, spacing: 6) {
-                    Text(appointment.status)
+                    Text(appointment.statusTitle)
                         .font(.system(size: 9, weight: .black))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(statusColor.opacity(0.12))
-                        .foregroundColor(statusColor)
+                        .background(appointment.statusColor.opacity(0.12))
+                        .foregroundColor(appointment.statusColor)
                         .clipShape(Capsule())
-                        .overlay(Capsule().stroke(statusColor.opacity(0.3), lineWidth: 1))
+                        .overlay(Capsule().stroke(appointment.statusColor.opacity(0.3), lineWidth: 1))
                     
                     Image(systemName: appointment.method == "Video Call" ? "video.fill" : "building.2.fill")
                         .font(.system(size: 12))
@@ -173,17 +194,17 @@ struct AppointmentRowView: View {
             }
             
             // Confirm/Reschedule/Reject Actions (Bidirectional)
-            let currentUserId = AuthService.shared.currentUser?.id ?? ""
+            let currentUserId = auth.currentUser?.id ?? ""
             let isPendingOrRescheduled = appointment.status.lowercased() == "pending" || appointment.status.lowercased() == "rescheduled"
             let isRecipient = appointment.lastActionBy != currentUserId
             
             if isPendingOrRescheduled && isRecipient {
                 HStack(spacing: 8) {
                     Button {
-                        FirestoreManager.shared.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Confirmed") { success in
+                        firestore.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Confirmed") { success in
                             if success {
-                                let targetUserId = (AuthService.shared.currentUser?.role == .lawyer) ? appointment.clientId : appointment.lawyerId
-                                let senderName = AuthService.shared.currentUser?.fullName ?? "Someone"
+                                let targetUserId = (auth.currentUser?.role == .lawyer) ? appointment.clientId : appointment.lawyerId
+                                let senderName = auth.currentUser?.fullName ?? "Someone"
                                 let notification = FBNotification(
                                     title: "Appointment Confirmed",
                                     body: "\(senderName) has confirmed the appointment for \(appointment.time) on \(formatDate(appointment.date)).",
@@ -191,7 +212,7 @@ struct AppointmentRowView: View {
                                     timestamp: Date(),
                                     relatedId: appointment.id
                                 )
-                                FirestoreManager.shared.addNotification(notification, toUserId: targetUserId)
+                                firestore.addNotification(notification, toUserId: targetUserId)
                             }
                         }
                     } label: {
@@ -217,20 +238,7 @@ struct AppointmentRowView: View {
                     }
                     
                     Button {
-                        FirestoreManager.shared.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Rejected") { success in
-                            if success {
-                                let targetUserId = (AuthService.shared.currentUser?.role == .lawyer) ? appointment.clientId : appointment.lawyerId
-                                let senderName = AuthService.shared.currentUser?.fullName ?? "Someone"
-                                let notification = FBNotification(
-                                    title: "Appointment Rejected",
-                                    body: "\(senderName) has declined the appointment request.",
-                                    type: "appointment",
-                                    timestamp: Date(),
-                                    relatedId: appointment.id
-                                )
-                                FirestoreManager.shared.addNotification(notification, toUserId: targetUserId)
-                            }
-                        }
+                        showRejectAlert = true
                     } label: {
                         Text("Reject")
                             .font(.system(size: 11, weight: .bold))
@@ -248,23 +256,19 @@ struct AppointmentRowView: View {
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
+        .alert("Reject Appointment", isPresented: $showRejectAlert) {
+            Button("Reject", role: .destructive) {
+                confirmReject()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to reject this appointment request?")
+        }
         .sheet(isPresented: $showReschedulePicker) {
             ReschedulePickerSheet(appointment: appointment)
         }
     }
     
-    @State private var showReschedulePicker = false
-    
-    private var statusColor: Color {
-        switch appointment.status.lowercased() {
-        case "confirmed": return .green
-        case "pending": return .orange
-        case "rescheduled": return .blue
-        case "cancelled", "rejected": return .red
-        case "in progress": return .blue
-        default: return .gray
-        }
-    }
 
     private func formatDate(_ date: Date) -> String {
         let f = DateFormatter()
@@ -278,6 +282,8 @@ struct ReschedulePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     let appointment: FBAppointment
     
+    @EnvironmentObject var firestore: FirestoreManager
+    @EnvironmentObject var auth: AuthService
     @State private var selectedDate: Date
     @State private var isSaving = false
     
@@ -346,7 +352,7 @@ struct ReschedulePickerSheet: View {
         
         let timeString = formatTime(selectedDate)
         
-        FirestoreManager.shared.rescheduleAppointment(
+        firestore.rescheduleAppointment(
             appointmentId: appointment.id ?? "",
             newDate: selectedDate,
             newTime: timeString
@@ -354,9 +360,9 @@ struct ReschedulePickerSheet: View {
             isSaving = false
             if success {
                 // Notify Other Party
-                let isLawyer = AuthService.shared.currentUser?.role == .lawyer
+                let isLawyer = auth.currentUser?.role == .lawyer
                 let targetUserId = isLawyer ? appointment.clientId : appointment.lawyerId
-                let senderName = AuthService.shared.currentUser?.fullName ?? "Someone"
+                let senderName = auth.currentUser?.fullName ?? "Someone"
                 
                 let notification = FBNotification(
                     title: "Appointment Rescheduled",
@@ -365,7 +371,7 @@ struct ReschedulePickerSheet: View {
                     timestamp: Date(),
                     relatedId: appointment.id
                 )
-                FirestoreManager.shared.addNotification(notification, toUserId: targetUserId)
+                firestore.addNotification(notification, toUserId: targetUserId)
                 
                 dismiss()
             } else {
@@ -425,7 +431,7 @@ struct LawMateNavigationBar: View {
     var onCamera: () -> Void = {}
     var trailingView: AnyView? = nil
     
-    @StateObject private var firestore = FirestoreManager.shared
+    @EnvironmentObject var firestore: FirestoreManager
 
     var body: some View {
         HStack {

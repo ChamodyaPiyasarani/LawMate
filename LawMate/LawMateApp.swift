@@ -17,6 +17,11 @@ struct LawMateApp: App {
         WindowGroup {
             RootView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                .environmentObject(FirestoreManager.shared)
+                .environmentObject(AuthService.shared)
+                .environmentObject(NotificationManager.shared)
+                .environmentObject(AccessibilityManager.shared)
+                .environmentObject(EventKitService.shared)
                 .preferredColorScheme(.light) // LawMate uses a light theme
         }
     }

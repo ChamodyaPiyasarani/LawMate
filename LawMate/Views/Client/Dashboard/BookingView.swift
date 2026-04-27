@@ -4,7 +4,7 @@ import MapKit
 struct BookingView: View {
     let lawyer: Lawyer?
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var firestore = FirestoreManager.shared
+    @EnvironmentObject var firestore: FirestoreManager
     
     @State private var selectedService = "Case Review (1 hour)"
     @State private var selectedDate = Date()
@@ -43,7 +43,8 @@ struct BookingView: View {
                 experienceYears: expValue,
                 casesWon: user.casesWon ?? "0",
                 wonCount: wonValue,
-                rating: 4.8,
+                rating: user.rating ?? 0.0,
+                reviewCount: user.reviewCount ?? 0,
                 location: user.address ?? "Colombo, Sri Lanka",
                 image: user.profileImage ?? "",
                 coordinate: .init(latitude: lat, longitude: lng)
@@ -453,6 +454,7 @@ struct ServiceTypeButton: View {
         casesWon: "250 +",
         wonCount: 250,
         rating: 4.8,
+        reviewCount: 120,
         location: "Colombo",
         image: "person",
         coordinate: .init(latitude: 0, longitude: 0)

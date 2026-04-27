@@ -7,7 +7,7 @@ struct BookingDetailsView: View {
     @Binding var navPath: NavigationPath
     var onBack: () -> Void = {}
     
-    @StateObject private var firestore = FirestoreManager.shared
+    @EnvironmentObject var firestore: FirestoreManager
     @State private var searchQuery = ""
     @State private var selectedFilter = "Confirmed"
     

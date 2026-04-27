@@ -21,64 +21,68 @@ struct GreenBlobBackground: View {
 
     var body: some View {
         GeometryReader { geo in
-            ZStack(alignment: .topLeading) {
-                if style == .auth {
-                    // Blob 1: Top-Left
-                    Circle()
-                        .fill(Color.lmLightGreen.opacity(0.35))
-                        .frame(width: geo.size.width * 1.2,
-                               height: geo.size.width * 1.2)
-                        .offset(x: -geo.size.width * 0.40,
-                                y: -geo.size.width * 0.45)
+            if geo.size.width > 0 && geo.size.height > 0 {
+                ZStack(alignment: .topLeading) {
+                    if style == .auth {
+                        // Blob 1: Top-Left
+                        Circle()
+                            .fill(Color.lmLightGreen.opacity(0.35))
+                            .frame(width: geo.size.width * 1.2,
+                                   height: geo.size.width * 1.2)
+                            .offset(x: -geo.size.width * 0.40,
+                                    y: -geo.size.width * 0.45)
 
-                    // Blob 2: Top-Right
-                    Circle()
-                        .fill(Color.lmLightGreen.opacity(0.20))
-                        .frame(width: geo.size.width * 1.1,
-                               height: geo.size.width * 1.1)
-                        .offset(x: geo.size.width * 0.30,
-                                y: -geo.size.width * 0.35)
+                        // Blob 2: Top-Right
+                        Circle()
+                            .fill(Color.lmLightGreen.opacity(0.20))
+                            .frame(width: geo.size.width * 1.1,
+                                   height: geo.size.width * 1.1)
+                            .offset(x: geo.size.width * 0.30,
+                                    y: -geo.size.width * 0.35)
 
-                    // Blob 3: Far Right / Accent
-                    Circle()
-                        .fill(Color.lmLightGreen.opacity(0.12))
-                        .frame(width: geo.size.width * 0.8,
-                               height: geo.size.width * 0.8)
-                        .offset(x: geo.size.width * 0.70,
-                                y: -geo.size.width * 0.15)
-                } else if style == .client {
-                    // Client Style: Concentrated on the left
-                    Circle()
-                        .fill(Color.lmLightGreen.opacity(0.40))
-                        .frame(width: geo.size.width * 1.4)
-                        .offset(x: -geo.size.width * 0.5, y: -geo.size.width * 0.3)
+                        // Blob 3: Far Right / Accent
+                        Circle()
+                            .fill(Color.lmLightGreen.opacity(0.12))
+                            .frame(width: geo.size.width * 0.8,
+                                   height: geo.size.width * 0.8)
+                            .offset(x: geo.size.width * 0.70,
+                                    y: -geo.size.width * 0.15)
+                    } else if style == .client {
+                        // Client Style: Concentrated on the left
+                        Circle()
+                            .fill(Color.lmLightGreen.opacity(0.40))
+                            .frame(width: geo.size.width * 1.4)
+                            .offset(x: -geo.size.width * 0.5, y: -geo.size.width * 0.3)
 
-                    Circle()
-                        .fill(Color.lmLightGreen.opacity(0.25))
-                        .frame(width: geo.size.width * 1.1)
-                        .offset(x: -geo.size.width * 0.2, y: -geo.size.width * 0.1)
+                        Circle()
+                            .fill(Color.lmLightGreen.opacity(0.25))
+                            .frame(width: geo.size.width * 1.1)
+                            .offset(x: -geo.size.width * 0.2, y: -geo.size.width * 0.1)
 
-                    Circle()
-                        .fill(Color.lmLightGreen.opacity(0.15))
-                        .frame(width: geo.size.width * 0.8)
-                        .offset(x: -geo.size.width * 0.1, y: geo.size.width * 0.1)
-                } else {
-                    // Lawyer Style: Concentrated on the right
-                    Circle()
-                        .fill(Color.lmLightGreen.opacity(0.40))
-                        .frame(width: geo.size.width * 1.4)
-                        .offset(x: geo.size.width * 0.1, y: -geo.size.width * 0.3)
+                        Circle()
+                            .fill(Color.lmLightGreen.opacity(0.15))
+                            .frame(width: geo.size.width * 0.8)
+                            .offset(x: -geo.size.width * 0.1, y: geo.size.width * 0.1)
+                    } else {
+                        // Lawyer Style: Concentrated on the right
+                        Circle()
+                            .fill(Color.lmLightGreen.opacity(0.40))
+                            .frame(width: geo.size.width * 1.4)
+                            .offset(x: geo.size.width * 0.1, y: -geo.size.width * 0.3)
 
-                    Circle()
-                        .fill(Color.lmLightGreen.opacity(0.25))
-                        .frame(width: geo.size.width * 1.1)
-                        .offset(x: geo.size.width * 0.3, y: -geo.size.width * 0.1)
+                        Circle()
+                            .fill(Color.lmLightGreen.opacity(0.25))
+                            .frame(width: geo.size.width * 1.1)
+                            .offset(x: geo.size.width * 0.3, y: -geo.size.width * 0.1)
 
-                    Circle()
-                        .fill(Color.lmLightGreen.opacity(0.15))
-                        .frame(width: geo.size.width * 0.8)
-                        .offset(x: geo.size.width * 0.5, y: geo.size.width * 0.1)
+                        Circle()
+                            .fill(Color.lmLightGreen.opacity(0.15))
+                            .frame(width: geo.size.width * 0.8)
+                            .offset(x: geo.size.width * 0.5, y: geo.size.width * 0.1)
+                    }
                 }
+            } else {
+                Color.clear
             }
         }
         .ignoresSafeArea()

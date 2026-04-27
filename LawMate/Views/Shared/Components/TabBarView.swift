@@ -51,7 +51,7 @@ enum LawMateTab: String, CaseIterable {
 struct TabBarView: View {
     @Binding var selectedTab: LawMateTab
     var role: UserRole = .client
-    @StateObject private var firestore = FirestoreManager.shared
+    @EnvironmentObject var firestore: FirestoreManager
 
     var body: some View {
         HStack(spacing: 0) {

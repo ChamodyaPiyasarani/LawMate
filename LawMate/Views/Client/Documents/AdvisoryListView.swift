@@ -6,7 +6,7 @@ struct AdvisoryListView: View {
     @State private var selectedCategory = "All"
     @State private var showFilterSheet = false
     
-    @StateObject private var firestore = FirestoreManager.shared
+    @EnvironmentObject var firestore: FirestoreManager
     
     private let categories = ["All", "Family Law", "Criminal Law", "Property Law", "Corporate Law"]
 

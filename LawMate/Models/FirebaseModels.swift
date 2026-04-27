@@ -25,7 +25,7 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
     var documents: [FBDocument]? = nil
     
     enum CodingKeys: String, CodingKey {
-        case id, caseNumber, title, clientName, clientId, clientImage, lawyerName, lawyerId, lawyerImage, type, status, priority, description, hearingDate, locationLat, locationLng, address, createdDate, stages, documents
+        case caseNumber, title, clientName, clientId, clientImage, lawyerName, lawyerId, lawyerImage, type, status, priority, description, hearingDate, locationLat, locationLng, address, createdDate, stages, documents
     }
     
     init(id: String? = nil, caseNumber: String, title: String, clientName: String, clientId: String, clientImage: String? = nil, lawyerName: String, lawyerId: String, lawyerImage: String? = nil, type: String, status: String, priority: String, description: String? = nil, hearingDate: Date? = nil, locationLat: Double? = nil, locationLng: Double? = nil, address: String? = nil, createdDate: Date? = nil, stages: [FBCaseStage] = [], documents: [FBDocument]? = nil) {
@@ -53,7 +53,6 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self._id = try container.decode(DocumentID<String>.self, forKey: .id)
         caseNumber = try container.decode(String.self, forKey: .caseNumber)
         title = try container.decode(String.self, forKey: .title)
         clientName = try container.decode(String.self, forKey: .clientName)
@@ -150,6 +149,10 @@ struct FBDocument: Identifiable, Codable, Hashable {
     var uploadedAt: Date
     var localFileName: String?
     var fileBase64: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case legalCaseId, fileName, fileType, fileURL, stageIndex, uploadedAt, localFileName, fileBase64
+    }
 }
 
 struct FBAdvisoryDocument: Identifiable, Codable, Hashable {
@@ -166,6 +169,10 @@ struct FBAdvisoryDocument: Identifiable, Codable, Hashable {
     var lawyerId: String? // To easily match which lawyer uploaded it
     var visibility: String = "Public" // "Public" or "Private"
     var fileBase64: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case title, description, category, tags, lawyerName, date, fileType, fileURL, localFileName, lawyerId, visibility, fileBase64
+    }
 }
 
 struct FBConversation: Identifiable, Codable, Hashable {
@@ -178,7 +185,7 @@ struct FBConversation: Identifiable, Codable, Hashable {
     var unreadCounts: [String: Int]? // [UID: Count] for unread badges
     
     enum CodingKeys: String, CodingKey {
-        case id, participants, lastMessage, lastMessageAt, memberNames, memberImages, unreadCounts
+        case participants, lastMessage, lastMessageAt, memberNames, memberImages, unreadCounts
     }
     
     init(id: String? = nil, participants: [String], lastMessage: String? = nil, lastMessageAt: Date? = nil, memberNames: [String: String]? = nil, memberImages: [String: String?]? = nil, unreadCounts: [String: Int]? = nil) {
@@ -193,7 +200,6 @@ struct FBConversation: Identifiable, Codable, Hashable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self._id = try container.decode(DocumentID<String>.self, forKey: .id)
         participants = try container.decode([String].self, forKey: .participants)
         lastMessage = try? container.decode(String.self, forKey: .lastMessage)
         lastMessageAt = try? container.decode(Date.self, forKey: .lastMessageAt)
@@ -254,6 +260,10 @@ struct FBMessage: Identifiable, Codable, Hashable {
     var senderId: String
     var text: String
     var timestamp: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case senderId, text, timestamp
+    }
 }
 
 struct FBNotification: Identifiable, Codable, Hashable {
@@ -288,7 +298,7 @@ struct FBNotification: Identifiable, Codable, Hashable {
     }
     
     enum CodingKeys: String, CodingKey {
-        case id, title, body, type, timestamp, isRead, relatedId
+        case title, body, type, timestamp, isRead, relatedId
     }
     
     init(id: String? = nil, title: String, body: String, type: String, timestamp: Date, isRead: Bool = false, relatedId: String? = nil) {
@@ -303,7 +313,6 @@ struct FBNotification: Identifiable, Codable, Hashable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self._id = try container.decode(DocumentID<String>.self, forKey: .id)
         title = (try? container.decode(String.self, forKey: .title)) ?? "Notification"
         body = (try? container.decode(String.self, forKey: .body)) ?? ""
         type = (try? container.decode(String.self, forKey: .type)) ?? "system"
@@ -330,9 +339,13 @@ struct FBAppointment: Identifiable, Codable, Hashable {
     var status: String
     var lastActionBy: String?
     
-    var statusTitle: String { status }
+    var statusTitle: String { 
+        if isOverdue { return "Overdue" }
+        return status 
+    }
     
     var statusColor: Color {
+        if isOverdue { return .red }
         switch status.lowercased() {
         case "confirmed": return .green
         case "pending": return .orange
@@ -342,6 +355,29 @@ struct FBAppointment: Identifiable, Codable, Hashable {
         case "done": return .gray
         default: return .gray
         }
+    }
+    
+    var isOverdue: Bool {
+        guard let start = startTime else { return false }
+        let terminalStatuses = ["done", "cancelled", "rejected"]
+        return start < Date() && !terminalStatuses.contains(status.lowercased())
+    }
+    
+    var startTime: Date? {
+        // Parse "02:00 PM - 03:00 PM" or similar
+        let timePart = time.components(separatedBy: " - ").first ?? time
+        let formatter = DateFormatter()
+        formatter.dateFormat = "hh:mm a"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        
+        guard let timeDate = formatter.date(from: timePart) else { return nil }
+        
+        let calendar = Calendar.current
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: timeDate)
+        return calendar.date(bySettingHour: timeComponents.hour ?? 0,
+                           minute: timeComponents.minute ?? 0,
+                           second: 0,
+                           of: date)
     }
     
     var specialtyIcon: String {
@@ -373,3 +409,18 @@ struct FBAppointment: Identifiable, Codable, Hashable {
 }
 
 
+
+struct FBReview: Identifiable, Codable, Hashable {
+    @DocumentID var id: String?
+    var lawyerId: String
+    var clientId: String
+    var clientName: String
+    var clientImage: String?
+    var rating: Int
+    var reviewText: String
+    var timestamp: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case lawyerId, clientId, clientName, clientImage, rating, reviewText, timestamp
+    }
+}

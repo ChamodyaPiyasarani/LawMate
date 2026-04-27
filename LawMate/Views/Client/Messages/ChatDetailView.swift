@@ -11,8 +11,8 @@ struct ChatDetailView: View {
     let conversation: FBConversation
     @Environment(\.dismiss) private var dismiss
     @State private var messageText: String = ""
-    @StateObject private var firestore = FirestoreManager.shared
-    @StateObject private var auth = AuthService.shared
+    @EnvironmentObject var firestore: FirestoreManager
+    @EnvironmentObject var auth: AuthService
 
     private var validConversationId: String? {
         let trimmed = conversation.id?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -271,7 +271,6 @@ struct BubbleShape: Shape {
 
 #Preview {
     ChatDetailView(conversation: FBConversation(
-        id: "1",
         participants: ["U1", "U2"],
         lastMessage: "I've reviewed the documents...",
         lastMessageAt: Date(),
@@ -279,4 +278,3 @@ struct BubbleShape: Shape {
         memberImages: ["U1": nil, "U2": nil]
     ))
 }
-

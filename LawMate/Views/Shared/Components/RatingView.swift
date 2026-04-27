@@ -2,7 +2,10 @@ import SwiftUI
 
 struct RatingView: View {
     let lawyerName: String
+    let lawyerId: String
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var firestore: FirestoreManager
+    @EnvironmentObject var auth: AuthService
     @State private var rating: Int = 0
     @State private var reviewText: String = ""
     @State private var isSubmitted: Bool = false
@@ -109,10 +112,7 @@ struct RatingView: View {
             
             // Submit Button
             LawMatePrimaryButton(title: "Submit Rating") {
-                withAnimation {
-                    isSubmitted = true
-                }
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                submitRating()
             }
             .disabled(rating == 0)
             .opacity(rating == 0 ? 0.6 : 1.0)
@@ -159,8 +159,33 @@ struct RatingView: View {
             .padding(.top, 20)
         }
     }
+
+    private func submitRating() {
+        guard let currentUser = auth.currentUser else { return }
+        
+        let review = FBReview(
+            lawyerId: lawyerId,
+            clientId: currentUser.id,
+            clientName: currentUser.fullName,
+            clientImage: currentUser.profileImage,
+            rating: rating,
+            reviewText: reviewText,
+            timestamp: Date()
+        )
+        
+        firestore.submitReview(review) { success in
+            if success {
+                withAnimation {
+                    isSubmitted = true
+                }
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } else {
+                // Handle error
+            }
+        }
+    }
 }
 
 #Preview {
-    RatingView(lawyerName: "Nimal Perera")
+    RatingView(lawyerName: "Nimal Perera", lawyerId: "L1")
 }

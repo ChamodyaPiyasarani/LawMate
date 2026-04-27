@@ -240,7 +240,6 @@ struct MyCaseDetailsView: View {
 
 #Preview {
     MyCaseDetailsView(appointment: FBAppointment(
-        id: "B1",
         clientId: "C1",
         clientName: "John Doe",
         lawyerId: "L1",

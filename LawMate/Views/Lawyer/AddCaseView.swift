@@ -29,7 +29,8 @@ struct AddCaseView: View {
     @State private var showClientSuggestions = false
     @State private var selectedClientId: String = ""
     @State private var selectedClientImage: String? = nil
-    @ObservedObject private var firestore = FirestoreManager.shared
+    @EnvironmentObject var firestore: FirestoreManager
+    @EnvironmentObject var auth: AuthService
     
     var filteredClients: [User] {
         firestore.clients.filter { $0.fullName.lowercased().contains(clientName.lowercased()) }
@@ -38,6 +39,29 @@ struct AddCaseView: View {
     let caseTypes = ["Family Law", "Criminal Law", "Civil Law", "Corporate Law", "Divorce", "Property Law"]
     let statuses = ["Active", "Closed", "Pending"]
     let priorities = ["Low", "Medium", "High"]
+    
+    // MARK: - Initializer for Edit Mode
+    var editingCase: FBLegalCase? = nil
+    
+    init(editingCase: FBLegalCase? = nil) {
+        self.editingCase = editingCase
+        if let ec = editingCase {
+            _caseTitle = State(initialValue: ec.title)
+            _caseType = State(initialValue: ec.type)
+            _clientName = State(initialValue: ec.clientName)
+            _selectedClientId = State(initialValue: ec.clientId)
+            _selectedClientImage = State(initialValue: ec.clientImage)
+            _description = State(initialValue: ec.description ?? "")
+            _status = State(initialValue: ec.status)
+            _priority = State(initialValue: ec.priority)
+            _hearingDate = State(initialValue: ec.hearingDate ?? Date())
+            _isHearingDateSet = State(initialValue: ec.hearingDate != nil)
+            _selectedAddress = State(initialValue: ec.address ?? "")
+            if let lat = ec.locationLat, let lng = ec.locationLng {
+                _location = State(initialValue: CLLocationCoordinate2D(latitude: lat, longitude: lng))
+            }
+        }
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -51,7 +75,7 @@ struct AddCaseView: View {
             VStack(spacing: 0) {
                 // MARK: Custom Header
                 LawMateNavigationBar(
-                    title: "Add New Case",
+                    title: editingCase == nil ? "Add New Case" : "Edit Case",
                     showBack: true,
                     showNotification: false,
                     onBack: { dismiss() }
@@ -276,26 +300,24 @@ struct AddCaseView: View {
                                             }
                                             .frame(height: 150)
                                             .clipShape(RoundedRectangle(cornerRadius: 16))
-                                            .disabled(true) // Static preview
                                         }
                                     }
                                 }
-                                .buttonStyle(.plain)
                             }
                         }
                         
                         // MARK: Save Button
-                        LawMatePrimaryButton(title: "Save Case") {
-                            let currUser = AuthService.shared.currentUser
+                        LawMatePrimaryButton(title: editingCase == nil ? "Save Case" : "Update Case") {
+                            let currUser = auth.currentUser
                             let lawyerName = currUser?.fullName ?? "Atty. Placeholder"
                             let lawyerId = currUser?.id ?? ""
                             let lawyerImage = currUser?.profileImage
                             
-                            let tempCaseId = UUID().uuidString
+                            let targetId = editingCase?.id ?? UUID().uuidString
                             
-                            let newCase = FBLegalCase(
-                                id: tempCaseId,
-                                caseNumber: "LAW-\(Int.random(in: 1000...9999))",
+                            let modifiedCase = FBLegalCase(
+                                id: targetId,
+                                caseNumber: editingCase?.caseNumber ?? "LAW-\(Int.random(in: 1000...9999))",
                                 title: caseTitle.isEmpty ? "Untitled Case" : caseTitle,
                                 clientName: clientName.isEmpty ? "Unknown Client" : clientName,
                                 clientId: selectedClientId,
@@ -311,19 +333,23 @@ struct AddCaseView: View {
                                 locationLat: location?.latitude,
                                 locationLng: location?.longitude,
                                 address: selectedAddress,
-                                createdDate: Date(),
-                                stages: FBCaseStage.defaultStages
+                                createdDate: editingCase?.createdDate ?? Date(),
+                                stages: editingCase?.stages ?? FBCaseStage.defaultStages
                             )
                             
-                            FirestoreManager.shared.addCase(newCase)
+                            if editingCase == nil {
+                                FirestoreManager.shared.addCase(modifiedCase)
+                            } else {
+                                FirestoreManager.shared.updateCase(modifiedCase)
+                            }
                             
-                            // Upload Attached Photos (Base64)
+                            // Upload Attached Photos (Base64) - Only for new ones selected in picker
                             for image in selectedImages {
                                 if let data = image.jpegData(compressionQuality: 0.7) {
                                     if data.count <= 1_000_000 {
                                         let base64 = data.base64EncodedString()
                                         FirestoreManager.shared.addDocument(
-                                            toCaseId: tempCaseId,
+                                            toCaseId: targetId,
                                             fileName: "Photo_\(UUID().uuidString.prefix(4)).jpg",
                                             fileType: "JPG",
                                             fileURL: nil,
@@ -339,7 +365,7 @@ struct AddCaseView: View {
                                     if data.count <= 1_000_000 {
                                         let base64 = data.base64EncodedString()
                                         FirestoreManager.shared.addDocument(
-                                            toCaseId: tempCaseId,
+                                            toCaseId: targetId,
                                             fileName: url.lastPathComponent,
                                             fileType: url.pathExtension.uppercased(),
                                             fileURL: nil,
@@ -349,19 +375,21 @@ struct AddCaseView: View {
                                 }
                             }
                             
-                            // Send notification to the client
-                            let clientNotification = FBNotification(
-                                title: "New Case Created",
-                                body: "\(lawyerName) created '\(newCase.title)' for you.",
-                                type: "case",
-                                timestamp: Date(),
-                                relatedId: tempCaseId
-                            )
-                            FirestoreManager.shared.addNotification(clientNotification, toUserId: selectedClientId)
+                            if editingCase == nil {
+                                // Send notification to the client only for NEW cases
+                                let clientNotification = FBNotification(
+                                    title: "New Case Created",
+                                    body: "\(lawyerName) created '\(modifiedCase.title)' for you.",
+                                    type: "case",
+                                    timestamp: Date(),
+                                    relatedId: targetId
+                                )
+                                FirestoreManager.shared.addNotification(clientNotification, toUserId: selectedClientId)
+                            }
 
                             NotificationManager.shared.scheduleNotification(
-                                title: "Case Added", 
-                                body: "Successfully created active case: \(newCase.title)"
+                                title: editingCase == nil ? "Case Added" : "Case Updated", 
+                                body: "Successfully \(editingCase == nil ? "created" : "updated") active case: \(modifiedCase.title)"
                             )
                             dismiss()
                         }

@@ -16,7 +16,7 @@ struct ProfileView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = true
     @AppStorage("userRole") private var userRole: UserRole = .client
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var authService = AuthService.shared
+    @EnvironmentObject var auth: AuthService
     
     // Photo Selection State
     @State private var selectedImage: UIImage? = nil
@@ -25,6 +25,7 @@ struct ProfileView: View {
     @State private var showSourceSelection = false
     @State private var isUploading = false
     @State private var showNotifications = false
+    @State private var showLogoutAlert = false
     @Binding var navPath: NavigationPath
     @Binding var activeConversation: FBConversation?
     
@@ -84,7 +85,7 @@ struct ProfileView: View {
                                     .padding(.horizontal, 8)
                                 
                                 Button(action: {
-                                    authService.logout()
+                                    showLogoutAlert = true
                                 }) {
                                     HStack(spacing: 16) {
                                         Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -146,11 +147,19 @@ struct ProfileView: View {
         .sheet(isPresented: $showNotifications) {
             NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
         }
+        .alert("Logout", isPresented: $showLogoutAlert) {
+            Button("Logout", role: .destructive) {
+                auth.logout()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to log out?")
+        }
     }
     
     private func uploadImage(_ image: UIImage) {
         isUploading = true
-        authService.uploadProfileImage(image) { result in
+        auth.uploadProfileImage(image) { result in
             DispatchQueue.main.async {
                 isUploading = false
                 switch result {
@@ -192,8 +201,8 @@ struct ProfileView: View {
                                 .clipShape(Circle())
                         } else {
                             LawMateAvatar(
-                                url: authService.currentUser?.profileImage,
-                                name: authService.currentUser?.fullName ?? "User",
+                                url: auth.currentUser?.profileImage,
+                                name: auth.currentUser?.fullName ?? "User",
                                 size: 96
                             )
                         }
@@ -216,11 +225,11 @@ struct ProfileView: View {
             .buttonStyle(.plain)
             
             VStack(spacing: 4) {
-                Text(authService.currentUser?.fullName ?? (userRole == .lawyer ? "Nimal Perera" : "Emily Johnson"))
+                Text(auth.currentUser?.fullName ?? (userRole == .lawyer ? "Nimal Perera" : "Emily Johnson"))
                     .font(.lmHeading)
                     .foregroundColor(.lmPrimary)
                 
-                Text(authService.currentUser?.email ?? (userRole == .lawyer ? "perera.nimal@lawmate.com" : "emily.johnson@email.com"))
+                Text(auth.currentUser?.email ?? (userRole == .lawyer ? "perera.nimal@lawmate.com" : "emily.johnson@email.com"))
                     .font(.lmCaption)
                     .foregroundColor(.lmTextSecondary)
             }

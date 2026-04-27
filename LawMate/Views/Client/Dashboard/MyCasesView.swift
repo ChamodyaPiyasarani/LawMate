@@ -16,7 +16,12 @@ struct ClientCase: Identifiable, Hashable {
 
 struct MyCasesView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var firestore = FirestoreManager.shared
+    @EnvironmentObject var firestore: FirestoreManager
+    @State private var showNotifications = false
+    @State private var editingCase: FBLegalCase? = nil
+    @State private var showEditSheet = false
+    @Binding var navPath: NavigationPath
+    @Binding var activeConversation: FBConversation?
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -27,35 +32,57 @@ struct MyCasesView: View {
                 .frame(height: 300)
             
             VStack(spacing: 0) {
-                // MARK: Custom Header
-                LawMateNavigationBar(
-                    title: "My Case Details",
-                    showBack: true,
-                    showNotification: true,
-                    onBack: { dismiss() },
-                    onNotification: {}
-                )
+                // MARK: Left-Aligned Header
+                HStack(alignment: .center) {
+                    Text("My Cases")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(.lmPrimary)
+                    
+                    Spacer()
+                    
+                    NotificationButton(action: {
+                        showNotifications = true
+                    })
+                }
+                .padding(.horizontal, 24)
                 .padding(.top, 64)
+                .padding(.bottom, 24)
                 .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
                         ForEach(firestore.cases) { clientCase in
-                            NavigationLink(value: clientCase) {
-                                // Card View
-                                MyCaseCard(clientCase: clientCase)
+                            NavigationLink {
+                                LawyerCaseDetailView(legalCase: clientCase)
+                            } label: {
+                                MyCaseCard(clientCase: clientCase, onDelete: {
+                                    firestore.deleteCase(id: clientCase.id ?? "")
+                                }, onEdit: {
+                                    editingCase = clientCase
+                                    showEditSheet = true
+                                })
                             }
                             .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 24)
-                    .padding(.top, 24)
+                    .padding(.top, 10)
                     .padding(.bottom, 120) // Give space for bottom nav
                 }
             }
             .ignoresSafeArea(edges: .top)
         }
         .navigationBarBackButtonHidden(true)
+        .sheet(isPresented: $showEditSheet) {
+            if let ec = editingCase {
+                NavigationStack {
+                    AddCaseView(editingCase: ec)
+                }
+            }
+        }
+        .sheet(isPresented: $showNotifications) {
+            NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
+        }
         .onAppear {
             if let currentUser = AuthService.shared.currentUser {
                 firestore.listenForCases(role: currentUser.role, userId: currentUser.id)
@@ -67,6 +94,9 @@ struct MyCasesView: View {
 // MARK: - Case Card Component
 struct MyCaseCard: View {
     let clientCase: FBLegalCase
+    let onDelete: () -> Void
+    let onEdit: () -> Void
+    @State private var showDeleteAlert = false
     
     var statusColor: Color {
         switch clientCase.status {
@@ -129,9 +159,26 @@ struct MyCaseCard: View {
                 .stroke(Color.white.opacity(0.5), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 5)
+        .contextMenu {
+            Button(action: onEdit) {
+                Label("Edit Case", systemImage: "pencil")
+            }
+            
+            Button(role: .destructive, action: {
+                showDeleteAlert = true
+            }) {
+                Label("Delete Case", systemImage: "trash")
+            }
+        }
+        .alert("Delete Case", isPresented: $showDeleteAlert) {
+            Button("Delete", role: .destructive, action: onDelete)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to delete this case? This action cannot be undone.")
+        }
     }
 }
 
 #Preview {
-    MyCasesView()
+    MyCasesView(navPath: .constant(NavigationPath()), activeConversation: .constant(nil))
 }

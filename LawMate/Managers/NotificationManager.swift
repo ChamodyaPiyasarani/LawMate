@@ -10,8 +10,9 @@ class NotificationManager: NSObject, ObservableObject {
     // For Deep Linking
     enum DeepLinkRoute: Hashable {
         case chat(conversationId: String)
-        case notificationCenter // to go to the notifications tab
+        case notificationCenter
         case myCases
+        case appointment(appointmentId: String)
     }
     @Published var pendingRoute: DeepLinkRoute? = nil
     
@@ -53,12 +54,45 @@ class NotificationManager: NSObject, ObservableObject {
         if let type = type { userInfo["type"] = type }
         content.userInfo = userInfo
         
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: timeInterval, repeats: false)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, timeInterval), repeats: false)
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
                 print("Error scheduling local notification: \(error)")
+            }
+        }
+    }
+    
+    func scheduleAppointmentReminder(for appointment: FBAppointment) {
+        guard let startTime = appointment.startTime, startTime > Date() else { return }
+        guard let appointmentId = appointment.id else { return }
+        
+        // Reminder 30 minutes before
+        let reminderTime = startTime.addingTimeInterval(-30 * 60)
+        
+        // If it's already less than 30 mins away, don't schedule or schedule immediately if appropriate
+        // Here we'll only schedule if it's at least 1 minute in the future
+        guard reminderTime > Date() else { return }
+        
+        let content = UNMutableNotificationContent()
+        content.title = "Appointment Reminder"
+        content.body = "You have an appointment with \(appointment.lawyerName) at \(appointment.time)."
+        content.sound = .default
+        content.userInfo = ["type": "appointment", "relatedId": appointmentId]
+        
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: reminderTime)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        
+        // Use appointment ID as part of identifier to avoid duplicates
+        let identifier = "reminder_\(appointmentId)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error scheduling appointment reminder: \(error)")
+            } else {
+                print("Scheduled reminder for appointment \(appointmentId) at \(reminderTime)")
             }
         }
     }
@@ -83,8 +117,19 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
         let userInfo = response.notification.request.content.userInfo
         print("Tapped notification with userInfo: \(userInfo)")
         
+        let type = userInfo["type"] as? String
+        let relatedId = userInfo["relatedId"] as? String
+        
         DispatchQueue.main.async {
-            self.pendingRoute = .notificationCenter
+            if type == "appointment" || type == "booking", let id = relatedId {
+                self.pendingRoute = .appointment(appointmentId: id)
+            } else if type == "chat" || type == "message", let id = relatedId {
+                self.pendingRoute = .chat(conversationId: id)
+            } else if type == "case" {
+                self.pendingRoute = .myCases
+            } else {
+                self.pendingRoute = .notificationCenter
+            }
         }
         
         completionHandler()

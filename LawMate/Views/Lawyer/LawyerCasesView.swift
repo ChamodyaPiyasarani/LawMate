@@ -7,7 +7,7 @@ struct LawyerCasesView: View {
     // Statuses for filtering
     let statuses = ["Active", "Pending", "Closed"]
     
-    @StateObject private var firestore = FirestoreManager.shared
+    @EnvironmentObject var firestore: FirestoreManager
     @State private var showNotifications = false
     @Binding var navPath: NavigationPath
     @Binding var activeConversation: FBConversation?
@@ -21,6 +21,9 @@ struct LawyerCasesView: View {
             return matchesSearch && matchesStatus
         }
     }
+    
+    @State private var editingCase: FBLegalCase? = nil
+    @State private var showEditSheet = false
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -82,10 +85,13 @@ struct LawyerCasesView: View {
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 20) {
                             ForEach(filteredCases) { lawyerCase in
-                                NavigationLink {
-                                    LawyerCaseDetailView(legalCase: lawyerCase)
-                                } label: {
-                                    LawyerCaseCard(lawyerCase: lawyerCase)
+                                NavigationLink(value: lawyerCase) {
+                                    LawyerCaseCard(lawyerCase: lawyerCase, onDelete: {
+                                        firestore.deleteCase(id: lawyerCase.id ?? "")
+                                    }, onEdit: {
+                                        editingCase = lawyerCase
+                                        showEditSheet = true
+                                    })
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -96,6 +102,13 @@ struct LawyerCasesView: View {
                     }
                 }
             .ignoresSafeArea(edges: .top)
+            .sheet(isPresented: $showEditSheet) {
+                if let ec = editingCase {
+                    NavigationStack {
+                        AddCaseView(editingCase: ec)
+                    }
+                }
+            }
             .onAppear {
                 if let currentUser = AuthService.shared.currentUser {
                     firestore.listenForCases(role: currentUser.role, userId: currentUser.id)
@@ -120,6 +133,9 @@ struct LawyerCasesView: View {
 // MARK: - Lawyer Case Card
 struct LawyerCaseCard: View {
     let lawyerCase: FBLegalCase
+    let onDelete: () -> Void
+    let onEdit: () -> Void
+    @State private var showDeleteAlert = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -179,6 +195,23 @@ struct LawyerCaseCard: View {
                 .stroke(Color.white.opacity(0.5), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 5)
+        .contextMenu {
+            Button(action: onEdit) {
+                Label("Edit Case", systemImage: "pencil")
+            }
+            
+            Button(role: .destructive, action: {
+                showDeleteAlert = true
+            }) {
+                Label("Delete Case", systemImage: "trash")
+            }
+        }
+        .alert("Delete Case", isPresented: $showDeleteAlert) {
+            Button("Delete", role: .destructive, action: onDelete)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to delete this case? This action cannot be undone.")
+        }
     }
     
     private var statusColor: Color {
@@ -217,7 +250,7 @@ struct LawyerCaseDetailView: View {
     @Environment(\.dismiss) private var dismiss
     
     var legalCase: FBLegalCase
-    @ObservedObject private var firestore = FirestoreManager.shared
+    @EnvironmentObject var firestore: FirestoreManager
     
     private var currentCase: FBLegalCase {
         firestore.cases.first(where: { $0.id == legalCase.id }) ?? legalCase

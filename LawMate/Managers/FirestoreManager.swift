@@ -22,6 +22,7 @@ class FirestoreManager: ObservableObject {
     @Published var appointments: [FBAppointment] = []
     @Published var advisoryDocuments: [FBAdvisoryDocument] = []
     @Published var caseDocuments: [FBDocument] = []
+    @Published var lawyerReviews: [FBReview] = []
     
     private var casesListener: ListenerRegistration?
     private var lawyersListener: ListenerRegistration?
@@ -32,6 +33,7 @@ class FirestoreManager: ObservableObject {
     private var appointmentsListener: ListenerRegistration?
     private var advisoryDocumentsListener: ListenerRegistration?
     private var documentsListener: ListenerRegistration?
+    private var reviewsListener: ListenerRegistration?
     private var lastKnownMessageDate: Date? = Date()
     private var lastKnownNotificationDate: Date? = Date()
     /// IDs of conversations deleted locally — prevents the snapshot listener from re-adding them
@@ -40,6 +42,7 @@ class FirestoreManager: ObservableObject {
     // MARK: - Lawyers
     
     func listenForLawyers() {
+        lawyersListener?.remove()
         lawyersListener = db.collection("users")
             .whereField("role", isEqualTo: "Lawyer")
             .addSnapshotListener { [weak self] snapshot, error in
@@ -55,6 +58,7 @@ class FirestoreManager: ObservableObject {
     }
     
     func listenForClients() {
+        clientsListener?.remove()
         clientsListener = db.collection("users")
             .whereField("role", isEqualTo: "Client")
             .addSnapshotListener { [weak self] snapshot, error in
@@ -68,18 +72,67 @@ class FirestoreManager: ObservableObject {
                 }
             }
     }
-    
-    func seedInitialLawyers() {
-        let mockLawyers = [
-            User(id: "L1", fullName: "Nimal Perera", email: "nimal@lawmate.com", role: .lawyer, phoneNumber: "+94 77 111 2222", specialty: "Criminal Law", experience: "14 YEARS", bio: "Experienced criminal lawyer handling complex court cases"),
-            User(id: "L2", fullName: "Sanduni Fernando", email: "sanduni@lawmate.com", role: .lawyer, phoneNumber: "+94 77 333 4444", specialty: "Family Law", experience: "10 YEARS", bio: "Family law specialist focusing on divorce and custody"),
-            User(id: "L3", fullName: "Ravindu Silva", email: "ravindu@lawmate.com", role: .lawyer, phoneNumber: "+94 77 555 6666", specialty: "Corporate Law", experience: "12 YEARS", bio: "Corporate lawyer advising businesses on legal compliance"),
-            User(id: "L4", fullName: "Ishara Jayasinghe", email: "ishara@lawmate.com", role: .lawyer, phoneNumber: "+94 77 777 8888", specialty: "Property Law", experience: "8 YEARS", bio: "Property law expert handling land disputes")
-        ]
+
         
-        for lawyer in mockLawyers {
-            try? db.collection("users").document(lawyer.id).setData(from: lawyer)
+    // MARK: - Ratings & Reviews
+    
+    func submitReview(_ review: FBReview, completion: @escaping (Bool) -> Void) {
+        do {
+            let _ = try db.collection("reviews").addDocument(from: review)
+            
+            // Update lawyer's average rating in users collection
+            let lawyerRef = db.collection("users").document(review.lawyerId)
+            
+            db.runTransaction({ (transaction, errorPointer) -> Any? in
+                let lawyerDoc: DocumentSnapshot
+                do {
+                    lawyerDoc = try transaction.getDocument(lawyerRef)
+                } catch let fetchError as NSError {
+                    errorPointer?.pointee = fetchError
+                    return nil
+                }
+                
+                let currentRating = lawyerDoc.data()?["rating"] as? Double ?? 0.0
+                let currentCount = lawyerDoc.data()?["reviewCount"] as? Int ?? 0
+                
+                let newCount = currentCount + 1
+                let newRating = ((currentRating * Double(currentCount)) + Double(review.rating)) / Double(newCount)
+                
+                transaction.updateData([
+                    "rating": newRating,
+                    "reviewCount": newCount
+                ], forDocument: lawyerRef)
+                return nil
+            }) { (object, error) in
+                if let error = error {
+                    print("Error updating lawyer rating: \(error)")
+                    completion(false)
+                } else {
+                    completion(true)
+                }
+            }
+        } catch {
+            print("Error saving review: \(error)")
+            completion(false)
         }
+    }
+    
+    func listenForReviews(forLawyerId lawyerId: String) {
+        reviewsListener?.remove()
+        reviewsListener = db.collection("reviews")
+            .whereField("lawyerId", isEqualTo: lawyerId)
+            .order(by: "timestamp", descending: true)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let documents = snapshot?.documents else {
+                    print("Error fetching reviews: \(error?.localizedDescription ?? "Unknown")")
+                    return
+                }
+                
+                let fetched = documents.compactMap { try? $0.data(as: FBReview.self) }
+                DispatchQueue.main.async {
+                    self?.lawyerReviews = fetched
+                }
+            }
     }
     
     // MARK: - Cases
@@ -191,6 +244,7 @@ class FirestoreManager: ObservableObject {
         appointmentsListener?.remove()
         advisoryDocumentsListener?.remove()
         documentsListener?.remove()
+        reviewsListener?.remove()
     }
     
     func startSync(role: UserRole, userId: String) {
@@ -327,23 +381,16 @@ class FirestoreManager: ObservableObject {
     
     func listenForAdvisoryDocuments() {
         advisoryDocumentsListener?.remove()
-        
-        advisoryDocumentsListener = db.collection("advisoryDocuments")
+        advisoryDocumentsListener = db.collection("advisory_documents")
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let documents = snapshot?.documents else {
                     print("Error fetching advisory documents: \(error?.localizedDescription ?? "Unknown")")
                     return
                 }
                 
-                let fetchedDocs = documents.compactMap { try? $0.data(as: FBAdvisoryDocument.self) }
-                // Sort newest first
-                self?.advisoryDocuments = fetchedDocs.sorted { 
-                    // Using ID as a rough sort since date is a string, or parse the date string
-                    let dateFormatter = DateFormatter()
-                    dateFormatter.dateFormat = "MMM dd, yyyy"
-                    let date0 = dateFormatter.date(from: $0.date) ?? Date.distantPast
-                    let date1 = dateFormatter.date(from: $1.date) ?? Date.distantPast
-                    return date0 > date1
+                let fetched = documents.compactMap { try? $0.data(as: FBAdvisoryDocument.self) }
+                DispatchQueue.main.async {
+                    self?.advisoryDocuments = fetched
                 }
             }
     }
@@ -405,51 +452,45 @@ class FirestoreManager: ObservableObject {
     
     func listenForConversations(userId: String) {
         conversationsListener?.remove()
-        
         conversationsListener = db.collection("conversations")
             .whereField("participants", arrayContains: userId)
+            .order(by: "lastMessageAt", descending: true)
             .addSnapshotListener { [weak self] snapshot, error in
-                guard let self = self else { return }
                 guard let documents = snapshot?.documents else {
                     print("Error fetching conversations: \(error?.localizedDescription ?? "Unknown")")
                     return
                 }
-                let loadedConversations = documents.compactMap { try? $0.data(as: FBConversation.self) }
-                // Filter out locally-deleted conversations so they never re-appear
-                let filtered = loadedConversations.filter { conv in
-                    guard let id = conv.id else { return true }
-                    return !self.deletedConversationIds.contains(id)
+                
+                var fetched = documents.compactMap { try? $0.data(as: FBConversation.self) }
+                
+                // Locally filter out deleted conversations
+                if let deletedIds = self?.deletedConversationIds {
+                    fetched = fetched.filter { conv in
+                        guard let id = conv.id else { return true }
+                        return !deletedIds.contains(id)
+                    }
                 }
+                
                 DispatchQueue.main.async {
-                    self.conversations = filtered.sorted { ($0.lastMessageAt ?? Date.distantPast) > ($1.lastMessageAt ?? Date.distantPast) }
-
-                    // Calculate total unread (messages + notifications)
-                    self.updateTotalUnreadCount()
-
-                    self.lastKnownMessageDate = Date()
+                    self?.conversations = fetched
+                    self?.updateTotalUnreadCount()
                 }
             }
     }
     
     func listenForMessages(conversationId: String) {
         messagesListener?.remove()
-        DispatchQueue.main.async { [weak self] in
-            self?.messages = []
-        }
-        
-        messagesListener = db.collection("conversations")
-            .document(conversationId)
-            .collection("messages")
+        messagesListener = db.collection("conversations").document(conversationId).collection("messages")
             .order(by: "timestamp", descending: false)
             .addSnapshotListener { [weak self] snapshot, error in
-                guard let self = self else { return }
                 guard let documents = snapshot?.documents else {
                     print("Error fetching messages: \(error?.localizedDescription ?? "Unknown")")
                     return
                 }
-                let loadedMessages = documents.compactMap { try? $0.data(as: FBMessage.self) }
+                
+                let fetched = documents.compactMap { try? $0.data(as: FBMessage.self) }
                 DispatchQueue.main.async {
-                    self.messages = loadedMessages
+                    self?.messages = fetched
                 }
             }
     }
@@ -636,18 +677,15 @@ class FirestoreManager: ObservableObject {
     
     func listenForNotifications(userId: String) {
         notificationsListener?.remove()
-        
-        notificationsListener = db.collection("users")
-            .document(userId)
-            .collection("notifications")
+        notificationsListener = db.collection("users").document(userId).collection("notifications")
             .order(by: "timestamp", descending: true)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let documents = snapshot?.documents else {
                     print("Error fetching notifications: \(error?.localizedDescription ?? "Unknown")")
                     return
                 }
-                let fetched = documents.compactMap { try? $0.data(as: FBNotification.self) }
                 
+                let fetched = documents.compactMap { try? $0.data(as: FBNotification.self) }
                 DispatchQueue.main.async {
                     // Trigger local notifications for new unread notifications
                     if let lastDate = self?.lastKnownNotificationDate {
@@ -793,6 +831,13 @@ class FirestoreManager: ObservableObject {
             let fetched = documents.compactMap { try? $0.data(as: FBAppointment.self) }
             DispatchQueue.main.async {
                 self?.appointments = fetched.sorted { ($0.date) > ($1.date) }
+                
+                // Schedule reminders for upcoming appointments
+                for appointment in fetched {
+                    if !appointment.isOverdue && appointment.status.lowercased() != "cancelled" && appointment.status.lowercased() != "rejected" {
+                        NotificationManager.shared.scheduleAppointmentReminder(for: appointment)
+                    }
+                }
             }
         }
     }

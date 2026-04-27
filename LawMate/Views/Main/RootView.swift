@@ -12,8 +12,8 @@
 import SwiftUI
 
 struct RootView: View {
-    @StateObject private var auth = AuthService.shared
-    @StateObject private var acc = AccessibilityManager.shared
+    @EnvironmentObject var auth: AuthService
+    @EnvironmentObject var acc: AccessibilityManager
     @State private var showSplash = true
 
     var body: some View {

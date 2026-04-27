@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AccessibilitySettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var authService = AuthService.shared
+    @EnvironmentObject var auth: AuthService
     @ObservedObject private var accManager = AccessibilityManager.shared
     
     @State private var textScale: Double = 1.0
@@ -154,7 +154,7 @@ struct AccessibilitySettingsView: View {
         .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .onAppear {
-            if let user = authService.currentUser {
+            if let user = auth.currentUser {
                 textScale = user.textScale ?? 1.0
                 highContrast = user.highContrast ?? false
             }
@@ -165,12 +165,12 @@ struct AccessibilitySettingsView: View {
         isSaving = true
         
         // Use updateUserProfile with the new accessibility parameters
-        authService.updateUserProfile(
-            fullName: authService.currentUser?.fullName ?? "",
-            phoneNumber: authService.currentUser?.phoneNumber ?? "",
-            specialty: authService.currentUser?.specialty,
-            experience: authService.currentUser?.experience,
-            bio: authService.currentUser?.bio,
+        auth.updateUserProfile(
+            fullName: auth.currentUser?.fullName ?? "",
+            phoneNumber: auth.currentUser?.phoneNumber ?? "",
+            specialty: auth.currentUser?.specialty,
+            experience: auth.currentUser?.experience,
+            bio: auth.currentUser?.bio,
             textScale: textScale,
             highContrast: highContrast
         ) { _ in

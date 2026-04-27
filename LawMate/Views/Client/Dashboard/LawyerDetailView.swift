@@ -5,19 +5,21 @@ struct LawyerDetailView: View {
     let lawyer: Lawyer
     @Environment(\.dismiss) private var dismiss
     @Binding var activeConversation: FBConversation?
+    @EnvironmentObject var firestore: FirestoreManager
+    @EnvironmentObject var auth: AuthService
     @State private var showRatingSheet = false
     
     private func startChat() {
-        guard let currentUser = AuthService.shared.currentUser else { return }
+        guard let currentUser = auth.currentUser else { return }
         
         let partnerInfo = (name: lawyer.name, image: (lawyer.image.count > 15 ? lawyer.image : nil))
         
-        FirestoreManager.shared.getOrCreateConversation(between: currentUser.id, and: lawyer.id, partnerInfo: partnerInfo, currentUser: currentUser) { convId in
-            if let conversation = FirestoreManager.shared.conversations.first(where: { $0.id == convId }) {
+        firestore.getOrCreateConversation(between: currentUser.id, and: lawyer.id, partnerInfo: partnerInfo, currentUser: currentUser) { convId in
+            if let conversation = firestore.conversations.first(where: { $0.id == convId }) {
                 activeConversation = conversation
             } else {
                 // Fallback: manually fetch if not in local list yet
-                FirestoreManager.shared.db.collection("conversations").document(convId).getDocument { snap, _ in
+                firestore.db.collection("conversations").document(convId).getDocument { snap, _ in
                     if let conversation = try? snap?.data(as: FBConversation.self) {
                         DispatchQueue.main.async {
                             activeConversation = conversation
@@ -113,57 +115,6 @@ struct LawyerDetailView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.bottom, 24) // Controlled gap
 
-                        // MARK: Ratings & Reviews
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Text("Ratings & Reviews")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(.lmPrimary)
-                                
-                                Spacer()
-                                
-                                Button {
-                                    showRatingSheet = true
-                                } label: {
-                                    Text("Write a review")
-                                        .font(.system(size: 13, weight: .bold))
-                                        .foregroundColor(.lmPrimary)
-                                }
-                            }
-                            
-                            // Mock Review Example
-                            HStack(alignment: .top, spacing: 12) {
-                                Circle()
-                                    .fill(Color.lmPrimary.opacity(0.1))
-                                    .frame(width: 36, height: 36)
-                                    .overlay(Text("JS").font(.system(size: 12, weight: .bold)).foregroundColor(.lmPrimary))
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack(spacing: 4) {
-                                        ForEach(0..<5) { i in
-                                            Image(systemName: "star.fill")
-                                                .font(.system(size: 10))
-                                                .foregroundColor(i < 5 ? .orange : .gray.opacity(0.3))
-                                        }
-                                        Spacer()
-                                        Text("2 days ago")
-                                            .font(.system(size: 10))
-                                            .foregroundColor(.lmTextSecondary.opacity(0.6))
-                                    }
-                                    
-                                    Text("Very professional and clear in his explanations. Highly recommended for complex cases.")
-                                        .font(.system(size: 13))
-                                        .foregroundColor(.lmTextSecondary)
-                                        .lineLimit(2)
-                                }
-                            }
-                            .padding(16)
-                            .background(Color.white.opacity(0.4))
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 24)
-
                         // MARK: CTAs
                         VStack(spacing: 12) {
                             NavigationLink(value: ClientHomeView.AppRoute.booking(lawyer)) {
@@ -199,6 +150,70 @@ struct LawyerDetailView: View {
                             .buttonStyle(.plain)
                         }
                         .padding(.horizontal, 40)
+                        .padding(.bottom, 8)
+
+                        // MARK: Ratings & Reviews
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack {
+                                Text("Ratings & Reviews")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(.lmPrimary)
+                                
+                                Spacer()
+                                
+                                Button {
+                                    showRatingSheet = true
+                                } label: {
+                                    Text("Write a review")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(.lmPrimary)
+                                }
+                            }
+                            
+                            // Real Reviews from Firestore
+                            ForEach(firestore.lawyerReviews) { review in
+                                HStack(alignment: .top, spacing: 12) {
+                                    Circle()
+                                        .fill(Color.lmPrimary.opacity(0.1))
+                                        .frame(width: 36, height: 36)
+                                        .overlay(
+                                            Text(review.clientName.prefix(1))
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundColor(.lmPrimary)
+                                        )
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack(spacing: 4) {
+                                            ForEach(0..<5) { i in
+                                                Image(systemName: "star.fill")
+                                                    .font(.system(size: 10))
+                                                    .foregroundColor(i < review.rating ? .orange : .gray.opacity(0.3))
+                                            }
+                                            Spacer()
+                                            Text(formatTimestamp(review.timestamp))
+                                                .font(.system(size: 10))
+                                                .foregroundColor(.lmTextSecondary.opacity(0.6))
+                                        }
+                                        
+                                        Text(review.reviewText)
+                                            .font(.system(size: 13))
+                                            .foregroundColor(.lmTextSecondary)
+                                            .lineLimit(3)
+                                    }
+                                }
+                                .padding(16)
+                                .background(Color.white.opacity(0.4))
+                                .clipShape(RoundedRectangle(cornerRadius: 16))
+                            }
+                            
+                            if firestore.lawyerReviews.isEmpty {
+                                Text("No reviews yet. Be the first to write one!")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.lmTextSecondary.opacity(0.6))
+                                    .padding(.top, 8)
+                            }
+                        }
+                        .padding(.horizontal, 24)
                         .padding(.bottom, 20)
                         
                         // Footer padding for global TabBar
@@ -211,8 +226,17 @@ struct LawyerDetailView: View {
         }
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showRatingSheet) {
-            RatingView(lawyerName: lawyer.name)
+            RatingView(lawyerName: lawyer.name, lawyerId: lawyer.id)
         }
+        .onAppear {
+            firestore.listenForReviews(forLawyerId: lawyer.id)
+        }
+    }
+    
+    private func formatTimestamp(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
 
@@ -229,6 +253,7 @@ struct LawyerDetailView: View {
             casesWon: "250 +",
             wonCount: 250,
             rating: 4.8,
+            reviewCount: 120,
             location: "Colombo, Sri Lanka",
             image: "person.fill",
             coordinate: .init(latitude: 6.9271, longitude: 79.8612)

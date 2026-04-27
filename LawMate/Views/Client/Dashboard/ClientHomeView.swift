@@ -9,9 +9,9 @@ struct ClientHomeView: View {
     @State private var pendingChatId: String? = nil
     @AppStorage("biometricsEnabled") private var biometricsEnabled = false
     @State private var showBiometricOptIn = false
-    @StateObject private var firestore = FirestoreManager.shared
-    @StateObject private var notifications = NotificationManager.shared
-    @ObservedObject private var auth = AuthService.shared
+    @EnvironmentObject var firestore: FirestoreManager
+    @EnvironmentObject var notifications: NotificationManager
+    @EnvironmentObject var auth: AuthService
     
     // Simple routes for screens without complex data models
     enum AppRoute: Hashable {
@@ -24,162 +24,21 @@ struct ClientHomeView: View {
             
             NavigationStack(path: $navPath) {
                 VStack(spacing: 0) {
-                    if selectedTab == .home {
-                        // MARK: Home Content
-                        ScrollView(showsIndicators: false) {
-                            ZStack(alignment: .topTrailing) {
-                                // Green blob top-left (Client Style)
-                                GreenBlobBackground(style: .client)
-                                    .frame(height: 300)
-
-                                VStack(alignment: .leading, spacing: 32) {
-                                    // MARK: Top bar
-                                    HStack(alignment: .top) {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Hello, \(auth.currentUser?.fullName.split(separator: " ").first ?? "User") !")
-                                                .font(.system(size: 14, weight: .semibold))
-                                                .foregroundColor(.lmPrimary)
-
-                                            // Hero text — two-tone
-                                            VStack(alignment: .leading, spacing: 0) {
-                                                Text("Justice,")
-                                                    .font(.lmHero)
-                                                    .foregroundColor(.lmPrimary)
-                                                Text("Refined.")
-                                                    .font(.lmHero)
-                                                    .foregroundColor(.lmTextSecondary.opacity(0.5))
-                                            }
-                                        }
-                                        Spacer()
-                                        NotificationButton(action: {
-                                            navPath.append(AppRoute.notifications)
-                                        })
-                                    }
-                                    .padding(.horizontal, 24)
-                .padding(.top, 20)
-                
-                // MARK: Upcoming Appointments Section
-                let calendar = Calendar.current
-                let today = calendar.startOfDay(for: Date())
-                let upcoming = FirestoreManager.shared.appointments.filter {
-                    let s = $0.status.lowercased()
-                    let isUpcoming = calendar.startOfDay(for: $0.date) >= today
-                    return isUpcoming && (s == "confirmed" || s == "pending" || s == "in progress")
-                }.prefix(5)
-                
-                if !upcoming.isEmpty {
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Text("Upcoming Appointments")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(.lmPrimary)
-                            
-                            Spacer()
-                            
-                            NavigationLink(value: AppRoute.allAppointments) {
-                                Text("See All")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(.lmPrimary.opacity(0.8))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.horizontal, 24)
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 16) {
-                                ForEach(upcoming) { appointment in
-                                    let isHearing = appointment.service.localizedCaseInsensitiveContains("hearing") ||
-                                        appointment.description.localizedCaseInsensitiveContains("hearing")
-                                    NavigationLink(value: appointment) {
-                                        VStack(alignment: .leading, spacing: 12) {
-                                            HStack {
-                                                Label(appointment.time, systemImage: "clock.fill")
-                                                    .font(.system(size: 10, weight: .bold))
-                                                    .foregroundColor(.lmPrimary)
-                                                
-                                                Spacer()
-                                                
-                                                Image(systemName: appointment.specialtyIcon)
-                                                    .font(.system(size: 12))
-                                                    .foregroundColor(.lmPrimary.opacity(0.3))
-                                            }
-                                            
-                                            Text(appointment.lawyerName)
-                                                .font(.system(size: 14, weight: .bold))
-                                                .foregroundColor(.lmPrimary)
-                                            
-                                            Text(appointment.service)
-                                                .font(.system(size: 11))
-                                                .foregroundColor(.lmTextSecondary)
-                                        }
-                                        .padding(16)
-                                        .frame(width: 160)
-                                        .background(isHearing ? Color.orange.opacity(0.12) : Color.white)
-                                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                                        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 2)
-                        }
-                    }
-                    .padding(.top, 10)
-                }
-                
-
-                                    // MARK: Find My Lawyer card
-                                    FindLawyerCard(searchQuery: $searchQuery, selectedTab: $selectedTab, navPath: $navPath)
-                                        .padding(.horizontal, 24)
-
-                                    // MARK: My Cases card
-                                    HomeFeatureCard(
-                                        title: "My Cases",
-                                        description: "Detailed Breakthroughs On Current Legislation And Your Rights In The Modern World.",
-                                        imageName: "doc.text.fill",
-                                        imageOnLeft: false,
-                                        route: .myCases
-                                    )
-                                    .padding(.horizontal, 24)
-
-                                    // MARK: Document Templates card
-                                    HomeFeatureCard(
-                                        title: "Document Templates",
-                                        description: "Standard Contracts, NDAs, And More. Ready For Signature.",
-                                        imageName: "doc.on.doc.fill",
-                                        imageOnLeft: true,
-                                        route: .documents
-                                    )
-                                    .padding(.horizontal, 24)
-
-                                    // Bottom padding for TabBar
-                                    Color.clear.frame(height: 120)
-                                }
-                            }
-                        }
-                    } else if selectedTab == .lawyers {
-                        // MARK: Lawyers Content
-                        LawyersListView(onBack: {
-                            selectedTab = .home
-                        })
-                    } else if selectedTab == .booking {
-                        // MARK: Booking Content
-                        BookingDetailsView(navPath: $navPath, onBack: {
-                            selectedTab = .home
-                        })
-                    } else if selectedTab == .messages {
-                        // MARK: Messages Content
-                        MessagesListView(onBack: {
-                            selectedTab = .home
-                        }, onSelect: { conversation in
+                    switch selectedTab {
+                    case .home:
+                        homeDashboard
+                    case .lawyers:
+                        LawyersListView(onBack: { selectedTab = .home })
+                    case .booking:
+                        BookingDetailsView(navPath: $navPath, onBack: { selectedTab = .home })
+                    case .messages:
+                        MessagesListView(onBack: { selectedTab = .home }, onSelect: { conversation in
                             activeConversation = conversation
                         })
-                    } else {
-                        // MARK: Profile Content
-                        ProfileView(navPath: $navPath, activeConversation: $activeConversation, onBack: {
-                            selectedTab = .home
-                        })
+                    case .profile:
+                        ProfileView(navPath: $navPath, activeConversation: $activeConversation, onBack: { selectedTab = .home })
+                    case .cases, .calendar:
+                        EmptyView()
                     }
                 }
                 .navigationDestination(for: Lawyer.self) { lawyer in
@@ -191,7 +50,7 @@ struct ClientHomeView: View {
                 .navigationDestination(for: AppRoute.self) { route in
                     switch route {
                     case .myCases:
-                        MyCasesView()
+                        MyCasesView(navPath: $navPath, activeConversation: $activeConversation)
                     case .documents:
                         AdvisoryListView()
                     case .notifications:
@@ -251,33 +110,33 @@ struct ClientHomeView: View {
                 } message: {
                     Text("Would you like to use Face ID / Touch ID for faster login next time?")
                 }
-                // Handle Deep Linking from Notifications
                 .onChange(of: notifications.pendingRoute) { _, route in
                     guard let route = route else { return }
                     
                     switch route {
                     case .chat(let conversationId):
-                        // 1. Switch to messages tab
                         selectedTab = .messages
-                        // 2. Clear stack first for a clean push
                         navPath = NavigationPath()
                         pendingChatId = conversationId
                         tryNavigateToPendingChat()
                     case .notificationCenter:
                         navPath.append(AppRoute.notifications)
                     case .myCases:
-                        // Switch to home and navigate to my cases
                         selectedTab = .home
                         navPath.append(AppRoute.myCases)
+                    case .appointment(let appointmentId):
+                        if let appointment = firestore.appointments.first(where: { $0.id == appointmentId }) {
+                            navPath.append(appointment)
+                        } else {
+                            // If not loaded yet, go to notifications or home
+                            selectedTab = .home
+                        }
                     }
-                    
-                    // Clear the pending route
                     notifications.pendingRoute = nil
                 }
                 .toolbar(.hidden, for: .navigationBar)
             }
-            
-            // MARK: Global Tab Bar
+
             if navPath.isEmpty && activeConversation == nil {
                 VStack {
                     Spacer()
@@ -296,8 +155,8 @@ struct ClientHomeView: View {
             tryNavigateToPendingChat()
         }
         .onAppear {
-            if let user = AuthService.shared.currentUser {
-                FirestoreManager.shared.startSync(role: user.role, userId: user.id)
+            if let user = auth.currentUser {
+                firestore.startSync(role: user.role, userId: user.id)
             }
         }
     }
@@ -311,6 +170,146 @@ struct ClientHomeView: View {
             ToastManager.shared.show(title: "Chat Error", message: "We couldn't open that conversation. Please try again.", type: .error)
             self.pendingChatId = nil
         }
+    }
+
+    @ViewBuilder
+    private var homeDashboard: some View {
+        ScrollView(showsIndicators: false) {
+            ZStack(alignment: .topTrailing) {
+                GreenBlobBackground(style: .client)
+                    .frame(height: 300)
+
+                VStack(alignment: .leading, spacing: 32) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Hello, \(auth.currentUser?.fullName.split(separator: " ").first ?? "User") !")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.lmPrimary)
+
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text("Justice,")
+                                    .font(.lmHero)
+                                    .foregroundColor(.lmPrimary)
+                                Text("Refined.")
+                                    .font(.lmHero)
+                                    .foregroundColor(.lmTextSecondary.opacity(0.5))
+                            }
+                        }
+                        Spacer()
+                        NotificationButton(action: {
+                            navPath.append(AppRoute.notifications)
+                        })
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 20)
+                    
+                    upcomingAppointmentsSection
+                    
+                    VStack(spacing: 24) {
+                        FindLawyerCard(searchQuery: $searchQuery, selectedTab: $selectedTab, navPath: $navPath)
+                        
+                        HomeFeatureCard(
+                            title: "My Cases",
+                            description: "Detailed Breakthroughs On Current Legislation And Your Rights In The Modern World.",
+                            imageName: "doc.text.fill",
+                            imageOnLeft: false,
+                            route: .myCases
+                        )
+                        
+                        HomeFeatureCard(
+                            title: "Document Templates",
+                            description: "Standard Contracts, NDAs, And More. Ready For Signature.",
+                            imageName: "doc.on.doc.fill",
+                            imageOnLeft: true,
+                            route: .documents
+                        )
+                    }
+                    .padding(.horizontal, 24)
+                    Color.clear.frame(height: 120)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var upcomingAppointmentsSection: some View {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let upcoming = firestore.appointments.filter {
+            let s = $0.status.lowercased()
+            let isUpcoming = calendar.startOfDay(for: $0.date) >= today
+            return isUpcoming && (s == "confirmed" || s == "pending" || s == "in progress")
+        }.prefix(5)
+        
+        if !upcoming.isEmpty {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text("Upcoming Appointments")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.lmPrimary)
+                    Spacer()
+                    NavigationLink(value: AppRoute.allAppointments) {
+                        Text("See All")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.lmPrimary.opacity(0.8))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 24)
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 16) {
+                        ForEach(upcoming) { appointment in
+                            appointmentCard(appointment)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 2)
+                }
+            }
+            .padding(.top, 10)
+        }
+    }
+
+    private func appointmentCard(_ appointment: FBAppointment) -> some View {
+        let isHearing = appointment.service.localizedCaseInsensitiveContains("hearing") ||
+            appointment.description.localizedCaseInsensitiveContains("hearing")
+            
+        return NavigationLink(value: appointment) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label(appointment.time, systemImage: "clock.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.lmPrimary)
+                    Spacer()
+                    Image(systemName: appointment.specialtyIcon)
+                        .font(.system(size: 12))
+                        .foregroundColor(.lmPrimary.opacity(0.3))
+                }
+                
+                Text(appointment.lawyerName)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.lmPrimary)
+                
+                HStack {
+                    Text(appointment.service)
+                        .font(.system(size: 11))
+                        .foregroundColor(.lmTextSecondary)
+                    Spacer()
+                    if appointment.isOverdue {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 8, height: 8)
+                    }
+                }
+            }
+            .padding(16)
+            .frame(width: 160)
+            .background(isHearing ? Color.orange.opacity(0.12) : Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -337,7 +336,8 @@ private struct FindLawyerCard: View {
                 experienceYears: 5,
                 casesWon: user.casesWon ?? "0",
                 wonCount: 0,
-                rating: 4.8,
+                rating: user.rating ?? 0.0,
+                reviewCount: user.reviewCount ?? 0,
                 location: user.address ?? "Colombo, Sri Lanka",
                 image: user.profileImage ?? "",
                 coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng)

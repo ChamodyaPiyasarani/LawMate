@@ -3,6 +3,9 @@ import SwiftUI
 struct LawyerCalendarView: View {
     @StateObject private var viewModel = CalendarViewModel()
     @Environment(\.dismiss) private var dismiss
+    @State private var showNotifications = false
+    @Binding var navPath: NavigationPath
+    @Binding var activeConversation: FBConversation?
     var showBack: Bool = true
     
     let daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -17,13 +20,21 @@ struct LawyerCalendarView: View {
                 .offset(y: -50)
             
             VStack(spacing: 0) {
-                // MARK: Custom Header
-                LawMateNavigationBar(
-                    title: "My Calendar",
-                    showBack: showBack,
-                    onBack: { dismiss() }
-                )
+                // MARK: Left-Aligned Header
+                HStack(alignment: .center) {
+                    Text("My Calendar")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(.lmPrimary)
+                    
+                    Spacer()
+                    
+                    NotificationButton(action: {
+                        showNotifications = true
+                    })
+                }
+                .padding(.horizontal, 24)
                 .padding(.top, 64)
+                .padding(.bottom, 24)
                 
                 if !viewModel.isAuthorized {
                     permissionView
@@ -47,6 +58,9 @@ struct LawyerCalendarView: View {
         .navigationBarBackButtonHidden(true)
         .onAppear {
             viewModel.refreshMonthData()
+        }
+        .sheet(isPresented: $showNotifications) {
+            NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
         }
     }
     
@@ -247,4 +261,7 @@ struct DayCell: View {
 struct CalendarDay: Identifiable {
     let id = UUID()
     let date: Date?
+}
+#Preview {
+    LawyerCalendarView(navPath: .constant(NavigationPath()), activeConversation: .constant(nil))
 }

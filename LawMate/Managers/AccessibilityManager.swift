@@ -4,7 +4,7 @@ import Combine
 public class AccessibilityManager: ObservableObject {
     public static let shared = AccessibilityManager()
     
-    @ObservedObject private var authService = AuthService.shared
+    private let authService = AuthService.shared
     
     @Published public var textScale: Double = 1.0
     @Published public var highContrast: Bool = false

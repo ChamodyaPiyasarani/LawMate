@@ -16,10 +16,10 @@ struct LawyerHomeView: View {
     @State private var pendingChatId: String? = nil
     @AppStorage("biometricsEnabled") private var biometricsEnabled = false
     @State private var showBiometricOptIn = false
-    @StateObject private var firestore = FirestoreManager.shared
-    @StateObject private var eventService = EventKitService.shared
-    @StateObject private var notifications = NotificationManager.shared
-    @ObservedObject private var auth = AuthService.shared
+    @EnvironmentObject var firestore: FirestoreManager
+    @EnvironmentObject var eventService: EventKitService
+    @EnvironmentObject var notifications: NotificationManager
+    @EnvironmentObject var auth: AuthService
     @State private var todayEvents: [EKEvent] = []
     @State private var weekEvents: [EKEvent] = []
     
@@ -68,166 +68,7 @@ struct LawyerHomeView: View {
             
             NavigationStack(path: $navPath) {
                 VStack(spacing: 0) {
-                    if selectedTab == .home {
-                        // MARK: Lawyer Home Dashboard
-                        ZStack(alignment: .top) {
-                            // Fixed Background Blob (Right-aligned for Lawyer)
-                            GreenBlobBackground(style: .lawyer)
-                                .frame(height: 350)
-                                .offset(y: -50) // Adjust to sit behind header
-                            
-                            VStack(spacing: 0) {
-                                // MARK: Fixed Header (Sticky)
-                                HStack(alignment: .top) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Hello, \(auth.currentUser?.fullName.split(separator: " ").first ?? "User") !")
-                                            .font(.system(size: 14, weight: .semibold))
-                                            .foregroundColor(.lmPrimary)
-
-                                        VStack(alignment: .leading, spacing: 0) {
-                                            Text("Justice,")
-                                                .font(.lmHero)
-                                                .foregroundColor(.lmPrimary)
-                                            Text("Refined.")
-                                                .font(.lmHero)
-                                                .foregroundColor(.lmTextSecondary.opacity(0.5))
-                                        }
-                                    }
-                                    Spacer()
-                                    
-                                    // Notification Bell as per image
-                                    NotificationButton(action: {
-                                        navPath.append(LawyerRoute.notifications)
-                                    })
-                                }
-                                .padding(.horizontal, 24)
-                                .padding(.top, 20)
-                                .background(Color.lmBackground.opacity(0.01)) // Subtle touch area
-
-                                // MARK: Scrollable Content
-                                ScrollView(showsIndicators: false) {
-                                    VStack(alignment: .leading, spacing: 28) {
-                                        // MARK: Stats Cards
-                                        HStack(spacing: 20) {
-                                            DashboardStatCard(title: "Cases", value: String(format: "%02d", firestore.cases.count), isGreen: false)
-                                            
-                                            Button {
-                                                withAnimation(.spring()) {
-                                                    selectedTab = .calendar
-                                                }
-                                            } label: {
-                                                DashboardStatCard(title: "Today\nAppointments", value: String(format: "%02d", todayEvents.count + todayAppointments.count), isGreen: true)
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                        .padding(.horizontal, 24)
-
-                                        // MARK: Hearings Card
-                                        HearingsCard(count: String(format: "%02d", hearingsThisWeekCount))
-                                            .padding(.horizontal, 24)
-
-                                        // MARK: Action Buttons
-                                        HStack(spacing: 16) {
-                                            ActionPill(icon: "plus.circle.fill", title: "Add new case") {
-                                                navPath.append(LawyerRoute.addCase)
-                                            }
-                                            ActionPill(icon: "doc.badge.plus", title: "Add Documents") {
-                                                navPath.append(LawyerRoute.uploadAdvisory)
-                                            }
-                                        }
-                                        .padding(.horizontal, 24)
-
-                                        // MARK: Schedules
-                                        VStack(alignment: .leading, spacing: 16) {
-                                            HStack {
-                                                Text("Today Schedules")
-                                                    .font(.system(size: 14, weight: .semibold))
-                                                    .foregroundColor(.lmTextSecondary.opacity(0.6))
-                                                
-                                                Spacer()
-                                                
-                                                Button {
-                                                    withAnimation(.spring()) {
-                                                        selectedTab = .calendar
-                                                    }
-                                                } label: {
-                                                    Text("See All")
-                                                        .font(.system(size: 12, weight: .bold))
-                                                        .foregroundColor(.lmPrimary)
-                                                }
-                                            }
-                                            .padding(.horizontal, 24)
-
-                                            VStack(spacing: 16) {
-                                                if todayEvents.isEmpty && todayAppointments.isEmpty && todayCaseHearings.isEmpty {
-                                                    Text("No schedules for today")
-                                                        .font(.lmCaption)
-                                                        .foregroundColor(.lmTextSecondary.opacity(0.5))
-                                                        .padding()
-                                                } else {
-                                                    // Case Hearings (Priority)
-                                                    ForEach(todayCaseHearings) { lCase in
-                                                        ScheduleRow(
-                                                            time: formatTime(lCase.hearingDate ?? Date()),
-                                                            event: "Hearing: \(lCase.title)",
-                                                            category: lCase.clientName
-                                                        )
-                                                    }
-                                                    
-                                                    // LawMate Appointments
-                                                    ForEach(todayAppointments) { appointment in
-                                                        Button {
-                                                            withAnimation(.spring()) {
-                                                                selectedTab = .calendar
-                                                            }
-                                                        } label: {
-                                                            ScheduleRow(
-                                                                time: formatTime(appointment.date),
-                                                                event: "Appt: \(appointment.clientName)",
-                                                                category: appointment.service
-                                                            )
-                                                        }
-                                                        .buttonStyle(.plain)
-                                                    }
-                                                    
-                                                    // System Events
-                                                    ForEach(todayEvents, id: \.eventIdentifier) { event in
-                                                        Button {
-                                                            withAnimation(.spring()) {
-                                                                selectedTab = .calendar
-                                                            }
-                                                        } label: {
-                                                            ScheduleRow(
-                                                                time: formatTime(event.startDate),
-                                                                event: event.title,
-                                                                category: event.notes?.replacingOccurrences(of: "Type: ", with: "") ?? "General"
-                                                            )
-                                                        }
-                                                        .buttonStyle(.plain)
-                                                    }
-                                                }
-                                            }
-                                            .padding(.horizontal, 24)
-                                        }
-
-                                        // TabBar Space
-                                        Color.clear.frame(height: 120)
-                                    }
-                                    .padding(.top, 24)
-                                }
-                            }
-                        }
-                    } else if selectedTab == .cases {
-                        LawyerCasesView(navPath: $navPath, activeConversation: $activeConversation)
-                    } else if selectedTab == .calendar {
-                        LawyerCalendarView(showBack: false)
-                    } else if selectedTab == .messages {
-                        MessagesListView(onBack: { selectedTab = .home }, onSelect: { conversation in
-                            activeConversation = conversation
-                        })
-                    } else {
-                        ProfileView(navPath: $navPath, activeConversation: $activeConversation, onBack: { selectedTab = .home })
-                    }
+                    contentForSelectedTab
                 }
                 .navigationBarHidden(true)
                 .navigationDestination(item: $activeConversation) { conversation in
@@ -237,92 +78,30 @@ struct LawyerHomeView: View {
                     LawyerCaseDetailView(legalCase: lawyerCase)
                 }
                 .navigationDestination(for: FBAppointment.self) { appointment in
-                    // Lawyers might not have a specific appointment detail yet, but we can reuse or create one.
-                    // For now, let's go to the calendar or a placeholder if needed.
-                    LawyerCalendarView(showBack: true) 
+                    LawyerCalendarView(navPath: $navPath, activeConversation: $activeConversation, showBack: true) 
                 }
                 .navigationDestination(for: LawyerRoute.self) { route in
-                    switch route {
-                    case .addCase:
-                        AddCaseView()
-                    case .uploadAdvisory:
-                        UploadAdvisoryView()
-                    case .notifications:
-                        NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
-                    }
+                    destinationForLawyerRoute(route)
                 }
                 .navigationDestination(for: ProfileRoute.self) { route in
-                    switch route {
-                    case .personalInfo:
-                        PersonalInfoView()
-                    case .security:
-                        SecurityView()
-                    case .biometrics:
-                        BiometricsView()
-                    case .profileNotifications:
-                        ProfileNotificationsView()
-                    case .termsOfService:
-                        TermsView()
-                    case .privacyPolicy:
-                        PrivacyView()
-                    case .myUploads:
-                        LawyerMyUploadsView()
-                    case .accessibility:
-                        AccessibilitySettingsView()
-                    }
+                    destinationForProfileRoute(route)
                 }
                 .onAppear {
                     if UserDefaults.standard.bool(forKey: "shouldShowBiometricPrompt") {
                         showBiometricOptIn = true
                     }
                 }
-                // Handle Deep Linking from Notifications
                 .onChange(of: notifications.pendingRoute) { _, route in
-                    guard let route = route else { return }
-                    
-                    switch route {
-                    case .chat(let conversationId):
-                        // 1. Switch to messages tab
-                        selectedTab = .messages
-                        // 2. Clear stack first for a clean push
-                        navPath = NavigationPath()
-                        pendingChatId = conversationId
-                        tryNavigateToPendingChat()
-                    case .notificationCenter:
-                        navPath.append(LawyerRoute.notifications)
-                    case .myCases:
-                        // For a lawyer, go to home and then navigate to cases tab
-                        selectedTab = .cases
-                    }
-                    
-                    // Clear the pending route
-                    notifications.pendingRoute = nil
+                    handleNotificationRoute(route)
                 }
                 .alert("Enable Biometric Login?", isPresented: $showBiometricOptIn) {
-                    Button("Yes, Enable") {
-                        biometricsEnabled = true
-                        UserDefaults.standard.set(false, forKey: "shouldShowBiometricPrompt")
-                        ToastManager.shared.show(title: "Face ID Enabled", message: "You can now log in using biometrics.", type: .success)
-                    }
-                    Button("Not Now", role: .cancel) {
-                        biometricsEnabled = false
-                        KeychainManager.shared.clearCredentials()
-                        UserDefaults.standard.set(false, forKey: "shouldShowBiometricPrompt")
-                    }
+                    biometricOptInButtons
                 } message: {
                     Text("Would you like to use Face ID / Touch ID for faster login next time?")
                 }
             }
             
-            // MARK: Global Tab Bar (Lawyer Role)
-            if navPath.isEmpty && activeConversation == nil {
-                VStack {
-                    Spacer()
-                    TabBarView(selectedTab: $selectedTab, role: .lawyer)
-                }
-                .ignoresSafeArea(edges: .bottom)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+            bottomTabBar
         }
         .animation(.easeInOut(duration: 0.2), value: navPath.isEmpty && activeConversation == nil)
         .onChange(of: selectedTab) { _, _ in
@@ -336,6 +115,262 @@ struct LawyerHomeView: View {
             if let user = AuthService.shared.currentUser {
                 firestore.startSync(role: user.role, userId: user.id)
                 fetchTodayEvents()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var contentForSelectedTab: some View {
+        switch selectedTab {
+        case .home:
+            dashboardView
+        case .cases:
+            LawyerCasesView(navPath: $navPath, activeConversation: $activeConversation)
+        case .calendar:
+            LawyerCalendarView(navPath: $navPath, activeConversation: $activeConversation, showBack: false)
+        case .messages:
+            MessagesListView(onBack: { selectedTab = .home }, onSelect: { conversation in
+                activeConversation = conversation
+            })
+        case .profile:
+            ProfileView(navPath: $navPath, activeConversation: $activeConversation, onBack: { selectedTab = .home })
+        case .lawyers, .booking:
+            EmptyView()
+        }
+    }
+
+    private var dashboardView: some View {
+        ZStack(alignment: .top) {
+            GreenBlobBackground(style: .lawyer)
+                .frame(height: 350)
+                .offset(y: -50)
+            
+            VStack(spacing: 0) {
+                dashboardHeader
+                
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 28) {
+                        statsCardsSection
+                        
+                        HearingsCard(count: String(format: "%02d", hearingsThisWeekCount))
+                            .padding(.horizontal, 24)
+                        
+                        actionButtonsSection
+                        
+                        schedulesSection
+                        
+                        Color.clear.frame(height: 120)
+                    }
+                    .padding(.top, 24)
+                }
+            }
+        }
+    }
+
+    private var dashboardHeader: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Hello, \(auth.currentUser?.fullName.split(separator: " ").first ?? "User") !")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.lmPrimary)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Justice,")
+                        .font(.lmHero)
+                        .foregroundColor(.lmPrimary)
+                    Text("Refined.")
+                        .font(.lmHero)
+                        .foregroundColor(.lmTextSecondary.opacity(0.5))
+                }
+            }
+            Spacer()
+            
+            NotificationButton(action: {
+                navPath.append(LawyerRoute.notifications)
+            })
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 20)
+    }
+
+    private var statsCardsSection: some View {
+        HStack(spacing: 20) {
+            DashboardStatCard(title: "Cases", value: String(format: "%02d", firestore.cases.count), isGreen: false)
+            
+            Button {
+                withAnimation(.spring()) {
+                    selectedTab = .calendar
+                }
+            } label: {
+                DashboardStatCard(title: "Today\nAppointments", value: String(format: "%02d", todayEvents.count + todayAppointments.count), isGreen: true)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 24)
+    }
+
+    private var actionButtonsSection: some View {
+        HStack(spacing: 16) {
+            ActionPill(icon: "plus.circle.fill", title: "Add new case") {
+                navPath.append(LawyerRoute.addCase)
+            }
+            ActionPill(icon: "doc.badge.plus", title: "Add Documents") {
+                navPath.append(LawyerRoute.uploadAdvisory)
+            }
+        }
+        .padding(.horizontal, 24)
+    }
+
+    private var schedulesSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Today Schedules")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.lmTextSecondary.opacity(0.6))
+                
+                Spacer()
+                
+                Button {
+                    withAnimation(.spring()) {
+                        selectedTab = .calendar
+                    }
+                } label: {
+                    Text("See All")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.lmPrimary)
+                }
+            }
+            .padding(.horizontal, 24)
+
+            VStack(spacing: 16) {
+                if todayEvents.isEmpty && todayAppointments.isEmpty && todayCaseHearings.isEmpty {
+                    Text("No schedules for today")
+                        .font(.lmCaption)
+                        .foregroundColor(.lmTextSecondary.opacity(0.5))
+                        .padding()
+                } else {
+                    todaySchedulesList
+                }
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+
+    @ViewBuilder
+    private var todaySchedulesList: some View {
+        ForEach(todayCaseHearings) { lCase in
+            ScheduleRow(
+                time: formatTime(lCase.hearingDate ?? Date()),
+                event: "Hearing: \(lCase.title)",
+                category: lCase.clientName
+            )
+        }
+        
+        ForEach(todayAppointments) { appointment in
+            Button {
+                withAnimation(.spring()) {
+                    selectedTab = .calendar
+                }
+            } label: {
+                ScheduleRow(
+                    time: formatTime(appointment.date),
+                    event: "Appt: \(appointment.clientName)",
+                    category: appointment.service,
+                    statusTitle: appointment.statusTitle,
+                    statusColor: appointment.statusColor
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        
+        ForEach(todayEvents, id: \.eventIdentifier) { event in
+            Button {
+                withAnimation(.spring()) {
+                    selectedTab = .calendar
+                }
+            } label: {
+                ScheduleRow(
+                    time: formatTime(event.startDate),
+                    event: event.title,
+                    category: event.notes?.replacingOccurrences(of: "Type: ", with: "") ?? "General"
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var bottomTabBar: some View {
+        Group {
+            if navPath.isEmpty && activeConversation == nil {
+                VStack {
+                    Spacer()
+                    TabBarView(selectedTab: $selectedTab, role: .lawyer)
+                }
+                .ignoresSafeArea(edges: .bottom)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func destinationForLawyerRoute(_ route: LawyerRoute) -> some View {
+        switch route {
+        case .addCase:
+            AddCaseView()
+        case .uploadAdvisory:
+            UploadAdvisoryView()
+        case .notifications:
+            NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
+        }
+    }
+
+    @ViewBuilder
+    private func destinationForProfileRoute(_ route: ProfileRoute) -> some View {
+        switch route {
+        case .personalInfo: PersonalInfoView()
+        case .security: SecurityView()
+        case .biometrics: BiometricsView()
+        case .profileNotifications: ProfileNotificationsView()
+        case .termsOfService: TermsView()
+        case .privacyPolicy: PrivacyView()
+        case .myUploads: LawyerMyUploadsView()
+        case .accessibility: AccessibilitySettingsView()
+        }
+    }
+
+    private func handleNotificationRoute(_ route: NotificationManager.DeepLinkRoute?) {
+        guard let route = route else { return }
+        switch route {
+        case .chat(let conversationId):
+            selectedTab = .messages
+            navPath = NavigationPath()
+            pendingChatId = conversationId
+            tryNavigateToPendingChat()
+        case .notificationCenter:
+            navPath.append(LawyerRoute.notifications)
+        case .myCases:
+            selectedTab = .cases
+        case .appointment(let appointmentId):
+            if let appointment = firestore.appointments.first(where: { $0.id == appointmentId }) {
+                navPath.append(appointment)
+            } else {
+                selectedTab = .home
+            }
+        }
+        notifications.pendingRoute = nil
+    }
+
+    private var biometricOptInButtons: some View {
+        Group {
+            Button("Yes, Enable") {
+                biometricsEnabled = true
+                UserDefaults.standard.set(false, forKey: "shouldShowBiometricPrompt")
+                ToastManager.shared.show(title: "Face ID Enabled", message: "You can now log in using biometrics.", type: .success)
+            }
+            Button("Not Now", role: .cancel) {
+                biometricsEnabled = false
+                KeychainManager.shared.clearCredentials()
+                UserDefaults.standard.set(false, forKey: "shouldShowBiometricPrompt")
             }
         }
     }
@@ -461,11 +496,12 @@ private struct ActionPill: View {
         .buttonStyle(.plain)
     }
 }
-
 private struct ScheduleRow: View {
     let time: String
     let event: String
     let category: String
+    var statusTitle: String? = nil
+    var statusColor: Color = .lmPrimary
 
     var body: some View {
         HStack(spacing: 16) {
@@ -491,6 +527,16 @@ private struct ScheduleRow: View {
             }
             
             Spacer()
+            
+            if let status = statusTitle {
+                Text(status)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(statusColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(statusColor.opacity(0.1))
+                    .clipShape(Capsule())
+            }
         }
         .padding(20)
         .background(Color.white.opacity(0.6))

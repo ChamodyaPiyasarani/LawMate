@@ -6,8 +6,8 @@ struct MessagesListView: View {
     var onSelect: (FBConversation) -> Void = { _ in }
     
     @State private var showingNewChatSheet = false
-    @StateObject private var firestore = FirestoreManager.shared
-    @StateObject private var auth = AuthService.shared
+    @EnvironmentObject var firestore: FirestoreManager
+    @EnvironmentObject var auth: AuthService
     
     // Delete state
     @State private var conversationToDelete: FBConversation? = nil
@@ -162,7 +162,7 @@ struct ChatPreviewCard: View {
     var onTap: () -> Void
     var onDeleteRequest: () -> Void
     
-    @StateObject private var auth = AuthService.shared
+    @EnvironmentObject var auth: AuthService
     
     var body: some View {
         let partner = conversation.partnerInfo(for: auth.currentUser?.id ?? "")
@@ -277,8 +277,8 @@ struct ChatContact: Identifiable {
 
 struct NewChatSelectionView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var firestore = FirestoreManager.shared
-    @StateObject private var auth = AuthService.shared
+    @EnvironmentObject var firestore: FirestoreManager
+    @EnvironmentObject var auth: AuthService
     
     var onSelect: (ChatContact) -> Void
     
