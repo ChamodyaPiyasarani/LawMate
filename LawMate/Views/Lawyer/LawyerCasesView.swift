@@ -244,6 +244,7 @@ struct LawyerCaseCard: View {
 }
 
 import UniformTypeIdentifiers
+import PhotosUI
 
 // MARK: - Lawyer Case Detail View
 struct LawyerCaseDetailView: View {
@@ -262,6 +263,7 @@ struct LawyerCaseDetailView: View {
     @State private var selectedStageIndex: Int? = nil
     @State private var selectedDocument: FBDocument? = nil
     @State private var showScanner = false
+    @State private var selectedPhotosItem: PhotosPickerItem? = nil
     
     init(legalCase: FBLegalCase) {
         self.legalCase = legalCase
@@ -281,9 +283,8 @@ struct LawyerCaseDetailView: View {
                 LawMateNavigationBar(
                     title: "Case Details",
                     showBack: true,
-                    showCamera: true,
-                    onBack: { dismiss() },
-                    onCamera: { showScanner = true }
+                    showCamera: false,
+                    onBack: { dismiss() }
                 )
                 .padding(.top, 64)
                 
@@ -477,11 +478,23 @@ struct LawyerCaseDetailView: View {
                     fileName: originalName,
                     fileType: fileType,
                     fileURL: nil,
-                    fileBase64: base64String
+                    fileBase64: base64String,
+                    stageIndex: selectedStageIndex
                 )
             }
         }
         ToastManager.shared.show(title: "Success", message: "Scanned documents uploaded.", type: .success)
+    }
+    
+    private func handleGallerySelection(_ image: UIImage?) {
+        guard let image = image else { return }
+        if let data = image.jpegData(compressionQuality: 0.8) {
+            let filename = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+            try? data.write(to: filename)
+            DispatchQueue.main.async {
+                handleScannedDocuments([filename])
+            }
+        }
     }
     
     // MARK: - Subviews
@@ -622,6 +635,14 @@ struct LawyerCaseDetailView: View {
                         onUpload: {
                             selectedStageIndex = index
                             showFilePicker = true
+                        },
+                        onCamera: {
+                            selectedStageIndex = index
+                            showScanner = true
+                        },
+                        onGallery: { image in
+                            selectedStageIndex = index
+                            handleGallerySelection(image)
                         },
                         onDateChange: { newDate in
                             updateStageDate(at: index, date: newDate)

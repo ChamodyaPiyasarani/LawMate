@@ -814,7 +814,12 @@ struct TimelineNode: View {
     let canEdit: Bool
     var onToggle: () -> Void = {}
     var onUpload: () -> Void = {}
+    var onCamera: (() -> Void)? = nil
+    var onGallery: ((UIImage?) -> Void)? = nil
     var onDateChange: ((Date) -> Void)? = nil
+    
+    @State private var showImagePicker = false
+    @State private var selectedUIImage: UIImage? = nil
     
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
@@ -923,19 +928,46 @@ struct TimelineNode: View {
                 }
                 
                 if canEdit {
-                    Button(action: onUpload) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "arrow.up.doc.fill")
-                                .font(.system(size: 12))
-                            Text("Upload Files")
-                                .font(.system(size: 12, weight: .bold))
+                    HStack(spacing: 12) {
+                        Button(action: onUpload) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.up.doc.fill")
+                                    .font(.system(size: 12))
+                                Text("Upload Files")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Color.lmPrimary)
+                            .clipShape(Capsule())
+                            .shadow(color: Color.lmPrimary.opacity(0.3), radius: 6, x: 0, y: 3)
                         }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Color.lmPrimary)
-                        .clipShape(Capsule())
-                        .shadow(color: Color.lmPrimary.opacity(0.3), radius: 6, x: 0, y: 3)
+                        
+                        if let onCamera = onCamera {
+                            Menu {
+                                Button {
+                                    onCamera()
+                                } label: {
+                                    Label("Scan with Camera", systemImage: "camera")
+                                }
+                                
+                                if onGallery != nil {
+                                    Button {
+                                        showImagePicker = true
+                                    } label: {
+                                        Label("Select from Gallery", systemImage: "photo.on.rectangle")
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.lmPrimary)
+                                    .frame(width: 32, height: 32)
+                                    .background(Color.lmPrimary.opacity(0.1))
+                                    .clipShape(Circle())
+                            }
+                        }
                     }
                     .padding(.top, 4)
                 }
@@ -943,6 +975,14 @@ struct TimelineNode: View {
                 if !isLast {
                     Spacer().frame(height: canEdit ? 30 : 20)
                 }
+            }
+        }
+        .sheet(isPresented: $showImagePicker) {
+            ImagePicker(sourceType: .photoLibrary, selectedImage: $selectedUIImage)
+        }
+        .onChange(of: selectedUIImage) { _, newImage in
+            if let img = newImage, let onGallery = onGallery {
+                onGallery(img)
             }
         }
     }
