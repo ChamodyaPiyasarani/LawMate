@@ -216,9 +216,9 @@ struct LawyerCaseCard: View {
     
     private var statusColor: Color {
         switch lawyerCase.status {
-        case "Active": return .orange
+        case "Active": return .green
         case "Closed": return .gray
-        case "Pending": return .blue
+        case "Pending": return .orange
         default: return .lmPrimary
         }
     }
