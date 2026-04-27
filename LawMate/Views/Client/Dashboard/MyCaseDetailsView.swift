@@ -4,6 +4,8 @@ import MapKit
 struct MyCaseDetailsView: View {
     let appointment: FBAppointment
     @Environment(\.dismiss) private var dismiss
+    @Binding var navPath: NavigationPath
+    @Binding var activeConversation: FBConversation?
     @State private var showRescheduleSheet = false
     @State private var showCancelSheet = false
     @State private var route: MKRoute?
@@ -28,7 +30,9 @@ struct MyCaseDetailsView: View {
                     showNotification: true,
                     showCamera: false,
                     onBack: { dismiss() },
-                    onNotification: {}
+                    onNotification: {
+                        navPath.append(ClientHomeView.AppRoute.notifications)
+                    }
                 )
                 .padding(.top, 64)
                 .zIndex(10)

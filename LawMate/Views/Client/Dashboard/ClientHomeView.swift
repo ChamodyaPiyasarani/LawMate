@@ -45,7 +45,7 @@ struct ClientHomeView: View {
                     LawyerDetailView(lawyer: lawyer, activeConversation: $activeConversation)
                 }
                 .navigationDestination(for: FBAppointment.self) { appointment in
-                    MyCaseDetailsView(appointment: appointment)
+                    MyCaseDetailsView(appointment: appointment, navPath: $navPath, activeConversation: $activeConversation)
                 }
                 .navigationDestination(for: AppRoute.self) { route in
                     switch route {
@@ -65,7 +65,7 @@ struct ClientHomeView: View {
                     DocumentDetailView(document: doc)
                 }
                 .navigationDestination(for: FBLegalCase.self) { clientCase in
-                    CaseDetailView(clientCase: clientCase)
+                    CaseDetailView(clientCase: clientCase, navPath: $navPath, activeConversation: $activeConversation)
                 }
                 .navigationDestination(item: $activeConversation) { conversation in
                     ChatDetailView(conversation: conversation)

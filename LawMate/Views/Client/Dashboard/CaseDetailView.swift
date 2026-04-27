@@ -7,6 +7,8 @@ struct CaseDetailView: View {
     @State var clientCase: FBLegalCase
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var firestore: FirestoreManager
+    @Binding var navPath: NavigationPath
+    @Binding var activeConversation: FBConversation?
     
     private var currentCase: FBLegalCase {
         firestore.cases.first(where: { $0.id == clientCase.id }) ?? clientCase
@@ -42,6 +44,9 @@ struct CaseDetailView: View {
                     showNotification: !isLawyer,
                     showCamera: isLawyer,
                     onBack: { dismiss() },
+                    onNotification: {
+                        navPath.append(ClientHomeView.AppRoute.notifications)
+                    },
                     onCamera: { showScanner = true }
                 )
                 .padding(.top, 64)
