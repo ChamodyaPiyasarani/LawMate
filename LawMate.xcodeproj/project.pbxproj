@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		2C16014155FB231EFDE65B76 /* FirestoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C65B5ECB07C88DA6A929E43 /* FirestoreManager.swift */; };
+		7A1B2C3D4E5F678901234569 /* KeychainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F67890123456A /* KeychainManager.swift */; };
+		7A1B2C3D4E5F678901234567 /* MessageCryptoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234568 /* MessageCryptoManager.swift */; };
 		450EDE41A4F414632EC004C6 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2591DAA9A86CC87FB4681D5C /* GoogleService-Info.plist */; };
 		49BB10012F84BD2800EF1001 /* LawMateApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB20012F84BD2800EF2001 /* LawMateApp.swift */; };
 		49BB10022F84BD2800EF1002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB20022F84BD2800EF2002 /* ContentView.swift */; };
@@ -87,6 +89,8 @@
 
 /* Begin PBXFileReference section */
 		1F64FFDDAFDF6FB6FBAAEBCC /* CDLegalCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CDLegalCase.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F67890123456A /* KeychainManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234568 /* MessageCryptoManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MessageCryptoManager.swift; sourceTree = "<group>"; };
 		2591DAA9A86CC87FB4681D5C /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		3545A6EA24BDE718974EAA15 /* AccessibilityManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccessibilityManager.swift; sourceTree = "<group>"; };
 		40B0804085D82197C171421C /* CDLegalCase+Extensions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "CDLegalCase+Extensions.swift"; sourceTree = "<group>"; };
@@ -210,6 +214,8 @@
 				5C65B5ECB07C88DA6A929E43 /* FirestoreManager.swift */,
 				7CE8F2B844F4147232CDCD0C /* LawMateAppDelegate.swift */,
 				3545A6EA24BDE718974EAA15 /* AccessibilityManager.swift */,
+				7A1B2C3D4E5F678901234568 /* MessageCryptoManager.swift */,
+				7A1B2C3D4E5F67890123456A /* KeychainManager.swift */,
 			);
 			path = Managers;
 			sourceTree = "<group>";
@@ -541,6 +547,8 @@
 				49BB13012F84BD2800EF1301 /* NotificationManager.swift in Sources */,
 				49BB13032F84BD2800EF1303 /* EventKitManager.swift in Sources */,
 				49BB13052F84BD2800EF1305 /* PersistenceController.swift in Sources */,
+				7A1B2C3D4E5F678901234567 /* MessageCryptoManager.swift in Sources */,
+				7A1B2C3D4E5F678901234569 /* KeychainManager.swift in Sources */,
 				49BB14012F84BD2800EF1401 /* LegalDocument.swift in Sources */,
 				49BB14022F84BD2800EF1402 /* LegalCase.swift in Sources */,
 				49BB14032F84BD2800EF1403 /* User.swift in Sources */,

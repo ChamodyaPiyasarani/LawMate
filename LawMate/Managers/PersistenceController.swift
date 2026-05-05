@@ -3,6 +3,24 @@ import CoreData
 struct PersistenceController {
     static let shared = PersistenceController()
 
+    private final class BundleLocator {}
+
+    static func loadModel() -> NSManagedObjectModel {
+        let candidateBundles = [Bundle.main, Bundle(for: BundleLocator.self)]
+        for bundle in candidateBundles {
+            if let modelURL = bundle.url(forResource: "LawMate", withExtension: "momd"),
+               let model = NSManagedObjectModel(contentsOf: modelURL) {
+                return model
+            }
+        }
+
+        if let merged = NSManagedObjectModel.mergedModel(from: candidateBundles) {
+            return merged
+        }
+
+        fatalError("Failed to load LawMate Core Data model")
+    }
+
     static var preview: PersistenceController = {
         let result = PersistenceController(inMemory: true)
         let viewContext = result.container.viewContext
@@ -26,7 +44,7 @@ struct PersistenceController {
     let container: NSPersistentContainer
 
     init(inMemory: Bool = false) {
-        container = NSPersistentContainer(name: "LawMate")
+        container = NSPersistentContainer(name: "LawMate", managedObjectModel: Self.loadModel())
         if inMemory {
             container.persistentStoreDescriptions.first!.url = URL(fileURLWithPath: "/dev/null")
         }

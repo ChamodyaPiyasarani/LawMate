@@ -1,10 +1,12 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseStorage
+import CoreData
 
 class FirestoreManager: ObservableObject {
     static let shared = FirestoreManager()
     let db = Firestore.firestore()
+    private let cacheContext = PersistenceController.shared.container.viewContext
 
     private let appointmentSlotMinutes: Int = 60
     private let appointmentTimeFormat = "hh:mm a"
@@ -248,6 +250,7 @@ class FirestoreManager: ObservableObject {
             DispatchQueue.main.async {
                 // Sort manually in Swift to avoid index requirements and missing field exclusions
                 self?.cases = fetchedCases.sorted { ($0.createdDate ?? Date.distantPast) > ($1.createdDate ?? Date.distantPast) }
+                self?.cacheCases(fetchedCases)
             }
         }
     }
@@ -264,8 +267,110 @@ class FirestoreManager: ObservableObject {
         documentsListener?.remove()
         reviewsListener?.remove()
     }
+
+    // MARK: - Core Data Cache (Cases)
+
+    private func loadCachedCasesIfNeeded() {
+        if !cases.isEmpty { return }
+
+        let request = NSFetchRequest<NSManagedObject>(entityName: "CDLegalCase")
+        do {
+            let cached = try cacheContext.fetch(request)
+            let mapped: [FBLegalCase] = cached.compactMap { obj in
+                guard let cd = obj as? CDLegalCase else { return nil }
+                let stages = cd.stages.map { stage in
+                    FBCaseStage(title: stage.title, description: stage.description, isCompleted: stage.isCompleted, date: stage.date)
+                }
+                return FBLegalCase(
+                    id: cd.id,
+                    caseNumber: cd.caseNumber,
+                    title: cd.title,
+                    clientName: cd.clientName,
+                    clientId: "",
+                    lawyerName: cd.lawyerName ?? "",
+                    lawyerId: "",
+                    type: cd.type,
+                    status: cd.status,
+                    priority: cd.priority,
+                    description: nil,
+                    hearingDate: nil,
+                    hearingDates: [],
+                    locationLat: nil,
+                    locationLng: nil,
+                    address: nil,
+                    createdDate: cd.createdDate,
+                    stages: stages,
+                    documents: nil
+                )
+            }
+            if !mapped.isEmpty {
+                cases = mapped
+            }
+        } catch {
+            print("Failed to load cached cases: \(error)")
+        }
+    }
+
+    private func cacheCases(_ fetchedCases: [FBLegalCase]) {
+        fetchedCases.forEach { cacheCase($0) }
+    }
+
+    private func cacheCase(_ legalCase: FBLegalCase) {
+        guard let id = legalCase.id else { return }
+        guard let entity = NSEntityDescription.entity(forEntityName: "CDLegalCase", in: cacheContext) else {
+            print("Core Data entity CDLegalCase not found. Skipping cache.")
+            return
+        }
+        let request = NSFetchRequest<NSManagedObject>(entityName: "CDLegalCase")
+        request.predicate = NSPredicate(format: "id == %@", id)
+
+        let cdCase: CDLegalCase
+        if let existing = (try? cacheContext.fetch(request).first) as? CDLegalCase {
+            cdCase = existing
+        } else {
+            cdCase = CDLegalCase(entity: entity, insertInto: cacheContext)
+            cdCase.id = id
+        }
+
+        cdCase.caseNumber = legalCase.caseNumber
+        cdCase.title = legalCase.title
+        cdCase.clientName = legalCase.clientName
+        cdCase.lawyerName = legalCase.lawyerName
+        cdCase.type = legalCase.type
+        cdCase.status = legalCase.status
+        cdCase.priority = legalCase.priority
+        cdCase.createdDate = legalCase.createdDate ?? Date()
+        cdCase.stages = legalCase.stages.map { stage in
+            CaseStage(
+                title: stage.title,
+                description: stage.description,
+                date: stage.date,
+                isCompleted: stage.isCompleted
+            )
+        }
+
+        do {
+            try cacheContext.save()
+        } catch {
+            print("Failed to cache case \(id): \(error)")
+        }
+    }
+
+    private func deleteCachedCase(id: String) {
+        let request = NSFetchRequest<NSManagedObject>(entityName: "CDLegalCase")
+        request.predicate = NSPredicate(format: "id == %@", id)
+        if let existing = (try? cacheContext.fetch(request).first) as? CDLegalCase {
+            cacheContext.delete(existing)
+            do {
+                try cacheContext.save()
+            } catch {
+                print("Failed to delete cached case \(id): \(error)")
+            }
+        }
+    }
     
     func startSync(role: UserRole, userId: String) {
+        loadCachedCasesIfNeeded()
         listenForCases(role: role, userId: userId)
         listenForConversations(userId: userId)
         listenForNotifications(userId: userId)
@@ -302,6 +407,7 @@ class FirestoreManager: ObservableObject {
         
         do {
             try db.collection("cases").document(id).setData(from: modifiedCase)
+            cacheCase(modifiedCase)
         } catch {
             print("Error updating case: \(error)")
         }
@@ -309,6 +415,7 @@ class FirestoreManager: ObservableObject {
     
     func deleteCase(id: String) {
         db.collection("cases").document(id).delete()
+        deleteCachedCase(id: id)
     }
     
     func updateCaseStage(caseId: String, stageIndex: Int, isCompleted: Bool) {
@@ -415,7 +522,7 @@ class FirestoreManager: ObservableObject {
     
     func listenForAdvisoryDocuments() {
         advisoryDocumentsListener?.remove()
-        advisoryDocumentsListener = db.collection("advisory_documents")
+        advisoryDocumentsListener = db.collection("advisoryDocuments")
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let documents = snapshot?.documents else {
                     print("Error fetching advisory documents: \(error?.localizedDescription ?? "Unknown")")
@@ -536,7 +643,23 @@ class FirestoreManager: ObservableObject {
                     return m
                 }
                 DispatchQueue.main.async {
-                    self?.messages = fetched
+                    self?.messages = fetched.map { message in
+                        guard message.isEncrypted == true,
+                              let ciphertext = message.ciphertext,
+                              let senderKey = message.senderPublicKey ?? self?.publicKey(for: message.senderId) else {
+                            return message
+                        }
+
+                        if let decrypted = MessageCryptoManager.shared.decryptMessage(ciphertext, senderPublicKeyBase64: senderKey, conversationId: conversationId) {
+                            var updated = message
+                            updated.text = decrypted
+                            return updated
+                        }
+
+                        var fallback = message
+                        fallback.text = "(Unable to decrypt message)"
+                        return fallback
+                    }
                 }
             }
     }
@@ -550,12 +673,27 @@ class FirestoreManager: ObservableObject {
     }
     
     func sendMessage(to conversationId: String, text: String, senderId: String) {
-        let newMessage = FBMessage(senderId: senderId, text: text, timestamp: Date())
+        let senderPublicKey = MessageCryptoManager.shared.publicKeyBase64()
         
         // Find recipient ID from loaded conversations
         let conversation = conversations.first(where: { $0.id == conversationId })
         let recipientId = conversation?.participants.first(where: { $0 != senderId })
         let senderName = AuthService.shared.currentUser?.fullName ?? "Someone"
+
+        var encryptedText: String? = nil
+        if let recipientId = recipientId,
+           let recipientKey = publicKey(for: recipientId) {
+            encryptedText = MessageCryptoManager.shared.encryptMessage(text, recipientPublicKeyBase64: recipientKey, conversationId: conversationId)
+        }
+
+        let newMessage = FBMessage(
+            senderId: senderId,
+            text: encryptedText == nil ? text : "",
+            ciphertext: encryptedText,
+            senderPublicKey: senderPublicKey,
+            isEncrypted: encryptedText != nil,
+            timestamp: Date()
+        )
         
         do {
             let _ = try db.collection("conversations")
@@ -581,9 +719,12 @@ class FirestoreManager: ObservableObject {
             
             // Send a persistent in-app notification to the recipient
             if let recipientId = recipientId {
+                let notificationBody = encryptedText == nil
+                    ? (text.count > 60 ? String(text.prefix(60)) + "…" : text)
+                    : "New secure message"
                 let notification = FBNotification(
                     title: "New Message from \(senderName)",
-                    body: text.count > 60 ? String(text.prefix(60)) + "…" : text,
+                    body: notificationBody,
                     type: "message",
                     timestamp: Date(),
                     relatedId: conversationId
@@ -596,6 +737,22 @@ class FirestoreManager: ObservableObject {
                 ToastManager.shared.show(title: "Send Failed", message: "Could not send your message. Please try again.", type: .error)
             }
         }
+    }
+
+    private func publicKey(for userId: String) -> String? {
+        if let current = AuthService.shared.currentUser, current.id == userId {
+            return current.messagePublicKey ?? MessageCryptoManager.shared.publicKeyBase64()
+        }
+
+        if let lawyer = lawyers.first(where: { $0.id == userId }) {
+            return lawyer.messagePublicKey
+        }
+
+        if let client = clients.first(where: { $0.id == userId }) {
+            return client.messagePublicKey
+        }
+
+        return nil
     }
     
     func getOrCreateConversation(between user1: String, and user2: String, partnerInfo: (name: String, image: String?), currentUser: User, completion: @escaping (String) -> Void) {

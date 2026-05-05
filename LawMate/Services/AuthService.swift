@@ -51,6 +51,28 @@ class AuthService: ObservableObject {
             }
         }
     }
+
+    func updateAPNSToken(_ token: Data) {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        let tokenString = token.map { String(format: "%02.2hhx", $0) }.joined()
+        let lastToken = UserDefaults.standard.string(forKey: "lastAPNSToken")
+        if lastToken == tokenString {
+            print("APNs token is already up to date.")
+            return
+        }
+
+        db.collection("users").document(uid).updateData([
+            "apnsToken": tokenString
+        ]) { error in
+            if let error = error {
+                print("Error updating APNs token: \(error)")
+            } else {
+                print("APNs token successfully updated in Firestore.")
+                UserDefaults.standard.set(tokenString, forKey: "lastAPNSToken")
+            }
+        }
+    }
     
     private func fetchUserProfile(uid: String) {
         db.collection("users").document(uid).getDocument { [weak self] snapshot, error in
@@ -73,6 +95,8 @@ class AuthService: ObservableObject {
                     self.isAuthenticated = true
                     UserDefaults.standard.set(true, forKey: "isLoggedIn")
                     UserDefaults.standard.set(data.role.rawValue, forKey: "userRole")
+
+                    self.ensureMessagingKey(userId: uid, existingKey: data.messagePublicKey)
                     
                     if let fcmToken = Messaging.messaging().fcmToken {
                         self.updateFCMToken(fcmToken)
@@ -214,6 +238,7 @@ class AuthService: ObservableObject {
                     experience: profile?["experience"] as? String,
                     bio: profile?["bio"] as? String,
                     casesWon: profile?["casesWon"] as? String,
+                    messagePublicKey: MessageCryptoManager.shared.publicKeyBase64(),
                     password: password,
                     address: profile?["address"] as? String,
                     latitude: profile?["latitude"] as? Double,
@@ -226,6 +251,19 @@ class AuthService: ObservableObject {
                 } catch {
                     completion(.failure(error))
                 }
+            }
+        }
+    }
+
+    private func ensureMessagingKey(userId: String, existingKey: String?) {
+        let localKey = MessageCryptoManager.shared.publicKeyBase64()
+        guard existingKey != localKey else { return }
+
+        db.collection("users").document(userId).updateData([
+            "messagePublicKey": localKey
+        ]) { error in
+            if let error = error {
+                print("Error updating message public key: \(error)")
             }
         }
     }
@@ -276,71 +314,5 @@ class AuthService: ObservableObject {
                 completion(.success(()))
             }
         }
-    }
-}
-
-class KeychainManager {
-    static let shared = KeychainManager()
-    
-    private let service = "com.lawmate.app"
-    private let accountEmail = "userEmail"
-    private let accountPassword = "userPassword"
-    
-    func saveCredentials(email: String, password: String) {
-        save(key: accountEmail, value: email)
-        save(key: accountPassword, value: password)
-    }
-    
-    func getCredentials() -> (email: String?, password: String?) {
-        let email = get(key: accountEmail)
-        let password = get(key: accountPassword)
-        return (email, password)
-    }
-    
-    func clearCredentials() {
-        delete(key: accountEmail)
-        delete(key: accountPassword)
-    }
-    
-    private func save(key: String, value: String) {
-        let data = value.data(using: .utf8)!
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
-            kSecValueData as String: data
-        ]
-        
-        SecItemDelete(query as CFDictionary)
-        SecItemAdd(query as CFDictionary, nil)
-    }
-    
-    private func get(key: String) -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        
-        var dataTypeRef: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &dataTypeRef)
-        
-        if status == errSecSuccess {
-            if let data = dataTypeRef as? Data {
-                return String(data: data, encoding: .utf8)
-            }
-        }
-        return nil
-    }
-    
-    private func delete(key: String) {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key
-        ]
-        SecItemDelete(query as CFDictionary)
     }
 }

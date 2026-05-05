@@ -10,7 +10,7 @@ final class CoreDataTests: XCTestCase {
     override func setUp() {
         super.setUp()
         // Use an in-memory store for testing
-        persistentContainer = NSPersistentContainer(name: "LawMate")
+        persistentContainer = NSPersistentContainer(name: "LawMate", managedObjectModel: PersistenceController.loadModel())
         let description = NSPersistentStoreDescription()
         description.type = NSInMemoryStoreType
         persistentContainer.persistentStoreDescriptions = [description]

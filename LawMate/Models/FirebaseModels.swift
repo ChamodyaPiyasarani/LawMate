@@ -273,10 +273,13 @@ struct FBMessage: Identifiable, Codable, Hashable {
     @DocumentID var id: String?
     var senderId: String
     var text: String
+    var ciphertext: String?
+    var senderPublicKey: String?
+    var isEncrypted: Bool?
     var timestamp: Date
     
     enum CodingKeys: String, CodingKey {
-        case senderId, text, timestamp
+        case senderId, text, ciphertext, senderPublicKey, isEncrypted, timestamp
     }
 }
 

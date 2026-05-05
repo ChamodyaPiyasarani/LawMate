@@ -2,7 +2,7 @@ import SwiftUI
 
 struct BiometricsView: View {
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("faceIDEnabled") private var faceIDEnabled = true
+    @AppStorage("biometricsEnabled") private var biometricsEnabled = false
     @AppStorage("appLockEnabled") private var appLockEnabled = false
     
     var body: some View {
@@ -22,14 +22,14 @@ struct BiometricsView: View {
                             .foregroundColor(.lmPrimary)
                             .padding(.vertical, 20)
                             
-                        Text("Secure your account with Face ID for quick and easy access.")
+                        Text("Secure your account with Face ID / Touch ID for quick and easy access.")
                             .font(.system(size: 14, weight: .medium))
                             .foregroundColor(.lmTextSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 20)
                         
                         VStack(spacing: 0) {
-                            ToggleRow(title: "Use Face ID", icon: "faceid", isOn: $faceIDEnabled)
+                            ToggleRow(title: "Use Biometrics", icon: "faceid", isOn: $biometricsEnabled)
                             Divider().padding(.leading, 60).padding(.trailing, 20)
                             ToggleRow(title: "Require for App Launch", icon: "lock.shield", isOn: $appLockEnabled)
                         }
