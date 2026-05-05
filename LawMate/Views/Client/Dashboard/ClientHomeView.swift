@@ -116,19 +116,26 @@ struct ClientHomeView: View {
                     switch route {
                     case .chat(let conversationId):
                         selectedTab = .messages
-                        navPath = NavigationPath()
-                        pendingChatId = conversationId
-                        tryNavigateToPendingChat()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            navPath = NavigationPath()
+                            pendingChatId = conversationId
+                            tryNavigateToPendingChat()
+                        }
                     case .notificationCenter:
-                        navPath.append(AppRoute.notifications)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            navPath.append(AppRoute.notifications)
+                        }
                     case .myCases:
                         selectedTab = .home
-                        navPath.append(AppRoute.myCases)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            navPath.append(AppRoute.myCases)
+                        }
                     case .appointment(let appointmentId):
                         if let appointment = firestore.appointments.first(where: { $0.id == appointmentId }) {
-                            navPath.append(appointment)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                navPath.append(appointment)
+                            }
                         } else {
-                            // If not loaded yet, go to notifications or home
                             selectedTab = .home
                         }
                     }
@@ -182,7 +189,7 @@ struct ClientHomeView: View {
                 VStack(alignment: .leading, spacing: 32) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Hello, \(auth.currentUser?.fullName.split(separator: " ").first ?? "User") !")
+                            Text("Hello, \(auth.currentUser?.fullName ?? "User") !")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(.lmPrimary)
 

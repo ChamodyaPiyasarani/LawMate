@@ -10,11 +10,18 @@
 //
 
 import SwiftUI
+import LocalAuthentication
 
 struct RootView: View {
     @EnvironmentObject var auth: AuthService
     @EnvironmentObject var acc: AccessibilityManager
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("appLockEnabled") private var appLockEnabled = false
+    @AppStorage("biometricsEnabled") private var biometricsEnabled = false
     @State private var showSplash = true
+    @State private var isLocked = false
+    @State private var isUnlocking = false
+    @State private var unlockError: String? = nil
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -26,6 +33,17 @@ struct RootView: View {
             .id(acc.highContrast) // Forces redraw when colors change
             
             ToastView()
+            if shouldShowLock {
+                appLockOverlay
+            }
+        }
+        .onAppear {
+            updateLockState(reason: "App launch")
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                updateLockState(reason: "App became active")
+            }
         }
     }
     
@@ -43,6 +61,82 @@ struct RootView: View {
             }
         } else {
             LoginView()
+        }
+    }
+
+    private var shouldShowLock: Bool {
+        auth.isAuthenticated && appLockEnabled && isLocked
+    }
+
+    private var appLockOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.45).ignoresSafeArea()
+            VStack(spacing: 12) {
+                Text("App Locked")
+                    .font(.lmHeading)
+                    .foregroundColor(.white)
+                Text("Unlock using Face ID / Touch ID")
+                    .font(.lmCaption)
+                    .foregroundColor(.white.opacity(0.85))
+                if let error = unlockError {
+                    Text(error)
+                        .font(.lmCaption)
+                        .foregroundColor(.red.opacity(0.9))
+                }
+                Button {
+                    unlockApp()
+                } label: {
+                    HStack {
+                        if isUnlocking {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text("Unlock")
+                                .font(.lmButton)
+                        }
+                    }
+                    .frame(maxWidth: 200)
+                    .padding(.vertical, 12)
+                    .background(Color.lmPrimary)
+                    .foregroundColor(.white)
+                    .clipShape(Capsule())
+                }
+                .disabled(isUnlocking)
+                .buttonStyle(.plain)
+            }
+            .padding(24)
+            .background(Color.black.opacity(0.5))
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+        }
+    }
+
+    private func updateLockState(reason: String) {
+        guard auth.isAuthenticated, appLockEnabled else {
+            isLocked = false
+            return
+        }
+        if !biometricsEnabled {
+            appLockEnabled = false
+            isLocked = false
+            unlockError = "Biometrics must be enabled to use app lock."
+            return
+        }
+        isLocked = true
+    }
+
+    private func unlockApp() {
+        guard biometricsEnabled else {
+            unlockError = "Biometrics are disabled."
+            return
+        }
+        isUnlocking = true
+        unlockError = nil
+        AuthService.shared.authenticateWithBiometrics { success, error in
+            isUnlocking = false
+            if success {
+                isLocked = false
+            } else {
+                unlockError = error ?? "Authentication failed."
+            }
         }
     }
 }

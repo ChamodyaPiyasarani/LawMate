@@ -35,8 +35,9 @@ struct LawyerHomeView: View {
     var todayCaseHearings: [FBLegalCase] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        return firestore.cases.filter {
-            if let hDate = $0.hearingDate {
+        return firestore.cases.filter { currentCase in
+            if currentCase.hearingDates.contains(where: { calendar.startOfDay(for: $0) == today }) { return true }
+            if let hDate = currentCase.hearingDate {
                 return calendar.startOfDay(for: hDate) == today
             }
             return false
@@ -48,8 +49,9 @@ struct LawyerHomeView: View {
         let today = calendar.startOfDay(for: Date())
         let endOfWeek = calendar.date(byAdding: .day, value: 7, to: today) ?? today
         
-        let caseHearings = firestore.cases.filter {
-            if let hDate = $0.hearingDate {
+        let caseHearings = firestore.cases.filter { currentCase in
+            if currentCase.hearingDates.contains(where: { $0 >= today && $0 <= endOfWeek }) { return true }
+            if let hDate = currentCase.hearingDate {
                 return hDate >= today && hDate <= endOfWeek
             }
             return false
@@ -170,7 +172,7 @@ struct LawyerHomeView: View {
     private var dashboardHeader: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Hello, \(auth.currentUser?.fullName.split(separator: " ").first ?? "User") !")
+                Text("Hello, \(auth.currentUser?.fullName ?? "User") !")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.lmPrimary)
 
@@ -259,8 +261,9 @@ struct LawyerHomeView: View {
     @ViewBuilder
     private var todaySchedulesList: some View {
         ForEach(todayCaseHearings) { lCase in
+            let dateToUse = lCase.hearingDates.first(where: { Calendar.current.startOfDay(for: $0) == Calendar.current.startOfDay(for: Date()) }) ?? lCase.hearingDate ?? Date()
             ScheduleRow(
-                time: formatTime(lCase.hearingDate ?? Date()),
+                time: formatTime(dateToUse),
                 event: "Hearing: \(lCase.title)",
                 category: lCase.clientName
             )
@@ -343,16 +346,22 @@ struct LawyerHomeView: View {
         switch route {
         case .chat(let conversationId):
             selectedTab = .messages
-            navPath = NavigationPath()
-            pendingChatId = conversationId
-            tryNavigateToPendingChat()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                navPath = NavigationPath()
+                pendingChatId = conversationId
+                tryNavigateToPendingChat()
+            }
         case .notificationCenter:
-            navPath.append(LawyerRoute.notifications)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                navPath.append(LawyerRoute.notifications)
+            }
         case .myCases:
             selectedTab = .cases
         case .appointment(let appointmentId):
             if let appointment = firestore.appointments.first(where: { $0.id == appointmentId }) {
-                navPath.append(appointment)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    navPath.append(appointment)
+                }
             } else {
                 selectedTab = .home
             }

@@ -17,6 +17,7 @@ import PDFKit
 import CoreLocation
 import Combine
 import WebKit
+import VisionKit
 
 // MARK: - Back Button
 struct LawMateBackButton: View {
@@ -213,6 +214,14 @@ struct AppointmentRowView: View {
                                     relatedId: appointment.id
                                 )
                                 firestore.addNotification(notification, toUserId: targetUserId)
+                                
+                                EventKitManager.shared.createEvent(
+                                    title: "Confirmed: \(appointment.service) with \((auth.currentUser?.role == .lawyer) ? appointment.clientName : appointment.lawyerName)",
+                                    startDate: appointment.date,
+                                    endDate: appointment.date.addingTimeInterval(3600),
+                                    location: appointment.method,
+                                    notes: appointment.description
+                                ) { _, _ in }
                             }
                         }
                     } label: {
@@ -676,14 +685,9 @@ struct PDFKitViewerSheet: View {
                     } else if let url = localURL {
                         let ext = url.pathExtension.lowercased()
                         if ["jpg", "jpeg", "png", "heic"].contains(ext) {
-                            // Image Viewer
-                            ScrollView([.horizontal, .vertical], showsIndicators: false) {
-                                Image(uiImage: UIImage(contentsOfFile: url.path) ?? UIImage())
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.top, 20)
-                            }
+                            // Image Viewer with Live Text and Zoom
+                            ZoomableLiveTextImageView(image: UIImage(contentsOfFile: url.path) ?? UIImage())
+                                .edgesIgnoringSafeArea(.bottom)
                         } else {
                             // Document Viewer (PDF/DOCX)
                             PDFKitView(url: url)
@@ -800,6 +804,71 @@ struct LawMateDocumentViewer: View {
                     }
                 }
             }
+        }
+    }
+}
+
+// MARK: - Live Text Image Viewer
+struct ZoomableLiveTextImageView: UIViewRepresentable {
+    let image: UIImage
+    
+    func makeUIView(context: Context) -> UIScrollView {
+        let scrollView = UIScrollView()
+        scrollView.delegate = context.coordinator
+        scrollView.minimumZoomScale = 1.0
+        scrollView.maximumZoomScale = 5.0
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.showsVerticalScrollIndicator = false
+        
+        let imageView = UIImageView(image: image)
+        imageView.contentMode = .scaleAspectFit
+        imageView.isUserInteractionEnabled = true
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.tag = 999
+        
+        scrollView.addSubview(imageView)
+        
+        NSLayoutConstraint.activate([
+            imageView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            imageView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            imageView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            imageView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
+            imageView.heightAnchor.constraint(equalTo: scrollView.frameLayoutGuide.heightAnchor)
+        ])
+        
+        if #available(iOS 16.0, *) {
+            let analyzer = ImageAnalyzer()
+            let interaction = ImageAnalysisInteraction()
+            imageView.addInteraction(interaction)
+            
+            Task {
+                let config = ImageAnalyzer.Configuration([.text, .machineReadableCode])
+                if let analysis = try? await analyzer.analyze(image, configuration: config) {
+                    DispatchQueue.main.async {
+                        interaction.analysis = analysis
+                        interaction.preferredInteractionTypes = .automatic
+                    }
+                }
+            }
+        }
+        
+        return scrollView
+    }
+    
+    func updateUIView(_ uiView: UIScrollView, context: Context) {
+        if let imageView = uiView.viewWithTag(999) as? UIImageView {
+            imageView.image = image
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+    
+    class Coordinator: NSObject, UIScrollViewDelegate {
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+            return scrollView.viewWithTag(999)
         }
     }
 }

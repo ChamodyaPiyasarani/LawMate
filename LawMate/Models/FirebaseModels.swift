@@ -17,6 +17,7 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
     var priority: String = "Medium"
     var description: String? = nil
     var hearingDate: Date? = nil
+    var hearingDates: [Date] = []
     var locationLat: Double? = nil
     var locationLng: Double? = nil
     var address: String? = nil
@@ -25,10 +26,10 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
     var documents: [FBDocument]? = nil
     
     enum CodingKeys: String, CodingKey {
-        case caseNumber, title, clientName, clientId, clientImage, lawyerName, lawyerId, lawyerImage, type, status, priority, description, hearingDate, locationLat, locationLng, address, createdDate, stages, documents
+        case caseNumber, title, clientName, clientId, clientImage, lawyerName, lawyerId, lawyerImage, type, status, priority, description, hearingDate, hearingDates, locationLat, locationLng, address, createdDate, stages, documents
     }
     
-    init(id: String? = nil, caseNumber: String, title: String, clientName: String, clientId: String, clientImage: String? = nil, lawyerName: String, lawyerId: String, lawyerImage: String? = nil, type: String, status: String, priority: String, description: String? = nil, hearingDate: Date? = nil, locationLat: Double? = nil, locationLng: Double? = nil, address: String? = nil, createdDate: Date? = nil, stages: [FBCaseStage] = [], documents: [FBDocument]? = nil) {
+    init(id: String? = nil, caseNumber: String, title: String, clientName: String, clientId: String, clientImage: String? = nil, lawyerName: String, lawyerId: String, lawyerImage: String? = nil, type: String, status: String, priority: String, description: String? = nil, hearingDate: Date? = nil, hearingDates: [Date] = [], locationLat: Double? = nil, locationLng: Double? = nil, address: String? = nil, createdDate: Date? = nil, stages: [FBCaseStage] = [], documents: [FBDocument]? = nil) {
         self._id = DocumentID(wrappedValue: id)
         self.caseNumber = caseNumber
         self.title = title
@@ -43,6 +44,7 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
         self.priority = priority
         self.description = description
         self.hearingDate = hearingDate
+        self.hearingDates = hearingDates
         self.locationLat = locationLat
         self.locationLng = locationLng
         self.address = address
@@ -64,6 +66,13 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
         priority = try container.decode(String.self, forKey: .priority)
         description = try? container.decode(String.self, forKey: .description)
         hearingDate = try? container.decode(Date.self, forKey: .hearingDate)
+        hearingDates = (try? container.decode([Date].self, forKey: .hearingDates)) ?? []
+        
+        // Backward compatibility
+        if let hDate = hearingDate, hearingDates.isEmpty {
+            hearingDates.append(hDate)
+        }
+        
         locationLat = try? container.decode(Double.self, forKey: .locationLat)
         locationLng = try? container.decode(Double.self, forKey: .locationLng)
         address = try? container.decode(String.self, forKey: .address)
@@ -106,6 +115,11 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
     var progressProgress: Double {
         guard !stages.isEmpty else { return 0 }
         return Double(completedStagesCount) / Double(stages.count)
+    }
+    
+    var nextHearingDate: Date? {
+        let now = Date()
+        return hearingDates.filter { $0 >= now }.sorted().first ?? hearingDates.sorted().last ?? hearingDate
     }
 }
 

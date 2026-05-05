@@ -34,6 +34,9 @@ struct MyCasesView: View {
             VStack(spacing: 0) {
                 // MARK: Left-Aligned Header
                 HStack(alignment: .center) {
+                    LawMateBackButton(action: { dismiss() })
+                        .padding(.trailing, 8)
+                        
                     Text("My Cases")
                         .font(.system(size: 28, weight: .bold))
                         .foregroundColor(.lmPrimary)

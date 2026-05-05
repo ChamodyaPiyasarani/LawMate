@@ -315,6 +315,12 @@ struct AddCaseView: View {
                             
                             let targetId = editingCase?.id ?? UUID().uuidString
                             
+                            var combinedDates = editingCase?.hearingDates ?? []
+                            if isHearingDateSet && !combinedDates.contains(where: { Calendar.current.isDate($0, inSameDayAs: hearingDate) }) {
+                                combinedDates.append(hearingDate)
+                                combinedDates.sort()
+                            }
+                            
                             let modifiedCase = FBLegalCase(
                                 id: targetId,
                                 caseNumber: editingCase?.caseNumber ?? "LAW-\(Int.random(in: 1000...9999))",
@@ -330,6 +336,7 @@ struct AddCaseView: View {
                                 priority: priority,
                                 description: description,
                                 hearingDate: isHearingDateSet ? hearingDate : nil,
+                                hearingDates: combinedDates,
                                 locationLat: location?.latitude,
                                 locationLng: location?.longitude,
                                 address: selectedAddress,
@@ -341,6 +348,17 @@ struct AddCaseView: View {
                                 FirestoreManager.shared.addCase(modifiedCase)
                             } else {
                                 FirestoreManager.shared.updateCase(modifiedCase)
+                            }
+                            
+                            // Sync hearing date to calendar
+                            if isHearingDateSet {
+                                EventKitManager.shared.createEvent(
+                                    title: "Hearing: \(modifiedCase.title)",
+                                    startDate: hearingDate,
+                                    endDate: hearingDate.addingTimeInterval(3600),
+                                    location: selectedAddress,
+                                    notes: description
+                                ) { _, _ in }
                             }
                             
                             // Upload Attached Photos (Base64) - Only for new ones selected in picker

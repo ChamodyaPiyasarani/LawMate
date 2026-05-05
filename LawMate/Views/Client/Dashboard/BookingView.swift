@@ -327,6 +327,15 @@ struct BookingView: View {
             }
         }
         .navigationBarBackButtonHidden(true)
+        .onAppear {
+            validateDate()
+        }
+        .onChange(of: selectedDate) { _, _ in
+            validateDate()
+        }
+        .onChange(of: selectedLawyer) { _, _ in
+            validateDate()
+        }
     }
 }
 
@@ -394,6 +403,22 @@ private func performBooking() {
         descriptionError = caseDescription.trimmingCharacters(in: .whitespaces).isEmpty ? "Description is required" : nil
         if descriptionError != nil { isValid = false }
         return isValid
+    }
+    
+    private func validateDate() {
+        guard let lawyer = selectedLawyer else { 
+            isDateValid = true
+            return 
+        }
+        checkingCapacity = true
+        FirestoreManager.shared.checkLawyerCapacity(
+            lawyerId: lawyer.id,
+            date: selectedDate,
+            excludingAppointmentId: nil
+        ) { available in
+            checkingCapacity = false
+            isDateValid = available
+        }
     }
     
     private func formatTime(_ date: Date) -> String {

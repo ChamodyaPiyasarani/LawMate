@@ -86,7 +86,29 @@ struct CaseDetailView: View {
                         .padding(.top, 12)
                 }
                 
-                if let hDate = currentCase.hearingDate {
+                if currentCase.hearingDates.count > 0 {
+                    VStack(spacing: 8) {
+                        ForEach(currentCase.hearingDates.sorted(), id: \.self) { date in
+                            HStack {
+                                Image(systemName: "calendar")
+                                Text("Hearing: \(date, style: .date)")
+                                Spacer()
+                                if let address = currentCase.address {
+                                    Image(systemName: "mappin")
+                                    Text(address).lineLimit(1)
+                                }
+                            }
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(Color.lmPrimary.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 12)
+                } else if let hDate = currentCase.hearingDate {
                     HStack {
                         Image(systemName: "calendar")
                         Text("Hearing: \(hDate, style: .date)")

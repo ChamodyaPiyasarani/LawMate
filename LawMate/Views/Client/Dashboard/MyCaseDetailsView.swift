@@ -243,16 +243,20 @@ struct MyCaseDetailsView: View {
 }
 
 #Preview {
-    MyCaseDetailsView(appointment: FBAppointment(
-        clientId: "C1",
-        clientName: "John Doe",
-        lawyerId: "L1",
-        lawyerName: "Sanduni Fernando",
-        service: "Family Law",
-        date: Date(),
-        time: "02:00 PM - 03:00 PM",
-        method: "Video Call",
-        description: "Consultation about divorce",
-        status: "In Progress"
-    ))
+    MyCaseDetailsView(
+        appointment: FBAppointment(
+            clientId: "C1",
+            clientName: "John Doe",
+            lawyerId: "L1",
+            lawyerName: "Sanduni Fernando",
+            service: "Family Law",
+            date: Date(),
+            time: "02:00 PM - 03:00 PM",
+            method: "Video Call",
+            description: "Consultation about divorce",
+            status: "In Progress"
+        ),
+        navPath: .constant(NavigationPath()),
+        activeConversation: .constant(nil)
+    )
 }

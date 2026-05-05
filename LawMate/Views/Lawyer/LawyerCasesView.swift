@@ -264,6 +264,7 @@ struct LawyerCaseDetailView: View {
     @State private var selectedDocument: FBDocument? = nil
     @State private var showScanner = false
     @State private var selectedPhotosItem: PhotosPickerItem? = nil
+    @State private var showAddHearingDateSheet = false
     
     init(legalCase: FBLegalCase) {
         self.legalCase = legalCase
@@ -349,6 +350,9 @@ struct LawyerCaseDetailView: View {
                 ToastManager.shared.show(title: "Scanning Error", message: error.localizedDescription, type: .error)
             }
         }
+        .sheet(isPresented: $showAddHearingDateSheet) {
+            AddHearingDateSheet(legalCase: currentCase)
+        }
     }
     
     // MARK: - Logic
@@ -406,9 +410,13 @@ struct LawyerCaseDetailView: View {
         var updatedCase = currentCase
         updatedCase.stages[index].date = date
         
-        // If it's a hearing step, also update the case's main hearingDate
+        // If it's a hearing step, also update the case's main hearingDate (Legacy logic, no longer necessary as hearing dates are explicitly added, but keeping to avoid removing logic)
         if updatedCase.stages[index].title.lowercased().contains("hearing") {
             updatedCase.hearingDate = date
+            if !updatedCase.hearingDates.contains(date) {
+                updatedCase.hearingDates.append(date)
+                updatedCase.hearingDates.sort()
+            }
         }
         
         firestore.updateCase(updatedCase)
@@ -541,25 +549,52 @@ struct LawyerCaseDetailView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             
-            if let hDate = currentCase.hearingDate {
-                HStack {
-                    Image(systemName: "calendar")
-                        .font(.system(size: 12))
-                    Text("Next Hearing: \(hDate, style: .date)")
-                        .font(.system(size: 12, weight: .bold))
-                    Spacer()
-                    if let address = currentCase.address {
-                        Image(systemName: "mappin.and.ellipse")
+            VStack(spacing: 12) {
+                if let hDate = currentCase.nextHearingDate {
+                    HStack {
+                        Image(systemName: "calendar")
                             .font(.system(size: 12))
-                        Text(address)
-                            .font(.system(size: 12))
-                            .lineLimit(1)
+                        Text("Next Hearing: \(hDate, style: .date)")
+                            .font(.system(size: 12, weight: .bold))
+                        Spacer()
+                        if let address = currentCase.address {
+                            Image(systemName: "mappin.and.ellipse")
+                                .font(.system(size: 12))
+                            Text(address)
+                                .font(.system(size: 12))
+                                .lineLimit(1)
+                        }
                     }
+                    .foregroundColor(.lmPrimary)
+                    .padding(12)
+                    .background(Color.lmPrimary.opacity(0.05))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .foregroundColor(.lmPrimary)
-                .padding(12)
-                .background(Color.lmPrimary.opacity(0.05))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                
+                if currentCase.hearingDates.count > 0 {
+                    HStack {
+                        Text("All Scheduled Hearings: \(currentCase.hearingDates.count)")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.lmTextSecondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 4)
+                }
+                
+                Button {
+                    showAddHearingDateSheet = true
+                } label: {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Add Hearing Date")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.lmPrimary)
+                    .clipShape(Capsule())
+                }
             }
             
             Divider()
@@ -785,3 +820,85 @@ extension Array {
         return self.contains(where: predicate)
     }
 }
+
+// MARK: - Add Hearing Date Sheet
+struct AddHearingDateSheet: View {
+    let legalCase: FBLegalCase
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var firestore: FirestoreManager
+    @State private var selectedDate = Date()
+    @State private var isSaving = false
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                DatePicker(
+                    "Select Date",
+                    selection: $selectedDate,
+                    displayedComponents: [.date, .hourAndMinute]
+                )
+                .datePickerStyle(.graphical)
+                .padding()
+                
+                Button {
+                    saveDate()
+                } label: {
+                    if isSaving {
+                        ProgressView().tint(.white)
+                    } else {
+                        Text("Confirm Date")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                            .background(Color.lmPrimary)
+                            .clipShape(Capsule())
+                    }
+                }
+                .disabled(isSaving)
+                .padding(.horizontal, 24)
+                
+                Spacer()
+            }
+            .navigationTitle("Add Hearing Date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+    
+    private func saveDate() {
+        isSaving = true
+        var updatedCase = legalCase
+        updatedCase.hearingDates.append(selectedDate)
+        updatedCase.hearingDates.sort()
+        updatedCase.hearingDate = updatedCase.hearingDates.filter { $0 >= Date() }.first ?? updatedCase.hearingDates.last // Update legacy field
+        
+        firestore.updateCase(updatedCase)
+        
+        // Notify Client
+        let notification = FBNotification(
+            title: "Hearing Date Added",
+            body: "A new hearing date has been scheduled for your case: \(updatedCase.title)",
+            type: "case",
+            timestamp: Date(),
+            relatedId: updatedCase.id
+        )
+        firestore.addNotification(notification, toUserId: updatedCase.clientId)
+        
+        // Sync to iOS Calendar
+        EventKitManager.shared.createEvent(
+            title: "Hearing: \(updatedCase.title)",
+            startDate: selectedDate,
+            endDate: selectedDate.addingTimeInterval(3600),
+            location: updatedCase.address,
+            notes: updatedCase.description
+        ) { _, _ in }
+        
+        dismiss()
+    }
+}
+

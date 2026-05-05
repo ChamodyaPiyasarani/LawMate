@@ -613,6 +613,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "LawMate needs access to your calendar to manage your hearings and appointments.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "LawMate needs full access to add appointments to your calendar.";
+				INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription = "LawMate needs write access to add appointments to your calendar.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "LawMate needs access to your camera to take a profile picture.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "LawMate needs access to your photos to upload your profile picture and advisory documents.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -641,6 +643,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "LawMate needs access to your calendar to manage your hearings and appointments.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "LawMate needs full access to add appointments to your calendar.";
+				INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription = "LawMate needs write access to add appointments to your calendar.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "LawMate needs access to your camera to take a profile picture.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "LawMate needs access to your photos to upload your profile picture and advisory documents.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
