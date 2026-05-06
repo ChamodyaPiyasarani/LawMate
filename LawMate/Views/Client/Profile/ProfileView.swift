@@ -10,6 +10,7 @@ enum ProfileRoute: Hashable {
     case privacyPolicy
     case myUploads
     case accessibility
+    case referrals
 }
 
 struct ProfileView: View {
@@ -178,7 +179,9 @@ struct ProfileView: View {
             ("lock", "Security & Password", ProfileRoute.security),
             ("faceid", "Biometric Settings", ProfileRoute.biometrics)
         ]
-        
+        if userRole == .client {
+            items.append(("arrowshape.turn.up.right", "Referral Network", ProfileRoute.referrals))
+        }
         if userRole == .lawyer {
             items.append(("doc.text", "My Advisory Documents", ProfileRoute.myUploads))
         }

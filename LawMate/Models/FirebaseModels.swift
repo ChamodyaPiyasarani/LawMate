@@ -432,3 +432,20 @@ struct FBReview: Identifiable, Codable, Hashable {
         case lawyerId, clientId, clientName, clientImage, rating, reviewText, timestamp
     }
 }
+
+struct FBReferral: Identifiable, Codable, Hashable {
+    @DocumentID var id: String?
+    var requesterId: String
+    var requesterName: String
+    var targetLawyerId: String
+    var targetLawyerName: String
+    var status: String
+    var note: String?
+    var recommendedLawyerId: String?
+    var recommendedLawyerName: String?
+    var timestamp: Date
+
+    enum CodingKeys: String, CodingKey {
+        case requesterId, requesterName, targetLawyerId, targetLawyerName, status, note, recommendedLawyerId, recommendedLawyerName, timestamp
+    }
+}

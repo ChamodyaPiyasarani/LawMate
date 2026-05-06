@@ -141,6 +141,14 @@ struct NotificationsView: View {
             } else {
                 ToastManager.shared.show(title: "Not Found", message: "This appointment could not be found.", type: .error)
             }
+
+        case "referral":
+            if auth.currentUser?.role == .lawyer {
+                navPath.append(LawyerRoute.referrals)
+            } else {
+                navPath.append(ClientHomeView.AppRoute.referrals)
+            }
+            dismiss()
             
         default:
             print("Unhandled notification type: \(type)")

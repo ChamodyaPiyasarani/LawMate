@@ -10,6 +10,7 @@
 		2C16014155FB231EFDE65B76 /* FirestoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C65B5ECB07C88DA6A929E43 /* FirestoreManager.swift */; };
 		7A1B2C3D4E5F678901234569 /* KeychainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F67890123456A /* KeychainManager.swift */; };
 		7A1B2C3D4E5F678901234567 /* MessageCryptoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234568 /* MessageCryptoManager.swift */; };
+		7A1B2C3D4E5F67890123456B /* ReferralNetworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F67890123456C /* ReferralNetworkView.swift */; };
 		450EDE41A4F414632EC004C6 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2591DAA9A86CC87FB4681D5C /* GoogleService-Info.plist */; };
 		49BB10012F84BD2800EF1001 /* LawMateApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB20012F84BD2800EF2001 /* LawMateApp.swift */; };
 		49BB10022F84BD2800EF1002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB20022F84BD2800EF2002 /* ContentView.swift */; };
@@ -91,6 +92,7 @@
 		1F64FFDDAFDF6FB6FBAAEBCC /* CDLegalCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CDLegalCase.swift; sourceTree = "<group>"; };
 		7A1B2C3D4E5F67890123456A /* KeychainManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
 		7A1B2C3D4E5F678901234568 /* MessageCryptoManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MessageCryptoManager.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F67890123456C /* ReferralNetworkView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReferralNetworkView.swift; sourceTree = "<group>"; };
 		2591DAA9A86CC87FB4681D5C /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		3545A6EA24BDE718974EAA15 /* AccessibilityManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccessibilityManager.swift; sourceTree = "<group>"; };
 		40B0804085D82197C171421C /* CDLegalCase+Extensions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "CDLegalCase+Extensions.swift"; sourceTree = "<group>"; };
@@ -277,6 +279,7 @@
 			children = (
 				49BBB0062F84BD2800EB0001 /* Scanning */,
 				49BBB0072F84BD2800EB0001 /* Components */,
+				7A1B2C3D4E5F67890123456C /* ReferralNetworkView.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -566,6 +569,7 @@
 				49BB20212F84BD2800EE3011 /* LawMateLogoView.swift in Sources */,
 				49BB20222F84BD2800EE3012 /* LawMateTextField.swift in Sources */,
 				49BB20232F84BD2800EE3013 /* RootView.swift in Sources */,
+				7A1B2C3D4E5F67890123456B /* ReferralNetworkView.swift in Sources */,
 				49BB40022F84BD2800EE4002 /* AddCaseView.swift in Sources */,
 				49BB40032F84BD2800EE4003 /* LawyerCasesView.swift in Sources */,
 				49BB40052F84BD2800EE4005 /* LawyerHomeView.swift in Sources */,

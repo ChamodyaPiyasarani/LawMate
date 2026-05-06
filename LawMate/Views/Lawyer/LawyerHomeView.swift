@@ -5,6 +5,7 @@ enum LawyerRoute: Hashable {
     case addCase
     case uploadAdvisory
     case notifications
+    case referrals
 }
 
 struct LawyerHomeView: View {
@@ -212,12 +213,15 @@ struct LawyerHomeView: View {
     }
 
     private var actionButtonsSection: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             ActionPill(icon: "plus.circle.fill", title: "Add new case") {
                 navPath.append(LawyerRoute.addCase)
             }
-            ActionPill(icon: "doc.badge.plus", title: "Add Documents") {
+            ActionPill(icon: "doc.badge.plus", title: "Add documents") {
                 navPath.append(LawyerRoute.uploadAdvisory)
+            }
+            ActionPill(icon: "arrowshape.turn.up.right.fill", title: "Referrals") {
+                navPath.append(LawyerRoute.referrals)
             }
         }
         .padding(.horizontal, 24)
@@ -324,6 +328,8 @@ struct LawyerHomeView: View {
             UploadAdvisoryView()
         case .notifications:
             NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
+        case .referrals:
+            ReferralRequestsView()
         }
     }
 
@@ -338,6 +344,7 @@ struct LawyerHomeView: View {
         case .privacyPolicy: PrivacyView()
         case .myUploads: LawyerMyUploadsView()
         case .accessibility: AccessibilitySettingsView()
+        case .referrals: ReferralNetworkView(navPath: $navPath)
         }
     }
 
@@ -494,25 +501,27 @@ private struct ActionPill: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
+            VStack(spacing: 6) {
                 ZStack {
                     Circle()
                         .fill(iconBackground)
-                        .frame(width: 28, height: 28)
+                        .frame(width: 30, height: 30)
                     Image(systemName: icon)
-                        .font(.system(size: 14))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(pillForeground)
                 }
-                
+
                 Text(title)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundColor(pillForeground)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.9)
             }
-            .padding(.leading, 6)
-            .padding(.trailing, 16)
-            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, minHeight: 70)
+            .padding(.vertical, 10)
             .background(pillBackground)
-            .clipShape(Capsule())
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
         .buttonStyle(.plain)
     }

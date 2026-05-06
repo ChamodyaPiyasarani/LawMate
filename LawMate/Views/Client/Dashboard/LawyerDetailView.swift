@@ -8,6 +8,8 @@ struct LawyerDetailView: View {
     @EnvironmentObject var firestore: FirestoreManager
     @EnvironmentObject var auth: AuthService
     @State private var showRatingSheet = false
+    @State private var showReferralAlert = false
+    @State private var referralNote = ""
     
     private func startChat() {
         guard let currentUser = auth.currentUser else { return }
@@ -148,6 +150,23 @@ struct LawyerDetailView: View {
                                 .overlay(Capsule().stroke(Color.lmPrimary, lineWidth: 2))
                             }
                             .buttonStyle(.plain)
+
+                            Button {
+                                showReferralAlert = true
+                            } label: {
+                                HStack {
+                                    Spacer()
+                                    Image(systemName: "arrowshape.turn.up.right.fill")
+                                    Text("Request Referral")
+                                        .font(.lmButton)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 14)
+                                .background(Color.lmPrimary.opacity(0.1))
+                                .foregroundColor(.lmPrimary)
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
                         }
                         .padding(.horizontal, 40)
                         .padding(.bottom, 8)
@@ -227,6 +246,23 @@ struct LawyerDetailView: View {
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showRatingSheet) {
             RatingView(lawyerName: lawyer.name, lawyerId: lawyer.id)
+        }
+        .alert("Request a Referral", isPresented: $showReferralAlert) {
+            TextField("Optional note", text: $referralNote)
+            Button("Send") {
+                firestore.createReferralRequest(
+                    targetLawyerId: lawyer.id,
+                    targetLawyerName: lawyer.name,
+                    note: referralNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : referralNote
+                )
+                referralNote = ""
+                ToastManager.shared.show(title: "Request Sent", message: "Your referral request was sent.", type: .success)
+            }
+            Button("Cancel", role: .cancel) {
+                referralNote = ""
+            }
+        } message: {
+            Text("Ask this lawyer to recommend another lawyer for your case.")
         }
         .onAppear {
             firestore.listenForReviews(forLawyerId: lawyer.id)

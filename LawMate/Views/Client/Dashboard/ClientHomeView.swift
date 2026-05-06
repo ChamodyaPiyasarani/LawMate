@@ -15,7 +15,7 @@ struct ClientHomeView: View {
     
     // Simple routes for screens without complex data models
     enum AppRoute: Hashable {
-        case myCases, documents, notifications, booking(Lawyer?), allAppointments
+        case myCases, documents, notifications, booking(Lawyer?), allAppointments, referrals
     }
 
     var body: some View {
@@ -59,6 +59,8 @@ struct ClientHomeView: View {
                         BookingView(lawyer: lawyer)
                     case .allAppointments:
                         ClientAllAppointmentsListView()
+                    case .referrals:
+                        ReferralNetworkView(navPath: $navPath)
                     }
                 }
                 .navigationDestination(for: FBAdvisoryDocument.self) { doc in
@@ -88,6 +90,8 @@ struct ClientHomeView: View {
                         LawyerMyUploadsView()
                     case .accessibility:
                         AccessibilitySettingsView()
+                    case .referrals:
+                        ReferralNetworkView(navPath: $navPath)
                     }
                 }
                 .navigationBarBackButtonHidden(true)

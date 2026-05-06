@@ -89,7 +89,8 @@ class AuthService: ObservableObject {
             }
             
             do {
-                let data = try document.data(as: User.self)
+                var data = try document.data(as: User.self)
+                data.id = document.documentID
                 DispatchQueue.main.async {
                     self.currentUser = data
                     self.isAuthenticated = true

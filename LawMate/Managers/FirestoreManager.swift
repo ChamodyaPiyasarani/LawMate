@@ -25,6 +25,7 @@ class FirestoreManager: ObservableObject {
     @Published var advisoryDocuments: [FBAdvisoryDocument] = []
     @Published var caseDocuments: [FBDocument] = []
     @Published var lawyerReviews: [FBReview] = []
+    @Published var referrals: [FBReferral] = []
     
     private var casesListener: ListenerRegistration?
     private var lawyersListener: ListenerRegistration?
@@ -36,6 +37,7 @@ class FirestoreManager: ObservableObject {
     private var advisoryDocumentsListener: ListenerRegistration?
     private var documentsListener: ListenerRegistration?
     private var reviewsListener: ListenerRegistration?
+    private var referralsListener: ListenerRegistration?
     private var lastKnownMessageDate: Date? = Date()
     private var lastKnownNotificationDate: Date? = Date()
     /// IDs of conversations deleted locally — prevents the snapshot listener from re-adding them
@@ -266,6 +268,7 @@ class FirestoreManager: ObservableObject {
         advisoryDocumentsListener?.remove()
         documentsListener?.remove()
         reviewsListener?.remove()
+        referralsListener?.remove()
     }
 
     // MARK: - Core Data Cache (Cases)
@@ -375,12 +378,123 @@ class FirestoreManager: ObservableObject {
         listenForConversations(userId: userId)
         listenForNotifications(userId: userId)
         listenForAppointments(userId: userId, role: role)
+        listenForReferrals(userId: userId, role: role)
         if role == .lawyer {
             listenForClients()
         } else {
             listenForLawyers()
         }
         listenForAdvisoryDocuments()
+    }
+
+    // MARK: - Referrals
+
+    func listenForReferrals(userId: String, role: UserRole) {
+        referralsListener?.remove()
+
+        let query: Query
+        if role == .lawyer {
+            query = db.collection("referrals").whereField("targetLawyerId", isEqualTo: userId)
+        } else {
+            query = db.collection("referrals").whereField("requesterId", isEqualTo: userId)
+        }
+
+        referralsListener = query
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let documents = snapshot?.documents else {
+                    print("Error fetching referrals: \(error?.localizedDescription ?? "Unknown")")
+                    return
+                }
+
+                let fetched = documents.compactMap { doc -> FBReferral? in
+                    var r = try? doc.data(as: FBReferral.self)
+                    if r?.id == nil { r?.id = doc.documentID }
+                    return r
+                }
+                DispatchQueue.main.async {
+                    self?.referrals = fetched.sorted { $0.timestamp > $1.timestamp }
+                }
+            }
+    }
+
+    func createReferralRequest(targetLawyerId: String, targetLawyerName: String, note: String?) {
+        guard let requester = AuthService.shared.currentUser else { return }
+
+        let referral = FBReferral(
+            requesterId: requester.id,
+            requesterName: requester.fullName,
+            targetLawyerId: targetLawyerId,
+            targetLawyerName: targetLawyerName,
+            status: "Pending",
+            note: note,
+            recommendedLawyerId: nil,
+            recommendedLawyerName: nil,
+            timestamp: Date()
+        )
+
+        do {
+            let ref = try db.collection("referrals").addDocument(from: referral)
+            let notification = FBNotification(
+                title: "Referral Request",
+                body: "\(requester.fullName) requested a referral.",
+                type: "referral",
+                timestamp: Date(),
+                relatedId: ref.documentID
+            )
+            addNotification(notification, toUserId: targetLawyerId)
+        } catch {
+            print("Error creating referral request: \(error)")
+        }
+    }
+
+    func recommendReferral(referralId: String, recommendedLawyerId: String, recommendedLawyerName: String, completion: ((Bool) -> Void)? = nil) {
+        db.collection("referrals").document(referralId).updateData([
+            "status": "Recommended",
+            "recommendedLawyerId": recommendedLawyerId,
+            "recommendedLawyerName": recommendedLawyerName
+        ]) { [weak self] error in
+            if let error = error {
+                print("Error recommending referral: \(error)")
+                completion?(false)
+                return
+            }
+
+            if let referral = self?.referrals.first(where: { $0.id == referralId }) {
+                let notification = FBNotification(
+                    title: "Referral Recommendation",
+                    body: "A lawyer was recommended for your request.",
+                    type: "referral",
+                    timestamp: Date(),
+                    relatedId: referralId
+                )
+                self?.addNotification(notification, toUserId: referral.requesterId)
+            }
+            completion?(true)
+        }
+    }
+
+    func declineReferral(referralId: String, completion: ((Bool) -> Void)? = nil) {
+        db.collection("referrals").document(referralId).updateData([
+            "status": "Declined"
+        ]) { [weak self] error in
+            if let error = error {
+                print("Error declining referral: \(error)")
+                completion?(false)
+                return
+            }
+
+            if let referral = self?.referrals.first(where: { $0.id == referralId }) {
+                let notification = FBNotification(
+                    title: "Referral Update",
+                    body: "Your referral request was declined.",
+                    type: "referral",
+                    timestamp: Date(),
+                    relatedId: referralId
+                )
+                self?.addNotification(notification, toUserId: referral.requesterId)
+            }
+            completion?(true)
+        }
     }
     
     func addCase(_ newCase: FBLegalCase) {
