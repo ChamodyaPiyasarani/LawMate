@@ -221,6 +221,20 @@ class AuthService: ObservableObject {
         }
     }
     
+    /// FOR TESTING ONLY - Mocks a successful login session
+    func loginForTesting(email: String, role: UserRole) {
+        let mockUser = User(
+            id: "test-uid-\(UUID().uuidString.prefix(6))",
+            fullName: "Test User",
+            email: email,
+            role: role,
+            phoneNumber: "+00 000 000 000"
+        )
+        self.currentUser = mockUser
+        self.isAuthenticated = true
+        UserDefaults.standard.set(true, forKey: "isLoggedIn")
+    }
+    
     func signUp(email: String, role: UserRole, password: String, profile: [String: Any]? = nil, completion: @escaping (Result<Void, Error>) -> Void) {
         Auth.auth().createUser(withEmail: email, password: password) { [weak self] result, error in
             if let error = error {
@@ -240,7 +254,6 @@ class AuthService: ObservableObject {
                     bio: profile?["bio"] as? String,
                     casesWon: profile?["casesWon"] as? String,
                     messagePublicKey: MessageCryptoManager.shared.publicKeyBase64(),
-                    password: password,
                     address: profile?["address"] as? String,
                     latitude: profile?["latitude"] as? Double,
                     longitude: profile?["longitude"] as? Double

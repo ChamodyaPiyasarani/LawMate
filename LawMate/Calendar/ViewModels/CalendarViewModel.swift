@@ -145,7 +145,7 @@ class CalendarViewModel: ObservableObject {
     }
     
     func addAppointment(_ appointment: FBAppointment) {
-        firestore.createAppointmentWithValidation(appointment) { [weak self] success, reason in
+        firestore.createAppointmentWithValidation(appointment) { [weak self] success, reason, appointmentId in
             DispatchQueue.main.async {
                 if success {
                     self?.refreshMonthData()

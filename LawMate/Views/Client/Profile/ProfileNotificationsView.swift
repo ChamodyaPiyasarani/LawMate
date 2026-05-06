@@ -13,7 +13,7 @@ struct ProfileNotificationsView: View {
             
             VStack(spacing: 0) {
                 LawMateNavigationBar(title: "Notifications", showBack: true, onBack: { dismiss() })
-                    .padding(.top, 54)
+                    .padding(.top, 65)
                     .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {
@@ -38,8 +38,9 @@ struct ProfileNotificationsView: View {
                     .padding(.top, 32)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
     }
 }

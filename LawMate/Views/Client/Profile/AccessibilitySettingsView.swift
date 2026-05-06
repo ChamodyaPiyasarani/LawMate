@@ -19,7 +19,7 @@ struct AccessibilitySettingsView: View {
             
             VStack(spacing: 0) {
                 LawMateNavigationBar(title: "Accessibility", showBack: true, onBack: { dismiss() })
-                    .padding(.top, 54)
+                    .padding(.top, 65)
                     .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {
@@ -151,6 +151,7 @@ struct AccessibilitySettingsView: View {
                 }
             }
         }
+        
         .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .onAppear {

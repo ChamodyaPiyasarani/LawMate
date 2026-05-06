@@ -41,7 +41,7 @@ struct UploadAdvisoryView: View {
                     showBack: true,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 54)
+                .padding(.top, 65)
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 28) {
@@ -263,6 +263,7 @@ struct UploadAdvisoryView: View {
                 }
             }
         }
+        
         .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .confirmationDialog("Choose Source", isPresented: $showUploadDialog) {

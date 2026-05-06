@@ -21,7 +21,7 @@ struct DocumentDetailView: View {
                     showBack: true,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 54)
+                .padding(.top, 65)
                 .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {
@@ -115,6 +115,7 @@ struct DocumentDetailView: View {
                 }
             }
         }
+        
         .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showPDFViewer) {

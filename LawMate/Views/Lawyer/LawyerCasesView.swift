@@ -48,7 +48,7 @@ struct LawyerCasesView: View {
                         })
                     }
                     .padding(.horizontal, 24)
-                    .padding(.top, 64)
+                    .padding(.top, 65)
                     .padding(.bottom, 24)
                     
                     // MARK: Search Section
@@ -101,7 +101,7 @@ struct LawyerCasesView: View {
                         .padding(.bottom, 150)
                     }
                 }
-            .ignoresSafeArea(edges: .top)
+            
             .sheet(isPresented: $showEditSheet) {
                 if let ec = editingCase {
                     NavigationStack {
@@ -287,7 +287,7 @@ struct LawyerCaseDetailView: View {
                     showCamera: false,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 54)
+                .padding(.top, 65)
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
@@ -315,6 +315,7 @@ struct LawyerCaseDetailView: View {
                 FirestoreManager.shared.listenForDocuments(forCaseId: caseId)
             }
         }
+        
         .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .fileImporter(

@@ -48,7 +48,7 @@ struct MyCasesView: View {
                     })
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 64)
+                .padding(.top, 65)
                 .padding(.bottom, 24)
                 .zIndex(10)
                 
@@ -71,8 +71,9 @@ struct MyCasesView: View {
                     .padding(.bottom, 120) // Give space for bottom nav
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showEditSheet) {
             if let ec = editingCase {

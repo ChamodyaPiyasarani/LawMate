@@ -49,7 +49,7 @@ struct CaseDetailView: View {
                     },
                     onCamera: { showScanner = true }
                 )
-                .padding(.top, 54)
+                .padding(.top, 65)
                 .zIndex(10)
                 
                 // MARK: Case Header Summary
@@ -157,7 +157,7 @@ struct CaseDetailView: View {
                     Color.clear.frame(height: 120)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
             
             if isUploading {
                 ZStack {
@@ -172,6 +172,7 @@ struct CaseDetailView: View {
                 }
             }
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .onAppear {
             if let caseId = clientCase.id {

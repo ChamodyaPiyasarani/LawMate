@@ -80,8 +80,7 @@ struct AddCaseView: View {
                     showNotification: false,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 20)
-                
+                .padding(.top, 65)
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
                         // MARK: General Information Section
@@ -439,6 +438,7 @@ struct AddCaseView: View {
                 print("DEBUG: File selection error: \(error)")
             }
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showMapPicker) {
             LocationPickerView { coord in

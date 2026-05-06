@@ -1440,19 +1440,19 @@ class FirestoreManager: ObservableObject {
     }
     
     func addAppointment(_ appointment: FBAppointment, completion: ((Bool) -> Void)? = nil) {
-        createAppointmentWithValidation(appointment) { success, _ in
+        createAppointmentWithValidation(appointment) { success, _, _ in
             completion?(success)
         }
     }
 
-    func createAppointmentWithValidation(_ appointment: FBAppointment, completion: @escaping (Bool, String?) -> Void) {
+    func createAppointmentWithValidation(_ appointment: FBAppointment, completion: @escaping (Bool, String?, String?) -> Void) {
         var normalizedAppointment = appointment
         normalizedAppointment.lastActionBy = AuthService.shared.currentUser?.id
 
         if let combined = combineDateAndTime(day: appointment.date, timeString: appointment.time) {
             normalizedAppointment.date = combined
         } else if !appointment.time.trimmingCharacters(in: .whitespaces).isEmpty {
-            completion(false, "Invalid time slot. Please select a valid time.")
+            completion(false, "Invalid time slot. Please select a valid time.", nil)
             return
         }
 
@@ -1465,7 +1465,7 @@ class FirestoreManager: ObservableObject {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: normalizedAppointment.date)
         guard let end = calendar.date(byAdding: .day, value: 1, to: start) else {
-            completion(false, "System was unable to verify availability. Please try again.")
+            completion(false, "System was unable to verify availability. Please try again.", nil)
             return
         }
 
@@ -1474,16 +1474,16 @@ class FirestoreManager: ObservableObject {
 
         query.getDocuments { [weak self] snapshot, error in
             guard let self else {
-                completion(false, "System was unable to verify availability. Please try again.")
+                completion(false, "System was unable to verify availability. Please try again.", nil)
                 return
             }
 
             if let error = error as NSError? {
                 let errDesc = error.localizedDescription.lowercased()
                 if errDesc.contains("index") || errDesc.contains("composite") || error.code == 9 {
-                    completion(false, "Database Index Missing. Please check Xcode console for the creation link.")
+                    completion(false, "Database Index Missing. Please check Xcode console for the creation link.", nil)
                 } else {
-                    completion(false, "System was unable to verify availability. Please try again or check your connection.")
+                    completion(false, "System was unable to verify availability. Please try again or check your connection.", nil)
                 }
                 return
             }
@@ -1533,28 +1533,28 @@ class FirestoreManager: ObservableObject {
 
                     let ref = self.db.collection("appointments").document()
                     try transaction.setData(from: normalizedAppointment, forDocument: ref)
-                    return nil
+                    return ref.documentID
                 } catch {
                     errorPointer?.pointee = error as NSError
                     return nil
                 }
-            }) { _, error in
+            }) { (result, error) in
                 if let error = error as NSError? {
                     if error.domain == self.appointmentValidationDomain {
-                        completion(false, error.localizedDescription)
+                        completion(false, error.localizedDescription, nil)
                         return
                     }
 
                     let errDesc = error.localizedDescription.lowercased()
                     if errDesc.contains("index") || errDesc.contains("composite") || error.code == 9 {
-                        completion(false, "Database Index Missing. Please check Xcode console for the creation link.")
+                        completion(false, "Database Index Missing. Please check Xcode console for the creation link.", nil)
                     } else {
-                        completion(false, "System was unable to verify availability. Please try again or check your connection.")
+                        completion(false, "System was unable to verify availability. Please try again or check your connection.", nil)
                     }
                     return
                 }
 
-                completion(true, nil)
+                completion(true, nil, result as? String)
             }
         }
     }

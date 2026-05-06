@@ -323,7 +323,7 @@ struct EventListView: View {
             status: "Pending"
         )
 
-        FirestoreManager.shared.createAppointmentWithValidation(appointment) { success, reason in
+        FirestoreManager.shared.createAppointmentWithValidation(appointment) { success, reason, appointmentId in
             DispatchQueue.main.async {
                 if success {
                     // Notify Client
@@ -332,7 +332,7 @@ struct EventListView: View {
                         body: "Lawyer \(currentLawyer.fullName) has scheduled a \(selectedService) for you.",
                         type: "appointment",
                         timestamp: Date(),
-                        relatedId: appointment.id
+                        relatedId: appointmentId ?? appointment.id
                     )
                     FirestoreManager.shared.addNotification(notification, toUserId: selectedClientId)
 

@@ -55,7 +55,7 @@ struct AnalyticsDashboardView: View {
 
             VStack(spacing: 0) {
                 LawMateNavigationBar(title: "Case Analytics", showBack: true, onBack: { dismiss() })
-                    .padding(.top, 54)
+                    .padding(.top, 65)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
@@ -73,8 +73,9 @@ struct AnalyticsDashboardView: View {
                     .padding(.top, 16)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
     }
 

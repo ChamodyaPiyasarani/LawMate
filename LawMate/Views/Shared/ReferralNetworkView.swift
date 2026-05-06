@@ -24,7 +24,7 @@ struct ReferralNetworkView: View {
 
             VStack(spacing: 0) {
                 LawMateNavigationBar(title: "Referral Network", showBack: true, onBack: { navPath.removeLast() })
-                    .padding(.top, 54)
+                    .padding(.top, 65)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
@@ -41,8 +41,9 @@ struct ReferralNetworkView: View {
                     .padding(.top, 16)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .onAppear {
             if let user = auth.currentUser {
@@ -214,7 +215,7 @@ struct ReferralRequestsView: View {
 
             VStack(spacing: 0) {
                 LawMateNavigationBar(title: "Referral Requests", showBack: true, onBack: { dismiss() })
-                    .padding(.top, 54)
+                    .padding(.top, 65)
 
                 Picker("Referral Inbox", selection: $selectedTab) {
                     ForEach(ReferralInboxTab.allCases) { tab in
@@ -253,8 +254,9 @@ struct ReferralRequestsView: View {
                     .padding(.top, 16)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showRecommendSheet) {
             RecommendLawyerSheet(
@@ -672,7 +674,7 @@ struct ReferralConfirmationView: View {
 
             VStack(spacing: 0) {
                 LawMateNavigationBar(title: "Referral Confirmed", showBack: true, onBack: { navPath.removeLast() })
-                    .padding(.top, 54)
+                    .padding(.top, 65)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
@@ -735,8 +737,9 @@ struct ReferralConfirmationView: View {
                     .padding(.top, 16)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
     }
 

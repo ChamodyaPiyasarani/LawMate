@@ -35,7 +35,7 @@ struct ChatDetailView: View {
                 // MARK: Chat Header
                 chatHeader
                     .padding(.horizontal, 24)
-                    .padding(.top, 54)
+                    .padding(.top, 65)
                     .padding(.bottom, 20)
                     .zIndex(10)
                 
@@ -118,6 +118,7 @@ struct ChatDetailView: View {
             }
             .ignoresSafeArea(.keyboard, edges: .bottom)
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .onAppear {
             if let conversationId = validConversationId {

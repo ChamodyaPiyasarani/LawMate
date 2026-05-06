@@ -4,7 +4,7 @@ import XCTest
 final class LawMateTests: XCTestCase {
 
     func testUserInitialization() {
-        let user = User(fullName: "Test User", email: "test@example.com", role: .client)
+        let user = User(id: "1", fullName: "Test User", email: "test@example.com", role: .client)
         XCTAssertEqual(user.fullName, "Test User")
         XCTAssertEqual(user.email, "test@example.com")
         XCTAssertEqual(user.role, .client)
@@ -41,7 +41,7 @@ final class LawMateTests: XCTestCase {
     
     func testAuthServiceMockLogin() {
         let service = AuthService.shared
-        service.login(email: "test@example.com", role: .lawyer)
+        service.loginForTesting(email: "test@example.com", role: .lawyer)
         XCTAssertTrue(service.isAuthenticated)
         XCTAssertEqual(service.currentUser?.role, .lawyer)
         

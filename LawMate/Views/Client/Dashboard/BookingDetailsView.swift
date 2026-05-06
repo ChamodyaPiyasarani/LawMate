@@ -54,7 +54,7 @@ struct BookingDetailsView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 64)
+                .padding(.top, 65)
                 .zIndex(10)
                 
                 // MARK: Fixed Search Bar (Standardized with Lawyers List)
@@ -104,8 +104,9 @@ struct BookingDetailsView: View {
                     .padding(.top, 20) // Match Lawyers List
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
     }
 }

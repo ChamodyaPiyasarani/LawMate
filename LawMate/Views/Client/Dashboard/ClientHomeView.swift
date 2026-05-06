@@ -42,7 +42,9 @@ struct ClientHomeView: View {
                     }
                 }
                 .modifier(ClientHomeNavigationDestinations(navPath: $navPath, activeConversation: $activeConversation))
-                .navigationBarBackButtonHidden(true)
+                .ignoresSafeArea(edges: .top)
+        .navigationBarBackButtonHidden(true)
+                .ignoresSafeArea(edges: .top)
                 .onAppear {
                     if UserDefaults.standard.bool(forKey: "shouldShowBiometricPrompt") {
                         showBiometricOptIn = true
@@ -160,7 +162,7 @@ struct ClientHomeView: View {
                         })
                     }
                     .padding(.horizontal, 24)
-                    .padding(.top, 64)
+                    .padding(.top, 65)
                     
                     upcomingAppointmentsSection
                     
@@ -562,7 +564,7 @@ public struct ClientAllAppointmentsListView: View {
                     showNotification: true,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 64)
+                .padding(.top, 65)
                 .zIndex(10)
                 
                 // MARK: Tab Switcher
@@ -609,8 +611,9 @@ public struct ClientAllAppointmentsListView: View {
                     }
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
     }
 }

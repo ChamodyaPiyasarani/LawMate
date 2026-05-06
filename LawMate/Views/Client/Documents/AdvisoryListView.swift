@@ -64,7 +64,7 @@ struct AdvisoryListView: View {
                     }
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 64)
+                .padding(.top, 65)
                 .zIndex(10)
                 
                 // Content
@@ -95,6 +95,7 @@ struct AdvisoryListView: View {
                 }
             }
         }
+        
         .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showFilterSheet) {

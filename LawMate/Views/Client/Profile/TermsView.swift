@@ -10,7 +10,7 @@ struct TermsView: View {
             
             VStack(spacing: 0) {
                 LawMateNavigationBar(title: "Terms of Service", showBack: true, onBack: { dismiss() })
-                    .padding(.top, 54)
+                    .padding(.top, 65)
                     .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {
@@ -57,8 +57,9 @@ struct TermsView: View {
                     .padding(.bottom, 100)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
     }
 }

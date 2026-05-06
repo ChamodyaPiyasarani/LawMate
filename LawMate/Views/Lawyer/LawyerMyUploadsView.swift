@@ -24,7 +24,7 @@ struct LawyerMyUploadsView: View {
                     showBack: true,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 54)
+                .padding(.top, 65)
                 .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {
@@ -53,8 +53,9 @@ struct LawyerMyUploadsView: View {
                     .padding(.top, 16)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .alert("Remove Document", isPresented: $showDeleteAlert, presenting: documentToDelete) { doc in
             Button("Delete", role: .destructive) {

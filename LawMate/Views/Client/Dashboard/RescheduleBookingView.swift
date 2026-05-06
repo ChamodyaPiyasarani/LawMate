@@ -24,7 +24,7 @@ struct RescheduleBookingView: View {
                     showBack: true,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 54)
+                .padding(.top, 65)
                 .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {
@@ -99,8 +99,9 @@ struct RescheduleBookingView: View {
                     .padding(.horizontal, 24)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .onChange(of: selectedDate) { _, newValue in
             validateDate(newValue)

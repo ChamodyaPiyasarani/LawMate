@@ -81,7 +81,7 @@ struct BookingView: View {
                     showNotification: true,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 54)
+                .padding(.top, 65)
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 28) {
@@ -322,10 +322,16 @@ struct BookingView: View {
                         }
                         .disabled(!isDateValid || isBooking || checkingCapacity || selectedLawyer == nil)
                         .buttonStyle(.plain)
-                        .padding(.bottom, 100) 
+                        .padding(.bottom, 100)
+
+                        // Bottom Padding
+                        Color.clear.frame(height: 120)
+                    }
+                    .padding(.horizontal, 24)
                 }
             }
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .onAppear {
             validateDate()
@@ -337,9 +343,9 @@ struct BookingView: View {
             validateDate()
         }
     }
-}
-
-private func performBooking() {
+    
+    // MARK: - Logical Helpers
+    private func performBooking() {
         isBooking = true
         guard let currentLawyer = selectedLawyer else { return }
         let client = AuthService.shared.currentUser
@@ -355,11 +361,13 @@ private func performBooking() {
             method: isVideoCall ? "Video Call" : "In Person",
             description: caseDescription,
             status: "Pending",
-            lastActionBy: client?.id
+            lastActionBy: client?.id,
+            locationLat: currentLawyer.coordinate.latitude,
+            locationLng: currentLawyer.coordinate.longitude
         )
         
-        FirestoreManager.shared.createAppointmentWithValidation(appointment) { success, reason in
-            guard success else {
+        FirestoreManager.shared.createAppointmentWithValidation(appointment) { success, reason, appointmentId in
+            guard success, let generatedId = appointmentId else {
                 DispatchQueue.main.async {
                     isBooking = false
                     ToastManager.shared.show(title: "Booking Failed", message: reason ?? "We couldn't save your appointment. Please try again.", type: .error)
@@ -372,7 +380,7 @@ private func performBooking() {
                 body: "A new consultation has been scheduled by \(client?.fullName ?? "a client").",
                 type: "appointment",
                 timestamp: Date(),
-                relatedId: appointment.id
+                relatedId: generatedId
             )
             FirestoreManager.shared.addNotification(lawyerNotification, toUserId: currentLawyer.id)
             

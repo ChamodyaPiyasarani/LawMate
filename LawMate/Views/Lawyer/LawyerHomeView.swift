@@ -74,6 +74,7 @@ struct LawyerHomeView: View {
                     contentForSelectedTab
                 }
                 .navigationBarHidden(true)
+                .ignoresSafeArea(edges: .top)
                 .navigationDestination(item: $activeConversation) { conversation in
                     ChatDetailView(conversation: conversation)
                 }
@@ -193,7 +194,7 @@ struct LawyerHomeView: View {
             })
         }
         .padding(.horizontal, 24)
-        .padding(.top, 64)
+        .padding(.top, 65)
     }
 
     private var statsCardsSection: some View {
@@ -593,7 +594,7 @@ private struct ComingSoonView: View {
             Color.lmBackground.ignoresSafeArea()
             VStack(spacing: 20) {
                 LawMateNavigationBar(title: title, showBack: true, showNotification: false, onBack: onBack)
-                    .padding(.top, 64)
+                    .padding(.top, 65)
                 
                 Spacer()
                 Image(systemName: icon)
@@ -604,8 +605,9 @@ private struct ComingSoonView: View {
                     .foregroundColor(.lmTextSecondary)
                 Spacer()
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
     }
 }

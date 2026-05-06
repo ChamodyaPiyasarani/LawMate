@@ -54,7 +54,7 @@ struct ProfileView: View {
                     })
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 64)
+                .padding(.top, 65)
                 .padding(.bottom, 24)
                 .zIndex(10)
                 
@@ -119,8 +119,9 @@ struct ProfileView: View {
                     .padding(.bottom, 150)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .confirmationDialog("Change Profile Photo", isPresented: $showSourceSelection) {
             if UIImagePickerController.isSourceTypeAvailable(.camera) {

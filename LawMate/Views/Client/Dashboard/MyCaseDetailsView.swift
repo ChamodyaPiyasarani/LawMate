@@ -10,9 +10,18 @@ struct MyCaseDetailsView: View {
     @State private var showCancelSheet = false
     @State private var route: MKRoute?
     
-    // Mock user location and lawyer location
-    let userLocation = CLLocationCoordinate2D(latitude: 6.9271, longitude: 79.8612)
-    let lawyerLocation = CLLocationCoordinate2D(latitude: 6.9355, longitude: 79.8485)
+    // User and lawyer locations
+    var userLocation: CLLocationCoordinate2D {
+        let lat = AuthService.shared.currentUser?.latitude ?? 6.9271
+        let lng = AuthService.shared.currentUser?.longitude ?? 79.8612
+        return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+    }
+    
+    var lawyerLocation: CLLocationCoordinate2D {
+        let lat = appointment.locationLat ?? 6.9355
+        let lng = appointment.locationLng ?? 79.8485
+        return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+    }
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -34,7 +43,7 @@ struct MyCaseDetailsView: View {
                         navPath.append(ClientHomeView.AppRoute.notifications)
                     }
                 )
-                .padding(.top, 54)
+                .padding(.top, 65)
                 .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {
@@ -96,8 +105,9 @@ struct MyCaseDetailsView: View {
                     .padding(.top, 30)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showRescheduleSheet) {
             RescheduleBookingView(appointment: appointment)

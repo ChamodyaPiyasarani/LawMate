@@ -41,7 +41,7 @@ struct LoginView: View {
                         Spacer()
                     }
                     .padding(.horizontal, 24)
-                    .padding(.top, 54)
+                    .padding(.top, 65)
                     .padding(.bottom, 10)
 
                     ScrollView(showsIndicators: false) {

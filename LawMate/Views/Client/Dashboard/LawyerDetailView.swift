@@ -50,7 +50,7 @@ struct LawyerDetailView: View {
                     showCamera: false,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 48)
+                .padding(.top, 65)
 
 
                 ScrollView(showsIndicators: false) {
@@ -252,8 +252,9 @@ struct LawyerDetailView: View {
                     .padding(.top, 20)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showRatingSheet) {
             RatingView(lawyerName: lawyer.name, lawyerId: lawyer.id)

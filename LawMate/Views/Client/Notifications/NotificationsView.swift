@@ -44,7 +44,7 @@ struct NotificationsView: View {
                         }
                     )
                 )
-                .padding(.top, 54)
+                .padding(.top, 65)
                 .zIndex(10)
                 
                 if firestore.notifications.isEmpty {
@@ -79,6 +79,7 @@ struct NotificationsView: View {
                 }
             }
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .alert("Clear All Notifications?", isPresented: $showClearAlert) {
             Button("Clear All", role: .destructive) {

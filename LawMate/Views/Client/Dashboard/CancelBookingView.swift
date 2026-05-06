@@ -26,7 +26,7 @@ struct CancelBookingView: View {
                     showBack: true,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 54)
+                .padding(.top, 65)
                 .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {
@@ -149,8 +149,9 @@ struct CancelBookingView: View {
                     .padding(.horizontal, 24)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
     }
 }

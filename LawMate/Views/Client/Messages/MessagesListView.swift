@@ -44,7 +44,7 @@ struct MessagesListView: View {
                     })
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 64)
+                .padding(.top, 65)
                 .padding(.bottom, 24)
                 .zIndex(10)
                 
@@ -70,8 +70,9 @@ struct MessagesListView: View {
                     .padding(.bottom, 120)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .onAppear {
             if let userId = auth.currentUser?.id {
@@ -315,7 +316,7 @@ struct NewChatSelectionView: View {
                     showBack: true,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 20)
+                .padding(.top, 65)
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 12) {

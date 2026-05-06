@@ -366,6 +366,8 @@ struct FBAppointment: Identifiable, Codable, Hashable {
     var description: String
     var status: String
     var lastActionBy: String?
+    var locationLat: Double?
+    var locationLng: Double?
     
     var statusTitle: String { 
         if isOverdue { return "Overdue" }
@@ -417,7 +419,11 @@ struct FBAppointment: Identifiable, Codable, Hashable {
         return "briefcase.fill"
     }
     
-    init(id: String? = nil, clientId: String, clientName: String, clientImage: String? = nil, lawyerId: String, lawyerName: String, lawyerImage: String? = nil, lawyerSpecialty: String? = nil, service: String, date: Date, time: String, method: String, description: String, status: String, lastActionBy: String? = nil) {
+    enum CodingKeys: String, CodingKey {
+        case clientId, clientName, clientImage, lawyerId, lawyerName, lawyerImage, lawyerSpecialty, service, date, time, method, description, status, lastActionBy, locationLat, locationLng
+    }
+    
+    init(id: String? = nil, clientId: String, clientName: String, clientImage: String? = nil, lawyerId: String, lawyerName: String, lawyerImage: String? = nil, lawyerSpecialty: String? = nil, service: String, date: Date, time: String, method: String, description: String, status: String, lastActionBy: String? = nil, locationLat: Double? = nil, locationLng: Double? = nil) {
         self._id = DocumentID(wrappedValue: id)
         self.clientId = clientId
         self.clientName = clientName
@@ -433,6 +439,8 @@ struct FBAppointment: Identifiable, Codable, Hashable {
         self.description = description
         self.status = status
         self.lastActionBy = lastActionBy
+        self.locationLat = locationLat
+        self.locationLng = locationLng
     }
 }
 

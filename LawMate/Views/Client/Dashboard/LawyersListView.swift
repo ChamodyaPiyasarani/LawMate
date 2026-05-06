@@ -140,7 +140,7 @@ struct LawyersListView: View {
                     NotificationButton()
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 64)
+                .padding(.top, 65)
                 .zIndex(10)
                 
                 // MARK: Search Bar
@@ -331,7 +331,7 @@ struct LawyersListView: View {
                     }
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            
         }
         .onChange(of: searchText) { oldValue, newValue in
             // If search result identifies a single lawyer, center map on them
@@ -346,6 +346,7 @@ struct LawyersListView: View {
                 route = nil
             }
         }
+        .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .onAppear {
             firestore.listenForLawyers()
