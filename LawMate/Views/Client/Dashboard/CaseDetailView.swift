@@ -49,7 +49,7 @@ struct CaseDetailView: View {
                     },
                     onCamera: { showScanner = true }
                 )
-                .padding(.top, 64)
+                .padding(.top, 54)
                 .zIndex(10)
                 
                 // MARK: Case Header Summary

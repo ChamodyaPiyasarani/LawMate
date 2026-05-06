@@ -2,8 +2,8 @@ import SwiftUI
 import MapKit
 
 struct ClientHomeView: View {
-    @State private var selectedTab:  LawMateTab = .home
-    @State private var searchQuery:  String = ""
+    @State private var selectedTab: LawMateTab = .home
+    @State private var searchQuery: String = ""
     @State private var navPath = NavigationPath()
     @State private var activeConversation: FBConversation? = nil
     @State private var pendingChatId: String? = nil
@@ -41,59 +41,7 @@ struct ClientHomeView: View {
                         EmptyView()
                     }
                 }
-                .navigationDestination(for: Lawyer.self) { lawyer in
-                    LawyerDetailView(lawyer: lawyer, activeConversation: $activeConversation)
-                }
-                .navigationDestination(for: FBAppointment.self) { appointment in
-                    MyCaseDetailsView(appointment: appointment, navPath: $navPath, activeConversation: $activeConversation)
-                }
-                .navigationDestination(for: AppRoute.self) { route in
-                    switch route {
-                    case .myCases:
-                        MyCasesView(navPath: $navPath, activeConversation: $activeConversation)
-                    case .documents:
-                        AdvisoryListView()
-                    case .notifications:
-                        NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
-                    case .booking(let lawyer):
-                        BookingView(lawyer: lawyer)
-                    case .allAppointments:
-                        ClientAllAppointmentsListView()
-                    case .referrals:
-                        ReferralNetworkView(navPath: $navPath)
-                    }
-                }
-                .navigationDestination(for: FBAdvisoryDocument.self) { doc in
-                    DocumentDetailView(document: doc)
-                }
-                .navigationDestination(for: FBLegalCase.self) { clientCase in
-                    CaseDetailView(clientCase: clientCase, navPath: $navPath, activeConversation: $activeConversation)
-                }
-                .navigationDestination(item: $activeConversation) { conversation in
-                    ChatDetailView(conversation: conversation)
-                }
-                .navigationDestination(for: ProfileRoute.self) { route in
-                    switch route {
-                    case .personalInfo:
-                        PersonalInfoView()
-                    case .security:
-                        SecurityView()
-                    case .biometrics:
-                        BiometricsView()
-                    case .profileNotifications:
-                        ProfileNotificationsView()
-                    case .termsOfService:
-                        TermsView()
-                    case .privacyPolicy:
-                        PrivacyView()
-                    case .myUploads:
-                        LawyerMyUploadsView()
-                    case .accessibility:
-                        AccessibilitySettingsView()
-                    case .referrals:
-                        ReferralNetworkView(navPath: $navPath)
-                    }
-                }
+                .modifier(ClientHomeNavigationDestinations(navPath: $navPath, activeConversation: $activeConversation))
                 .navigationBarBackButtonHidden(true)
                 .onAppear {
                     if UserDefaults.standard.bool(forKey: "shouldShowBiometricPrompt") {
@@ -212,7 +160,7 @@ struct ClientHomeView: View {
                         })
                     }
                     .padding(.horizontal, 24)
-                    .padding(.top, 20)
+                    .padding(.top, 64)
                     
                     upcomingAppointmentsSection
                     
@@ -321,6 +269,71 @@ struct ClientHomeView: View {
             .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct ClientHomeNavigationDestinations: ViewModifier {
+    @Binding var navPath: NavigationPath
+    @Binding var activeConversation: FBConversation?
+
+    func body(content: Content) -> some View {
+        content
+            .navigationDestination(for: Lawyer.self) { lawyer in
+                LawyerDetailView(lawyer: lawyer, activeConversation: $activeConversation)
+            }
+            .navigationDestination(for: ReferralLawyerContext.self) { context in
+                LawyerDetailView(lawyer: context.lawyer, referringLawyerName: context.referringLawyerName, activeConversation: $activeConversation)
+            }
+            .navigationDestination(for: FBAppointment.self) { appointment in
+                MyCaseDetailsView(appointment: appointment, navPath: $navPath, activeConversation: $activeConversation)
+            }
+            .navigationDestination(for: ClientHomeView.AppRoute.self) { route in
+                switch route {
+                case .myCases:
+                    MyCasesView(navPath: $navPath, activeConversation: $activeConversation)
+                case .documents:
+                    AdvisoryListView()
+                case .notifications:
+                    NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
+                case .booking(let lawyer):
+                    BookingView(lawyer: lawyer)
+                case .allAppointments:
+                    ClientAllAppointmentsListView()
+                case .referrals:
+                    ReferralNetworkView(navPath: $navPath, activeConversation: $activeConversation)
+                }
+            }
+            .navigationDestination(for: FBAdvisoryDocument.self) { doc in
+                DocumentDetailView(document: doc)
+            }
+            .navigationDestination(for: FBLegalCase.self) { clientCase in
+                CaseDetailView(clientCase: clientCase, navPath: $navPath, activeConversation: $activeConversation)
+            }
+            .navigationDestination(item: $activeConversation) { conversation in
+                ChatDetailView(conversation: conversation)
+            }
+            .navigationDestination(for: ProfileRoute.self) { route in
+                switch route {
+                case .personalInfo:
+                    PersonalInfoView()
+                case .security:
+                    SecurityView()
+                case .biometrics:
+                    BiometricsView()
+                case .profileNotifications:
+                    ProfileNotificationsView()
+                case .termsOfService:
+                    TermsView()
+                case .privacyPolicy:
+                    PrivacyView()
+                case .myUploads:
+                    LawyerMyUploadsView()
+                case .accessibility:
+                    AccessibilitySettingsView()
+                case .referrals:
+                    ReferralNetworkView(navPath: $navPath, activeConversation: $activeConversation)
+                }
+            }
     }
 }
 

@@ -41,7 +41,7 @@ struct UploadAdvisoryView: View {
                     showBack: true,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 64)
+                .padding(.top, 54)
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 28) {

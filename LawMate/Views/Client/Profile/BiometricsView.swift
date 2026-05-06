@@ -12,7 +12,7 @@ struct BiometricsView: View {
             
             VStack(spacing: 0) {
                 LawMateNavigationBar(title: "Biometrics", showBack: true, onBack: { dismiss() })
-                    .padding(.top, 64)
+                    .padding(.top, 54)
                     .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {

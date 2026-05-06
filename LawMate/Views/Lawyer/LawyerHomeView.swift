@@ -193,7 +193,7 @@ struct LawyerHomeView: View {
             })
         }
         .padding(.horizontal, 24)
-        .padding(.top, 20)
+        .padding(.top, 64)
     }
 
     private var statsCardsSection: some View {
@@ -329,7 +329,7 @@ struct LawyerHomeView: View {
         case .notifications:
             NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
         case .referrals:
-            ReferralRequestsView()
+            ReferralRequestsView(activeConversation: $activeConversation)
         }
     }
 
@@ -344,7 +344,7 @@ struct LawyerHomeView: View {
         case .privacyPolicy: PrivacyView()
         case .myUploads: LawyerMyUploadsView()
         case .accessibility: AccessibilitySettingsView()
-        case .referrals: ReferralNetworkView(navPath: $navPath)
+        case .referrals: ReferralNetworkView(navPath: $navPath, activeConversation: $activeConversation)
         }
     }
 

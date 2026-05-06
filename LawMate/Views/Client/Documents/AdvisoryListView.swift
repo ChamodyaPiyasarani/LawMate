@@ -47,7 +47,6 @@ struct AdvisoryListView: View {
                     Text("Advisory Documents")
                         .font(.lmHeading)
                         .foregroundColor(.lmPrimary)
-                        .padding(.top, 12)
                     
                     Spacer()
                     
@@ -63,7 +62,6 @@ struct AdvisoryListView: View {
                                 .foregroundColor(.lmPrimary)
                         }
                     }
-                    .padding(.top, 10)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 64)

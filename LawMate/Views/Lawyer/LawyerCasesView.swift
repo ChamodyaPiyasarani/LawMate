@@ -287,7 +287,7 @@ struct LawyerCaseDetailView: View {
                     showCamera: false,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 64)
+                .padding(.top, 54)
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {

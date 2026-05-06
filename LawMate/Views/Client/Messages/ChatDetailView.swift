@@ -35,7 +35,7 @@ struct ChatDetailView: View {
                 // MARK: Chat Header
                 chatHeader
                     .padding(.horizontal, 24)
-                    .padding(.top, 20)
+                    .padding(.top, 54)
                     .padding(.bottom, 20)
                     .zIndex(10)
                 

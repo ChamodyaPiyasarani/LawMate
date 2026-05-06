@@ -1,8 +1,14 @@
 import SwiftUI
 import MapKit
 
+struct ReferralLawyerContext: Hashable {
+    let lawyer: Lawyer
+    let referringLawyerName: String
+}
+
 struct ReferralNetworkView: View {
     @Binding var navPath: NavigationPath
+    @Binding var activeConversation: FBConversation?
     @EnvironmentObject var firestore: FirestoreManager
     @EnvironmentObject var auth: AuthService
 
@@ -18,7 +24,7 @@ struct ReferralNetworkView: View {
 
             VStack(spacing: 0) {
                 LawMateNavigationBar(title: "Referral Network", showBack: true, onBack: { navPath.removeLast() })
-                    .padding(.top, 64)
+                    .padding(.top, 54)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
@@ -73,16 +79,30 @@ struct ReferralNetworkView: View {
                     .foregroundColor(.lmPrimary)
 
                 if let recommended = recommendedLawyer(for: referral) {
-                    NavigationLink(value: recommended) {
-                        Text("View Lawyer")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.vertical, 10)
-                            .frame(maxWidth: .infinity)
-                            .background(Color.lmPrimary)
-                            .clipShape(Capsule())
+                    if referral.status.lowercased() == "accepted" {
+                        NavigationLink {
+                            ReferralConfirmationView(
+                                referral: referral,
+                                recommended: recommended,
+                                referringLawyerName: referral.targetLawyerName,
+                                navPath: $navPath,
+                                activeConversation: $activeConversation
+                            )
+                        } label: {
+                            Text("Open Referral")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.vertical, 10)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.lmPrimary)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Text("Waiting for acceptance")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.lmTextSecondary)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -153,9 +173,37 @@ struct ReferralRequestsView: View {
     @EnvironmentObject var auth: AuthService
     @State private var selectedReferral: FBReferral? = nil
     @State private var showRecommendSheet = false
+    @State private var showIntroSheet = false
+    @State private var introMessage = ""
+    @Binding var activeConversation: FBConversation?
+    @State private var selectedTab: ReferralInboxTab = .requests
+
+    enum ReferralInboxTab: String, CaseIterable, Identifiable {
+        case requests = "Requests"
+        case incoming = "Incoming"
+
+        var id: String { rawValue }
+    }
 
     private var pendingRequests: [FBReferral] {
-        firestore.referrals.filter { $0.status.lowercased() == "pending" }
+        guard let currentId = auth.currentUser?.id else { return [] }
+        return firestore.referrals.filter {
+            $0.targetLawyerId == currentId && $0.status.lowercased() == "pending"
+        }
+    }
+
+    private var trackingRequests: [FBReferral] {
+        guard let currentId = auth.currentUser?.id else { return [] }
+        return firestore.referrals.filter {
+            $0.targetLawyerId == currentId && $0.status.lowercased() != "pending"
+        }
+    }
+
+    private var incomingReferrals: [FBReferral] {
+        guard let currentId = auth.currentUser?.id else { return [] }
+        return firestore.referrals.filter {
+            $0.recommendedLawyerId == currentId
+        }
     }
 
     var body: some View {
@@ -166,15 +214,37 @@ struct ReferralRequestsView: View {
 
             VStack(spacing: 0) {
                 LawMateNavigationBar(title: "Referral Requests", showBack: true, onBack: { dismiss() })
-                    .padding(.top, 64)
+                    .padding(.top, 54)
+
+                Picker("Referral Inbox", selection: $selectedTab) {
+                    ForEach(ReferralInboxTab.allCases) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
-                        if pendingRequests.isEmpty {
-                            emptyState
+                        if selectedTab == .requests {
+                            if pendingRequests.isEmpty && trackingRequests.isEmpty {
+                                emptyState
+                            } else {
+                                ForEach(pendingRequests) { referral in
+                                    requestCard(referral)
+                                }
+                                ForEach(trackingRequests) { referral in
+                                    trackingCard(referral)
+                                }
+                            }
                         } else {
-                            ForEach(pendingRequests) { referral in
-                                requestCard(referral)
+                            if incomingReferrals.isEmpty {
+                                incomingEmptyState
+                            } else {
+                                ForEach(incomingReferrals) { referral in
+                                    incomingCard(referral)
+                                }
                             }
                         }
                         Color.clear.frame(height: 120)
@@ -198,6 +268,20 @@ struct ReferralRequestsView: View {
                     ) { _ in }
                     selectedReferral = nil
                     showRecommendSheet = false
+                }
+            )
+        }
+        .sheet(isPresented: $showIntroSheet) {
+            ReferralIntroductionSheet(
+                message: $introMessage,
+                onSend: {
+                    guard let referralId = selectedReferral?.id else { return }
+                    let trimmed = introMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { return }
+                    firestore.sendReferralIntroduction(referralId: referralId, message: trimmed) { _ in }
+                    introMessage = ""
+                    selectedReferral = nil
+                    showIntroSheet = false
                 }
             )
         }
@@ -263,6 +347,129 @@ struct ReferralRequestsView: View {
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.3), lineWidth: 1))
     }
 
+    private func trackingCard(_ referral: FBReferral) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(referral.requesterName)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.lmPrimary)
+                Spacer()
+                Text(referral.status)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(statusColor(referral.status))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(statusColor(referral.status).opacity(0.1))
+                    .clipShape(Capsule())
+            }
+
+            if let recommendedName = referral.recommendedLawyerName {
+                Text("Recommended: \(recommendedName)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.lmTextSecondary)
+            }
+
+            Button {
+                selectedReferral = referral
+                showIntroSheet = true
+            } label: {
+                Text("Introduce Client")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.lmPrimary)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.lmPrimary.opacity(0.08))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .background(Color.white.opacity(0.7))
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.3), lineWidth: 1))
+    }
+
+    private func incomingCard(_ referral: FBReferral) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(referral.requesterName)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.lmPrimary)
+                Spacer()
+                Text(referral.status)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(statusColor(referral.status))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(statusColor(referral.status).opacity(0.1))
+                    .clipShape(Capsule())
+            }
+
+            Text("Referred by \(referral.targetLawyerName)")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.lmTextSecondary)
+
+            if let note = referral.note, !note.isEmpty {
+                Text(note)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.lmTextSecondary)
+            }
+
+            if referral.status.lowercased() == "recommended" {
+                HStack(spacing: 12) {
+                    Button {
+                        guard let referralId = referral.id else { return }
+                        firestore.acceptReferral(referralId: referralId) { _ in }
+                    } label: {
+                        Text("Accept")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.green)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        guard let referralId = referral.id else { return }
+                        firestore.rejectReferral(referralId: referralId) { _ in }
+                    } label: {
+                        Text("Reject")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.red)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.red.opacity(0.1))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if referral.status.lowercased() == "accepted" {
+                Button {
+                    startChat(with: referral.requesterId, name: referral.requesterName)
+                } label: {
+                    Text("Contact Client")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.lmPrimary)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .background(Color.white.opacity(0.7))
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.3), lineWidth: 1))
+    }
+
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "arrowshape.turn.up.right.fill")
@@ -277,6 +484,49 @@ struct ReferralRequestsView: View {
                 .multilineTextAlignment(.center)
         }
         .padding(.vertical, 64)
+    }
+
+    private var incomingEmptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "arrowshape.turn.up.right.fill")
+                .font(.system(size: 42))
+                .foregroundColor(.lmPrimary.opacity(0.2))
+            Text("No incoming referrals")
+                .font(.lmHeading)
+                .foregroundColor(.lmPrimary.opacity(0.6))
+            Text("Recommendations from other lawyers will show up here.")
+                .font(.lmCaption)
+                .foregroundColor(.lmTextSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.vertical, 64)
+    }
+
+    private func statusColor(_ status: String) -> Color {
+        switch status.lowercased() {
+        case "accepted": return .green
+        case "recommended": return .blue
+        case "rejected", "declined": return .red
+        default: return .orange
+        }
+    }
+
+    private func startChat(with userId: String, name: String) {
+        guard let currentUser = auth.currentUser else { return }
+        let partnerInfo: (name: String, image: String?) = (name: name, image: nil)
+        firestore.getOrCreateConversation(between: currentUser.id, and: userId, partnerInfo: partnerInfo, currentUser: currentUser) { convId in
+            if let conversation = firestore.conversations.first(where: { $0.id == convId }) {
+                activeConversation = conversation
+            } else {
+                firestore.db.collection("conversations").document(convId).getDocument { snap, _ in
+                    if let conversation = try? snap?.data(as: FBConversation.self) {
+                        DispatchQueue.main.async {
+                            activeConversation = conversation
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private func timeAgo(_ date: Date) -> String {
@@ -364,6 +614,147 @@ private struct RecommendLawyerSheet: View {
         .padding(.horizontal, 24)
         .onAppear {
             firestore.listenForLawyers()
+        }
+    }
+}
+
+private struct ReferralIntroductionSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var message: String
+    var onSend: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("Introduce Client")
+                .font(.lmHeading)
+                .padding(.top, 12)
+
+            TextField("Write a short introduction...", text: $message, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(4...6)
+
+            Button("Send Introduction") {
+                onSend()
+                dismiss()
+            }
+            .font(.system(size: 14, weight: .bold))
+            .foregroundColor(.white)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .background(Color.lmPrimary)
+            .clipShape(Capsule())
+
+            Button("Cancel") {
+                dismiss()
+            }
+            .font(.system(size: 14, weight: .bold))
+            .foregroundColor(.lmPrimary)
+            .padding(.bottom, 16)
+        }
+        .padding(.horizontal, 24)
+    }
+}
+
+struct ReferralConfirmationView: View {
+    let referral: FBReferral
+    let recommended: Lawyer
+    let referringLawyerName: String
+    @Binding var navPath: NavigationPath
+    @Binding var activeConversation: FBConversation?
+    @EnvironmentObject var firestore: FirestoreManager
+    @EnvironmentObject var auth: AuthService
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            Color.lmBackground.ignoresSafeArea()
+            GreenBlobBackground(style: .client)
+                .frame(height: 300)
+
+            VStack(spacing: 0) {
+                LawMateNavigationBar(title: "Referral Confirmed", showBack: true, onBack: { navPath.removeLast() })
+                    .padding(.top, 54)
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 16) {
+                        Text("Referred by \(referringLawyerName)")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.lmTextSecondary)
+
+                        VStack(spacing: 12) {
+                            LawMateAvatar(url: recommended.image, name: recommended.name, size: 64)
+                            Text(recommended.name)
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.lmPrimary)
+                            Text(recommended.specialty)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.lmTextSecondary)
+                        }
+                        .padding(.vertical, 12)
+
+                        Button {
+                            navPath.append(ReferralLawyerContext(lawyer: recommended, referringLawyerName: referringLawyerName))
+                        } label: {
+                            Text("View Lawyer Profile")
+                                .font(.lmButton)
+                                .foregroundColor(.white)
+                                .padding(.vertical, 12)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.lmPrimary)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            startChat()
+                        } label: {
+                            Text("Start Chat")
+                                .font(.lmButton)
+                                .foregroundColor(.lmPrimary)
+                                .padding(.vertical, 12)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.white)
+                                .clipShape(Capsule())
+                                .overlay(Capsule().stroke(Color.lmPrimary, lineWidth: 2))
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            navPath.append(ClientHomeView.AppRoute.booking(recommended))
+                        } label: {
+                            Text("Book Consultation")
+                                .font(.lmButton)
+                                .foregroundColor(.lmPrimary)
+                                .padding(.vertical, 12)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.lmPrimary.opacity(0.1))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 16)
+                }
+            }
+            .ignoresSafeArea(edges: .top)
+        }
+        .navigationBarBackButtonHidden(true)
+    }
+
+    private func startChat() {
+        guard let currentUser = auth.currentUser else { return }
+        let partnerInfo = (name: recommended.name, image: (recommended.image.count > 15 ? recommended.image : nil))
+        firestore.getOrCreateConversation(between: currentUser.id, and: recommended.id, partnerInfo: partnerInfo, currentUser: currentUser) { convId in
+            if let conversation = firestore.conversations.first(where: { $0.id == convId }) {
+                activeConversation = conversation
+            } else {
+                firestore.db.collection("conversations").document(convId).getDocument { snap, _ in
+                    if let conversation = try? snap?.data(as: FBConversation.self) {
+                        DispatchQueue.main.async {
+                            activeConversation = conversation
+                        }
+                    }
+                }
+            }
         }
     }
 }

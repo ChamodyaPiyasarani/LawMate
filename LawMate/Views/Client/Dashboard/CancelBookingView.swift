@@ -26,7 +26,7 @@ struct CancelBookingView: View {
                     showBack: true,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 64)
+                .padding(.top, 54)
                 .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {

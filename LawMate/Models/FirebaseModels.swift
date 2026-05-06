@@ -153,6 +153,26 @@ struct FBCaseStage: Identifiable, Codable, Hashable {
     }
 }
 
+struct FBCaseTask: Identifiable, Codable, Hashable {
+    @DocumentID var id: String?
+    var caseId: String
+    var caseTitle: String
+    var lawyerId: String
+    var clientId: String
+    var assigneeId: String
+    var assigneeRole: String
+    var title: String
+    var notes: String?
+    var status: String
+    var priority: String
+    var dueDate: Date?
+    var createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case caseId, caseTitle, lawyerId, clientId, assigneeId, assigneeRole, title, notes, status, priority, dueDate, createdAt
+    }
+}
+
 struct FBDocument: Identifiable, Codable, Hashable {
     @DocumentID var id: String?
     var legalCaseId: String

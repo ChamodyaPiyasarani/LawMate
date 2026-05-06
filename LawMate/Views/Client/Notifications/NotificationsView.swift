@@ -44,7 +44,7 @@ struct NotificationsView: View {
                         }
                     )
                 )
-                .padding(.top, 20)
+                .padding(.top, 54)
                 .zIndex(10)
                 
                 if firestore.notifications.isEmpty {

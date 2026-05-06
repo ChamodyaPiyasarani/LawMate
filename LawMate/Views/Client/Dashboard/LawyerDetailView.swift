@@ -3,6 +3,7 @@ import MapKit
 
 struct LawyerDetailView: View {
     let lawyer: Lawyer
+    var referringLawyerName: String? = nil
     @Environment(\.dismiss) private var dismiss
     @Binding var activeConversation: FBConversation?
     @EnvironmentObject var firestore: FirestoreManager
@@ -60,6 +61,16 @@ struct LawyerDetailView: View {
                             Text(lawyer.name)
                                 .font(.system(size: 28, weight: .bold))
                                 .foregroundColor(.lmPrimary)
+
+                            if let referringLawyerName {
+                                Text("Referred by \(referringLawyerName)")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.lmTextSecondary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.lmPrimary.opacity(0.08))
+                                    .clipShape(Capsule())
+                            }
 
                             ZStack(alignment: .bottomTrailing) {
                                 // Profile Image Placeholder

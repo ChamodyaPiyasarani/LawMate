@@ -81,7 +81,7 @@ struct BookingView: View {
                     showNotification: true,
                     onBack: { dismiss() }
                 )
-                .padding(.top, 64)
+                .padding(.top, 54)
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 28) {

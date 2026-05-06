@@ -34,7 +34,7 @@ struct MyCaseDetailsView: View {
                         navPath.append(ClientHomeView.AppRoute.notifications)
                     }
                 )
-                .padding(.top, 64)
+                .padding(.top, 54)
                 .zIndex(10)
                 
                 ScrollView(showsIndicators: false) {
