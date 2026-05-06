@@ -4,6 +4,8 @@ struct AdvisoryListView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
     @State private var selectedCategory = "All"
+    @State private var selectedFileType = "All"
+    @State private var selectedSort = "Latest"
     @State private var showFilterSheet = false
     
     @EnvironmentObject var firestore: FirestoreManager
@@ -11,17 +13,19 @@ struct AdvisoryListView: View {
     private let categories = ["All", "Family Law", "Criminal Law", "Property Law", "Corporate Law"]
 
     var filteredDocuments: [FBAdvisoryDocument] {
-        firestore.advisoryDocuments.filter { doc in
+        let filtered = firestore.advisoryDocuments.filter { doc in
             // Must be Public for clients
             guard doc.visibility == "Public" else { return false }
             
             let matchesCategory = selectedCategory == "All" || doc.category == selectedCategory
+            let matchesFileType = matchesSelectedFileType(doc)
             let matchesSearch = searchText.isEmpty || 
                                doc.title.localizedCaseInsensitiveContains(searchText) ||
                                doc.tags.contains(where: { $0.localizedCaseInsensitiveContains(searchText) }) ||
                                doc.category.localizedCaseInsensitiveContains(searchText)
-            return matchesCategory && matchesSearch
+            return matchesCategory && matchesFileType && matchesSearch
         }
+        return sortDocuments(filtered)
     }
 
     var body: some View {
@@ -96,9 +100,43 @@ struct AdvisoryListView: View {
         .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showFilterSheet) {
-            FilterBottomSheet(selectedCategory: $selectedCategory, categories: categories)
+            FilterBottomSheet(
+                selectedCategory: $selectedCategory,
+                selectedFileType: $selectedFileType,
+                selectedSort: $selectedSort,
+                categories: categories
+            )
                 .presentationDetents([.medium])
         }
+    }
+
+    private func matchesSelectedFileType(_ doc: FBAdvisoryDocument) -> Bool {
+        if selectedFileType == "All" { return true }
+        let fileType = doc.fileType.uppercased()
+        switch selectedFileType {
+        case "PDF":
+            return fileType == "PDF"
+        case "DOCX":
+            return fileType == "DOCX" || fileType == "DOC"
+        case "Image":
+            return fileType == "JPG" || fileType == "JPEG" || fileType == "PNG" || fileType == "IMAGE"
+        default:
+            return true
+        }
+    }
+
+    private func sortDocuments(_ docs: [FBAdvisoryDocument]) -> [FBAdvisoryDocument] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM dd, yyyy"
+        let sorted = docs.sorted { lhs, rhs in
+            let leftDate = formatter.date(from: lhs.date) ?? Date.distantPast
+            let rightDate = formatter.date(from: rhs.date) ?? Date.distantPast
+            return leftDate > rightDate
+        }
+        if selectedSort == "Oldest" {
+            return sorted.reversed()
+        }
+        return sorted
     }
 
     // MARK: - Subviews
@@ -223,6 +261,8 @@ struct AdvisoryDocumentCard: View {
 struct FilterBottomSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedCategory: String
+    @Binding var selectedFileType: String
+    @Binding var selectedSort: String
     let categories: [String]
     
     var body: some View {
@@ -233,6 +273,8 @@ struct FilterBottomSheet: View {
                 Spacer()
                 Button("Clear All") {
                     selectedCategory = "All"
+                    selectedFileType = "All"
+                    selectedSort = "Latest"
                 }
                 .font(.system(size: 14, weight: .bold))
                 .foregroundColor(.red)
@@ -277,17 +319,30 @@ struct FilterBottomSheet: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("File Type").font(.system(size: 14, weight: .bold))
                     HStack {
-                        FilterChip(title: "PDF", isSelected: true)
-                        FilterChip(title: "DOCX", isSelected: false)
-                        FilterChip(title: "Image", isSelected: false)
+                        FilterChip(title: "All", isSelected: selectedFileType == "All") {
+                            selectedFileType = "All"
+                        }
+                        FilterChip(title: "PDF", isSelected: selectedFileType == "PDF") {
+                            selectedFileType = "PDF"
+                        }
+                        FilterChip(title: "DOCX", isSelected: selectedFileType == "DOCX") {
+                            selectedFileType = "DOCX"
+                        }
+                        FilterChip(title: "Image", isSelected: selectedFileType == "Image") {
+                            selectedFileType = "Image"
+                        }
                     }
                 }
                 
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Sort By").font(.system(size: 14, weight: .bold))
                     HStack {
-                        FilterChip(title: "Latest", isSelected: true)
-                        FilterChip(title: "Oldest", isSelected: false)
+                        FilterChip(title: "Latest", isSelected: selectedSort == "Latest") {
+                            selectedSort = "Latest"
+                        }
+                        FilterChip(title: "Oldest", isSelected: selectedSort == "Oldest") {
+                            selectedSort = "Oldest"
+                        }
                     }
                 }
             }
@@ -308,16 +363,20 @@ struct FilterBottomSheet: View {
 struct FilterChip: View {
     let title: String
     let isSelected: Bool
+    var action: () -> Void = {}
     
     var body: some View {
-        Text(title)
-            .font(.system(size: 13, weight: .bold))
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(isSelected ? Color.lmPrimary : Color.white)
-            .foregroundColor(isSelected ? .white : .lmPrimary)
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(Color.lmPrimary.opacity(0.2), lineWidth: 1))
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: .bold))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(isSelected ? Color.lmPrimary : Color.white)
+                .foregroundColor(isSelected ? .white : .lmPrimary)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Color.lmPrimary.opacity(0.2), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 }
 

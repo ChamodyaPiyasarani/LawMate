@@ -480,26 +480,38 @@ private struct ActionPill: View {
     let title: String
     let action: () -> Void
 
+    private var pillBackground: Color {
+        AccessibilityManager.shared.effectiveHighContrast ? .black : Color(red: 0.05, green: 0.25, blue: 0.15)
+    }
+
+    private var pillForeground: Color {
+        AccessibilityManager.shared.effectiveHighContrast ? .white : .white
+    }
+
+    private var iconBackground: Color {
+        AccessibilityManager.shared.effectiveHighContrast ? .white.opacity(0.25) : Color.white.opacity(0.2)
+    }
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 ZStack {
                     Circle()
-                        .fill(Color.white.opacity(0.2))
+                        .fill(iconBackground)
                         .frame(width: 28, height: 28)
                     Image(systemName: icon)
                         .font(.system(size: 14))
-                        .foregroundColor(.white)
+                        .foregroundColor(pillForeground)
                 }
                 
                 Text(title)
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(pillForeground)
             }
             .padding(.leading, 6)
             .padding(.trailing, 16)
             .padding(.vertical, 6)
-            .background(Color(red: 0.05, green: 0.25, blue: 0.15)) // Darker green for pills
+            .background(pillBackground)
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)

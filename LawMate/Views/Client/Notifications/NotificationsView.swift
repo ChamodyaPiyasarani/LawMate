@@ -117,13 +117,21 @@ struct NotificationsView: View {
             } else {
                 ToastManager.shared.show(title: "Not Found", message: "This conversation is no longer available.", type: .error)
             }
-            
-        case "case", "document":
+
+        case "case":
             if let clientCase = firestore.cases.first(where: { $0.id == relatedId }) {
                 navPath.append(clientCase)
                 dismiss()
             } else {
                 ToastManager.shared.show(title: "Not Found", message: "This case could not be found.", type: .error)
+            }
+
+        case "document":
+            if let doc = firestore.advisoryDocuments.first(where: { $0.id == relatedId }) {
+                navPath.append(doc)
+                dismiss()
+            } else {
+                ToastManager.shared.show(title: "Not Found", message: "This document could not be found.", type: .error)
             }
             
         case "booking", "appointment":

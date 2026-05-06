@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UIKit
 
 public class AccessibilityManager: ObservableObject {
     public static let shared = AccessibilityManager()
@@ -8,6 +9,7 @@ public class AccessibilityManager: ObservableObject {
     
     @Published public var textScale: Double = 1.0
     @Published public var highContrast: Bool = false
+    @Published public var systemHighContrast: Bool = UIAccessibility.isDarkerSystemColorsEnabled
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -20,6 +22,16 @@ public class AccessibilityManager: ObservableObject {
                 self?.highContrast = user.highContrast ?? false
             }
             .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: UIAccessibility.darkerSystemColorsStatusDidChangeNotification)
+            .sink { [weak self] _ in
+                self?.systemHighContrast = UIAccessibility.isDarkerSystemColorsEnabled
+            }
+            .store(in: &cancellables)
+    }
+
+    public var effectiveHighContrast: Bool {
+        highContrast || systemHighContrast
     }
     
     /// Converts the user's scale (e.g. 1.5) to a SwiftUI DynamicTypeSize

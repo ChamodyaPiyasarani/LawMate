@@ -12,17 +12,27 @@ import SwiftUI
 
 struct SplashView: View {
     var onComplete: () -> Void = {}
+    var canProceed: Bool = true
+    var showUnlock: Bool = false
+    var onUnlock: () -> Void = {}
     
     @State private var logoScale: CGFloat = 0.7
     @State private var logoOpacity: Double = 0.0
     @State private var textOpacity: Double = 0.0
     @State private var isActive: Bool = false
+    @State private var animationFinished: Bool = false
+    @State private var didAutoPrompt: Bool = false
 
     var body: some View {
         splashContent
             .onAppear { startAnimation() }
             .onChange(of: isActive) { oldValue, newValue in
                 if newValue { onComplete() }
+            }
+            .onChange(of: canProceed) { _, newValue in
+                if newValue {
+                    completeIfReady()
+                }
             }
     }
 
@@ -60,6 +70,7 @@ struct SplashView: View {
                     .padding(.bottom, 10)
                     .opacity(textOpacity)
             }
+
         }
     }
 
@@ -76,9 +87,21 @@ struct SplashView: View {
         }
         // Navigate after delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            withAnimation(.easeInOut(duration: 0.4)) {
-                isActive = true
+            animationFinished = true
+            completeIfReady()
+            if showUnlock && !didAutoPrompt {
+                didAutoPrompt = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    onUnlock()
+                }
             }
+        }
+    }
+
+    private func completeIfReady() {
+        guard animationFinished, canProceed else { return }
+        withAnimation(.easeInOut(duration: 0.4)) {
+            isActive = true
         }
     }
 }

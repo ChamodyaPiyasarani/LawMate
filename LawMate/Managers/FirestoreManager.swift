@@ -561,12 +561,44 @@ class FirestoreManager: ObservableObject {
                 fileBase64: base64String
             )
             
-            try self.db.collection("advisoryDocuments").addDocument(from: newDoc)
+            let ref = try self.db.collection("advisoryDocuments").addDocument(from: newDoc)
+
+            if visibility == "Public" {
+                self.notifyAllClients(
+                    title: "New Advisory Document",
+                    body: "A new advisory document was published: \(title)",
+                    relatedId: ref.documentID
+                )
+            }
+
             completion(true, nil)
         } catch {
             print("Error uploading advisory document: \(error.localizedDescription)")
             completion(false, error.localizedDescription)
         }
+    }
+
+    private func notifyAllClients(title: String, body: String, relatedId: String?) {
+        db.collection("users")
+            .whereField("role", isEqualTo: "Client")
+            .getDocuments { [weak self] snapshot, error in
+                guard let self, let documents = snapshot?.documents else {
+                    print("Error fetching clients for advisory notifications: \(error?.localizedDescription ?? "Unknown")")
+                    return
+                }
+
+                let notification = FBNotification(
+                    title: title,
+                    body: body,
+                    type: "document",
+                    timestamp: Date(),
+                    relatedId: relatedId
+                )
+
+                documents.forEach { doc in
+                    self.addNotification(notification, toUserId: doc.documentID)
+                }
+            }
     }
     
     func deleteAdvisoryDocument(id: String) {
@@ -643,10 +675,27 @@ class FirestoreManager: ObservableObject {
                     return m
                 }
                 DispatchQueue.main.async {
+                    let currentUserId = AuthService.shared.currentUser?.id
+                    let partnerId = self?.conversations
+                        .first(where: { $0.id == conversationId })?
+                        .participants
+                        .first(where: { $0 != currentUserId })
+                    let partnerKey = partnerId.flatMap { self?.publicKey(for: $0) }
+
                     self?.messages = fetched.map { message in
                         guard message.isEncrypted == true,
-                              let ciphertext = message.ciphertext,
-                              let senderKey = message.senderPublicKey ?? self?.publicKey(for: message.senderId) else {
+                              let ciphertext = message.ciphertext else {
+                            return message
+                        }
+
+                        let decryptionKey: String?
+                        if let currentUserId = currentUserId, message.senderId == currentUserId {
+                            decryptionKey = partnerKey
+                        } else {
+                            decryptionKey = message.senderPublicKey ?? self?.publicKey(for: message.senderId)
+                        }
+
+                        guard let senderKey = decryptionKey else {
                             return message
                         }
 

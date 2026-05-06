@@ -12,22 +12,22 @@ import SwiftUI
 extension Color {
     // Primary brand green (dark) — buttons, active states, logo
     static var lmPrimary: Color {
-        AccessibilityManager.shared.highContrast ? Color(hex: "#000000") : Color(hex: "#1A4731")
+        AccessibilityManager.shared.effectiveHighContrast ? Color(hex: "#000000") : Color(hex: "#1A4731")
     }
     
     // Medium green — secondary accents
     static var lmAccent: Color {
-        AccessibilityManager.shared.highContrast ? Color(hex: "#1A4731") : Color(hex: "#2D6A4F") 
+        AccessibilityManager.shared.effectiveHighContrast ? Color(hex: "#000000") : Color(hex: "#2D6A4F") 
     }
     
     // Soft light green — background blobs, cards
     static var lmLightGreen: Color {
-        AccessibilityManager.shared.highContrast ? Color(hex: "#A0D8BB") : Color(hex: "#C8EDDA")
+        AccessibilityManager.shared.effectiveHighContrast ? Color(hex: "#E6E6E6") : Color(hex: "#C8EDDA")
     }
     
     // Very pale green — wash backgrounds
     static var lmPaleMint: Color {
-        AccessibilityManager.shared.highContrast ? Color(hex: "#DDF2E8") : Color(hex: "#EEF8F2")
+        AccessibilityManager.shared.effectiveHighContrast ? Color(hex: "#F7F7F7") : Color(hex: "#EEF8F2")
     }
     
     // Pure white — screen backgrounds
@@ -37,7 +37,7 @@ extension Color {
     
     // Input field fill
     static var lmFieldBg: Color {
-        AccessibilityManager.shared.highContrast ? Color(hex: "#E5E5E5") : Color(hex: "#F0F0F0")
+        AccessibilityManager.shared.effectiveHighContrast ? Color(hex: "#FFFFFF") : Color(hex: "#F0F0F0")
     }
     
     // Primary text
@@ -47,12 +47,12 @@ extension Color {
     
     // Secondary / muted text
     static var lmTextSecondary: Color {
-        AccessibilityManager.shared.highContrast ? Color(hex: "#4A4A4A") : Color(hex: "#8A8A8A")
+        AccessibilityManager.shared.effectiveHighContrast ? Color(hex: "#1A1A1A") : Color(hex: "#8A8A8A")
     }
     
     // Divider / border
     static var lmBorder: Color {
-        AccessibilityManager.shared.highContrast ? Color(hex: "#B0B0B0") : Color(hex: "#E0E0E0")
+        AccessibilityManager.shared.effectiveHighContrast ? Color(hex: "#4A4A4A") : Color(hex: "#E0E0E0")
     }
 }
 

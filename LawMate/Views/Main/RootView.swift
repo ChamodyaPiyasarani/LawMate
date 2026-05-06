@@ -22,6 +22,7 @@ struct RootView: View {
     @State private var isLocked = false
     @State private var isUnlocking = false
     @State private var unlockError: String? = nil
+    @State private var lastUnlockAt: Date? = nil
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -30,7 +31,8 @@ struct RootView: View {
                 mainContent
             }
             .dynamicTypeSize(acc.dynamicTypeSize)
-            .id(acc.highContrast) // Forces redraw when colors change
+            .environment(\.legibilityWeight, acc.effectiveHighContrast ? .bold : .regular)
+            .id(acc.effectiveHighContrast) // Forces redraw when colors change
             
             ToastView()
             if shouldShowLock {
@@ -43,6 +45,15 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 updateLockState(reason: "App became active")
+            }
+        }
+        .onChange(of: auth.isAuthenticated) { _, isAuthenticated in
+            if isAuthenticated {
+                updateLockState(reason: "User authenticated")
+            } else {
+                isLocked = false
+                unlockError = nil
+                isUnlocking = false
             }
         }
     }
@@ -120,6 +131,9 @@ struct RootView: View {
             unlockError = "Biometrics must be enabled to use app lock."
             return
         }
+        if let lastUnlockAt, Date().timeIntervalSince(lastUnlockAt) < 1.5 {
+            return
+        }
         isLocked = true
     }
 
@@ -133,7 +147,9 @@ struct RootView: View {
         AuthService.shared.authenticateWithBiometrics { success, error in
             isUnlocking = false
             if success {
+                lastUnlockAt = Date()
                 isLocked = false
+                unlockError = nil
             } else {
                 unlockError = error ?? "Authentication failed."
             }
