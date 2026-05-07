@@ -1896,7 +1896,11 @@ class FirestoreManager: ObservableObject {
                     return dateValue >= start && dateValue < end
                 }
 
-                let documents = filteredDocuments.filter { $0.documentID != excludingAppointmentId }
+                let terminalStatuses = ["cancelled", "rejected"]
+                let documents = filteredDocuments.filter { doc in
+                    let status = (doc.get("status") as? String ?? "").lowercased()
+                    return doc.documentID != excludingAppointmentId && !terminalStatuses.contains(status)
+                }
                 let count = documents.count
                 print("DEBUG: Lawyer \(lawyerId) has \(count) appointment(s) on \(date).")
 

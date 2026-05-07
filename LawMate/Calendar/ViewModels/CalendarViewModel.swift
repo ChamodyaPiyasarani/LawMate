@@ -13,30 +13,17 @@ class CalendarViewModel: ObservableObject {
     @Published var isAuthorized = false
     @Published var errorMessage: String? = nil
     
-    // Computed categorizations
+    // Computed categorizations using standardized FBAppointment.category
     var upcomingAppointments: [FBAppointment] {
-        appointmentsForSelectedDate.filter { 
-            let s = $0.status.lowercased()
-            let isPast = $0.date < Date()
-            let isActive = s == "confirmed" || s == "pending" || s == "in progress" || s == "rescheduled"
-            return isActive && !isPast
-        }
+        appointmentsForSelectedDate.filter { $0.category == .upcoming }
     }
     
     var overdueAppointments: [FBAppointment] {
-        appointmentsForSelectedDate.filter {
-            let s = $0.status.lowercased()
-            let isPast = $0.date < Date()
-            let isActive = s == "confirmed" || s == "pending" || s == "in progress" || s == "rescheduled"
-            return isActive && isPast
-        }
+        appointmentsForSelectedDate.filter { $0.category == .overdue }
     }
     
     var completedAppointments: [FBAppointment] {
-        appointmentsForSelectedDate.filter {
-            let s = $0.status.lowercased()
-            return s == "done" || s == "cancelled" || s == "rejected"
-        }
+        appointmentsForSelectedDate.filter { $0.category == .done }
     }
     
     private let service = EventKitService.shared

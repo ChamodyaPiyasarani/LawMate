@@ -109,6 +109,7 @@ struct AppointmentRowView: View {
     @EnvironmentObject var firestore: FirestoreManager
     
     @State private var showRejectAlert = false
+    @State private var showDeleteAlert = false
     @State private var showReschedulePicker = false
     
     private func confirmReject() {
@@ -124,6 +125,35 @@ struct AppointmentRowView: View {
                     relatedId: appointment.id
                 )
                 firestore.addNotification(notification, toUserId: targetUserId)
+            }
+        }
+    }
+    
+    private func confirmDelete() {
+        guard let id = appointment.id else { return }
+        
+        // 1. Remove from System Calendar
+        let otherParty = (auth.currentUser?.role == .lawyer) ? appointment.clientName : appointment.lawyerName
+        let eventTitle = "\(appointment.service) with \(otherParty)"
+        EventKitManager.shared.removeEvent(title: eventTitle, startDate: appointment.date)
+        
+        // 2. Notify other party
+        let otherUserId = (auth.currentUser?.role == .lawyer) ? appointment.clientId : appointment.lawyerId
+        let senderName = auth.currentUser?.fullName ?? "Someone"
+        
+        let notification = FBNotification(
+            title: "Appointment Cancelled",
+            body: "\(senderName) has cancelled the \(appointment.service) scheduled for \(appointment.date.formatted(date: .abbreviated, time: .omitted)).",
+            type: "appointment",
+            timestamp: Date(),
+            relatedId: id
+        )
+        firestore.addNotification(notification, toUserId: otherUserId)
+
+        // 3. Remove from Firestore
+        firestore.deleteAppointment(id: id) { success in
+            if success {
+                ToastManager.shared.show(title: "Deleted", message: "Appointment removed successfully.", type: .success)
             }
         }
     }
@@ -186,14 +216,25 @@ struct AppointmentRowView: View {
                 
                 // Status & Method (Right)
                 VStack(alignment: .trailing, spacing: 6) {
-                    Text(appointment.statusTitle)
-                        .font(.system(size: 9, weight: .black))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(appointment.statusColor.opacity(0.12))
-                        .foregroundColor(appointment.statusColor)
-                        .clipShape(Capsule())
-                        .overlay(Capsule().stroke(appointment.statusColor.opacity(0.3), lineWidth: 1))
+                    HStack(spacing: 8) {
+                        Button {
+                            showDeleteAlert = true
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 14))
+                                .foregroundColor(.red.opacity(0.6))
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Text(appointment.statusTitle)
+                            .font(.system(size: 9, weight: .black))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(appointment.statusColor.opacity(0.12))
+                            .foregroundColor(appointment.statusColor)
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(appointment.statusColor.opacity(0.3), lineWidth: 1))
+                    }
                     
                     Image(systemName: appointment.method == "Video Call" ? "video.fill" : "building.2.fill")
                         .font(.system(size: 12))
@@ -285,8 +326,12 @@ struct AppointmentRowView: View {
             }
         }
         .padding(16)
-        .background(Color.white)
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+        )
         .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
         .alert("Reject Appointment", isPresented: $showRejectAlert) {
             Button("Reject", role: .destructive) {
@@ -295,6 +340,14 @@ struct AppointmentRowView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Are you sure you want to reject this appointment request?")
+        }
+        .alert("Delete Appointment", isPresented: $showDeleteAlert) {
+            Button("Delete", role: .destructive) {
+                confirmDelete()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to delete this appointment? This will also remove it from your system calendar.")
         }
         .sheet(isPresented: $showReschedulePicker) {
             ReschedulePickerSheet(appointment: appointment)
@@ -1432,5 +1485,186 @@ struct BookingCalendarView: View {
         let f = DateFormatter()
         f.dateFormat = "MMMM yyyy"
         return f
+    }
+}
+
+// MARK: - Premium Glass Components
+
+/// A premium, glassmorphism-styled Date and Time picker for LawMate.
+struct GlassDateTimePicker: View {
+    @Binding var selectedDate: Date
+    let busyDates: [Date] // Dates/Times that are already booked
+    
+    @State private var showTimePicker = false
+    
+    private let calendar = Calendar.current
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            // MARK: - Date Selector (Horizontal Scroll)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Select Date")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.lmTextSecondary)
+                    .padding(.horizontal, 4)
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(0..<14) { day in
+                            let date = calendar.date(byAdding: .day, value: day, to: Date()) ?? Date()
+                            DateCard(date: date, isSelected: calendar.isDate(date, inSameDayAs: selectedDate)) {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    selectedDate = date
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            
+            // MARK: - Time Selector (Liquid Glass Grid)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Available Slots")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.lmTextSecondary)
+                    .padding(.horizontal, 4)
+                
+                let times = generateTimeSlots()
+                
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(times, id: \.self) { timeStr in
+                        let isBusy = checkIfBusy(timeStr: timeStr)
+                        let isSelected = formatTime(selectedDate) == timeStr
+                        
+                        TimeSlotCard(time: timeStr, isSelected: isSelected, isBusy: isBusy) {
+                            if !isBusy {
+                                updateSelectedTime(timeStr: timeStr)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 32))
+        .overlay(
+            RoundedRectangle(cornerRadius: 32)
+                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.05), radius: 15, x: 0, y: 10)
+    }
+    
+    // MARK: - Helpers
+    private func generateTimeSlots() -> [String] {
+        return ["09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM"]
+    }
+    
+    private func checkIfBusy(timeStr: String) -> Bool {
+        // Simple overlap check against busyDates
+        let formatter = DateFormatter()
+        formatter.dateFormat = "hh:mm a"
+        
+        return busyDates.contains { busyDate in
+            calendar.isDate(busyDate, inSameDayAs: selectedDate) && 
+            formatTime(busyDate) == timeStr
+        }
+    }
+    
+    private func updateSelectedTime(timeStr: String) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "hh:mm a"
+        if let timeDate = formatter.date(from: timeStr) {
+            let components = calendar.dateComponents([.hour, .minute], from: timeDate)
+            if let newDate = calendar.date(bySettingHour: components.hour ?? 0, minute: components.minute ?? 0, second: 0, of: selectedDate) {
+                selectedDate = newDate
+            }
+        }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "hh:mm a"
+        return formatter.string(from: date)
+    }
+}
+
+struct DateCard: View {
+    let date: Date
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Text(dayOfWeek)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(isSelected ? .white : .lmTextSecondary)
+                
+                Text(dayNumber)
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundColor(isSelected ? .white : .lmPrimary)
+            }
+            .frame(width: 60, height: 80)
+            .background(isSelected ? Color.lmPrimary : Color.white.opacity(0.5))
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(isSelected ? Color.white.opacity(0.3) : Color.clear, lineWidth: 1)
+            )
+            .scaleEffect(isSelected ? 1.05 : 1.0)
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var dayOfWeek: String {
+        let f = DateFormatter()
+        f.dateFormat = "EEE"
+        return f.string(from: date).uppercased()
+    }
+    
+    private var dayNumber: String {
+        let f = DateFormatter()
+        f.dateFormat = "dd"
+        return f.string(from: date)
+    }
+}
+
+struct TimeSlotCard: View {
+    let time: String
+    let isSelected: Bool
+    let isBusy: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(time)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(textColor)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(backgroundColor)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(isSelected ? Color.white.opacity(0.4) : Color.clear, lineWidth: 1)
+                )
+                .opacity(isBusy ? 0.4 : 1.0)
+        }
+        .disabled(isBusy)
+        .buttonStyle(.plain)
+    }
+    
+    private var backgroundColor: Color {
+        if isBusy { return Color.gray.opacity(0.1) }
+        if isSelected { return Color.lmPrimary }
+        return Color.white.opacity(0.4)
+    }
+    
+    private var textColor: Color {
+        if isBusy { return Color.lmTextSecondary.opacity(0.5) }
+        if isSelected { return .white }
+        return .lmPrimary
     }
 }

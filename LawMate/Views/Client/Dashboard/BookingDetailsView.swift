@@ -19,16 +19,7 @@ struct BookingDetailsView: View {
                                booking.lawyerName.localizedCaseInsensitiveContains(searchQuery) ||
                                booking.clientName.localizedCaseInsensitiveContains(searchQuery)
             
-            let matchesFilter: Bool
-            let s = booking.status.lowercased()
-            
-            if selectedFilter == "Overdue" {
-                matchesFilter = booking.isOverdue
-            } else if selectedFilter == "Done" {
-                matchesFilter = (s == "done" || s == "completed")
-            } else {
-                matchesFilter = s == selectedFilter.lowercased()
-            }
+            let matchesFilter = booking.category.rawValue == selectedFilter
             
             return matchesSearch && matchesFilter
         }

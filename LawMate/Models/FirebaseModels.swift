@@ -399,6 +399,45 @@ struct FBAppointment: Identifiable, Codable, Hashable {
         return start < Date() && !terminalStatuses.contains(status.lowercased())
     }
     
+    enum AppointmentCategory: String, CaseIterable {
+        case upcoming = "Upcoming"
+        case done = "Done"
+        case overdue = "Overdue"
+        case cancelled = "Cancelled"
+        
+        var icon: String {
+            switch self {
+            case .upcoming: return "calendar"
+            case .done: return "checkmark.circle.fill"
+            case .overdue: return "exclamationmark.triangle.fill"
+            case .cancelled: return "xmark.circle.fill"
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .upcoming: return .blue
+            case .done: return .green
+            case .overdue: return .red
+            case .cancelled: return .gray
+            }
+        }
+    }
+    
+    var category: AppointmentCategory {
+        let statusLower = status.lowercased()
+        if statusLower == "cancelled" || statusLower == "rejected" {
+            return .cancelled
+        }
+        if statusLower == "done" {
+            return .done
+        }
+        if isOverdue {
+            return .overdue
+        }
+        return .upcoming
+    }
+    
     var startTime: Date? {
         // Parse "02:00 PM - 03:00 PM" or similar
         let timePart = time.components(separatedBy: " - ").first ?? time

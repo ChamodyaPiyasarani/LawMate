@@ -10,8 +10,8 @@ struct BookingView: View {
     @State private var selectedDate = Date()
     @State private var isVideoCall = false
     @State private var caseDescription = ""
-    @State private var isDateValid = true
     @State private var checkingCapacity = false
+    @State private var validationMessage: String?
     
     // Lawyer Selection State
     @State private var selectedLawyer: Lawyer?
@@ -23,7 +23,6 @@ struct BookingView: View {
     @State private var isBooking = false
     
     let services = ["Case Review (1 hour)", "Legal Consultation (30 mins)", "Document Drafting", "Court Representation"]
-    let timeSlots = ["09:00 AM", "10:30 AM", "01:00 PM", "02:30 PM"]
     
     var allLawyers: [Lawyer] {
         firestore.lawyers.map { user in
@@ -213,49 +212,56 @@ struct BookingView: View {
                         }
                         .padding(.horizontal, 24)
 
-                        // MARK: Unified Date & Time Picker
-                        VStack(alignment: .leading, spacing: 12) {
-                            SectionTitle(title: "Select Date & Time")
+                        // MARK: Liquid Glass Date & Time Selection
+                        VStack(alignment: .leading, spacing: 16) {
+                            SectionTitle(title: "Schedule Consultation")
                             
-                            DatePicker(
-                                "Select Date & Time",
-                                selection: $selectedDate,
-                                in: Date()...,
-                                displayedComponents: [.date, .hourAndMinute]
-                            )
-                            .datePickerStyle(.graphical)
-                            .padding(12)
-                            .background(Color.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 24))
-                            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
-                            
-                            if !isDateValid {
+                            VStack(spacing: 20) {
+                                // Native Graphical Date Picker
+                                DatePicker("", selection: $selectedDate, in: Calendar.current.startOfDay(for: Date())..., displayedComponents: [.date])
+                                    .datePickerStyle(.graphical)
+                                    .accentColor(.lmPrimary)
+                                
+                                Divider().background(Color.white.opacity(0.1))
+                                
+                                // Native Time Picker
                                 HStack {
-                                    Image(systemName: "exclamationmark.triangle.fill")
-                                    Text("Lawyer is fully booked on this date (Max 3 appointments).")
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Select Time")
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(.lmPrimary)
+                                        Text("Pick your preferred slot")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.lmTextSecondary)
+                                    }
+                                    Spacer()
+                                    DatePicker("", selection: $selectedDate, displayedComponents: [.hourAndMinute])
+                                        .labelsHidden()
                                 }
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.red)
-                                .padding(.horizontal, 8)
                             }
+                            .padding(20)
+                            .background(.ultraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 24))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 24)
+                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                            )
                             
-                            if checkingCapacity {
+                            if let msg = validationMessage {
                                 HStack {
-                                    ProgressView()
-                                        .scaleEffect(0.8)
-                                    Text("Checking availability...")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.lmTextSecondary)
+                                    Image(systemName: "exclamationmark.bubble.fill")
+                                    Text(msg)
                                 }
-                                .padding(.horizontal, 8)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.red)
+                                .padding(.horizontal, 12)
                             }
                         }
                         .padding(.horizontal, 24)
 
-
-                        // MARK: Service Selection (Video/InPerson)
+                        // MARK: Meeting Method
                         VStack(alignment: .leading, spacing: 16) {
-                            SectionTitle(title: "Service Selection")
+                            SectionTitle(title: "Meeting Method")
                             
                             HStack(spacing: 16) {
                                 ServiceTypeButton(icon: "video.fill", title: "Video call", isSelected: isVideoCall) {
@@ -300,8 +306,6 @@ struct BookingView: View {
                         Button {
                             if validateForm() {
                                 performBooking()
-                            } else {
-                                ToastManager.shared.show(title: "Validation Error", message: "Please enter a case description.", type: .error)
                             }
                         } label: {
                             Group {
@@ -316,89 +320,106 @@ struct BookingView: View {
                             }
                             .padding(.vertical, 16)
                             .frame(maxWidth: .infinity)
-                            .background(!isDateValid || isBooking || checkingCapacity || selectedLawyer == nil ? Color.gray : Color.lmPrimary)
+                            .background(isBooking || checkingCapacity || selectedLawyer == nil || validationMessage != nil ? Color.gray : Color.lmPrimary)
                             .clipShape(Capsule())
-                            .shadow(color: !isDateValid || isBooking || checkingCapacity || selectedLawyer == nil ? .clear : Color.lmPrimary.opacity(0.3), radius: 10, x: 0, y: 5)
+                            .shadow(color: isBooking || checkingCapacity || selectedLawyer == nil || validationMessage != nil ? .clear : Color.lmPrimary.opacity(0.3), radius: 10, x: 0, y: 5)
                         }
-                        .disabled(!isDateValid || isBooking || checkingCapacity || selectedLawyer == nil)
+                        .disabled(isBooking || checkingCapacity || selectedLawyer == nil || validationMessage != nil)
                         .buttonStyle(.plain)
-                        .padding(.bottom, 100)
-
-                        // Bottom Padding
-                        Color.clear.frame(height: 120)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 60)
                     }
-                    .padding(.horizontal, 24)
                 }
             }
         }
         .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
-        .onAppear {
-            validateDate()
-        }
         .onChange(of: selectedDate) { _, _ in
-            validateDate()
+            validateSlot()
         }
         .onChange(of: selectedLawyer) { _, _ in
-            validateDate()
+            validateSlot()
         }
     }
     
     // MARK: - Logical Helpers
+    private func validateSlot() {
+        guard let lawyerId = selectedLawyer?.id else { return }
+        checkingCapacity = true
+        firestore.validateAppointmentSlot(
+            lawyerId: lawyerId,
+            date: selectedDate,
+            time: formatTime(selectedDate)
+        ) { success, reason in
+            checkingCapacity = false
+            validationMessage = success ? nil : reason
+        }
+    }
+    
     private func performBooking() {
         isBooking = true
         guard let currentLawyer = selectedLawyer else { return }
         let client = AuthService.shared.currentUser
         
-        let appointment = FBAppointment(
-            clientId: client?.id ?? "",
-            clientName: client?.fullName ?? "Unknown Client",
+        // Final validation check
+        firestore.validateAppointmentSlot(
             lawyerId: currentLawyer.id,
-            lawyerName: currentLawyer.name,
-            service: selectedService,
             date: selectedDate,
-            time: formatTime(selectedDate),
-            method: isVideoCall ? "Video Call" : "In Person",
-            description: caseDescription,
-            status: "Pending",
-            lastActionBy: client?.id,
-            locationLat: currentLawyer.coordinate.latitude,
-            locationLng: currentLawyer.coordinate.longitude
-        )
-        
-        FirestoreManager.shared.createAppointmentWithValidation(appointment) { success, reason, appointmentId in
-            guard success, let generatedId = appointmentId else {
-                DispatchQueue.main.async {
-                    isBooking = false
-                    ToastManager.shared.show(title: "Booking Failed", message: reason ?? "We couldn't save your appointment. Please try again.", type: .error)
-                }
+            time: formatTime(selectedDate)
+        ) { success, reason in
+            if !success {
+                isBooking = false
+                ToastManager.shared.show(title: "Slot Unavailable", message: reason ?? "Please pick another time.", type: .error)
                 return
             }
             
-            let lawyerNotification = FBNotification(
-                title: "New Booking Request",
-                body: "A new consultation has been scheduled by \(client?.fullName ?? "a client").",
-                type: "appointment",
-                timestamp: Date(),
-                relatedId: generatedId
+            let appointment = FBAppointment(
+                clientId: client?.id ?? "",
+                clientName: client?.fullName ?? "Unknown Client",
+                clientImage: client?.profileImage,
+                lawyerId: currentLawyer.id,
+                lawyerName: currentLawyer.name,
+                lawyerImage: currentLawyer.image,
+                lawyerSpecialty: currentLawyer.specialty,
+                service: selectedService,
+                date: selectedDate,
+                time: formatTime(selectedDate),
+                method: isVideoCall ? "Video Call" : "In Person",
+                description: caseDescription,
+                status: "Pending",
+                lastActionBy: client?.id,
+                locationLat: currentLawyer.coordinate.latitude,
+                locationLng: currentLawyer.coordinate.longitude
             )
-            FirestoreManager.shared.addNotification(lawyerNotification, toUserId: currentLawyer.id)
             
-            EventKitManager.shared.createEvent(
-                title: "Consultation with \(currentLawyer.name)",
-                startDate: selectedDate,
-                endDate: selectedDate.addingTimeInterval(3600),
-                location: isVideoCall ? "Video Call" : currentLawyer.location,
-                notes: caseDescription
-            ) { calSuccess, calError in
-                DispatchQueue.main.async {
-                    isBooking = false
-                    if calSuccess {
+            firestore.createAppointmentWithValidation(appointment) { success, reason, appointmentId in
+                guard success, let generatedId = appointmentId else {
+                    DispatchQueue.main.async {
+                        isBooking = false
+                        ToastManager.shared.show(title: "Booking Failed", message: reason ?? "We couldn't save your appointment.", type: .error)
+                    }
+                    return
+                }
+                
+                let lawyerNotification = FBNotification(
+                    title: "New Booking Request",
+                    body: "A new consultation has been scheduled by \(client?.fullName ?? "a client").",
+                    type: "appointment",
+                    timestamp: Date(),
+                    relatedId: generatedId
+                )
+                firestore.addNotification(lawyerNotification, toUserId: currentLawyer.id)
+                
+                EventKitManager.shared.createEvent(
+                    title: "Consultation with \(currentLawyer.name)",
+                    startDate: selectedDate,
+                    endDate: selectedDate.addingTimeInterval(3600),
+                    location: isVideoCall ? "Video Call" : currentLawyer.location,
+                    notes: caseDescription
+                ) { calSuccess, _ in
+                    DispatchQueue.main.async {
+                        isBooking = false
                         ToastManager.shared.show(title: "Booking Confirmed", message: "Your appointment is set.", type: .success)
-                        dismiss()
-                    } else {
-                        let errorMsg = calError?.localizedDescription ?? "Calendar access denied."
-                        ToastManager.shared.show(title: "Booking Issue", message: "Database saved, but failed to sync to calendar: \(errorMsg)", type: .warning)
                         dismiss()
                     }
                 }
@@ -410,23 +431,8 @@ struct BookingView: View {
         var isValid = true
         descriptionError = caseDescription.trimmingCharacters(in: .whitespaces).isEmpty ? "Description is required" : nil
         if descriptionError != nil { isValid = false }
+        if validationMessage != nil { isValid = false }
         return isValid
-    }
-    
-    private func validateDate() {
-        guard let lawyer = selectedLawyer else { 
-            isDateValid = true
-            return 
-        }
-        checkingCapacity = true
-        FirestoreManager.shared.checkLawyerCapacity(
-            lawyerId: lawyer.id,
-            date: selectedDate,
-            excludingAppointmentId: nil
-        ) { available in
-            checkingCapacity = false
-            isDateValid = available
-        }
     }
     
     private func formatTime(_ date: Date) -> String {
@@ -476,20 +482,7 @@ struct ServiceTypeButton: View {
 }
 
 #Preview {
-    BookingView(lawyer: Lawyer(
-        id: "L1",
-        name: "Nimal Perera",
-        specialty: "Criminal Law",
-        bio: "Criminal specialist",
-        description: "Bio",
-        experience: "14 YEARS",
-        experienceYears: 14,
-        casesWon: "250 +",
-        wonCount: 250,
-        rating: 4.8,
-        reviewCount: 120,
-        location: "Colombo",
-        image: "person",
-        coordinate: .init(latitude: 0, longitude: 0)
-    ))
+    BookingView(lawyer: nil)
+        .environmentObject(FirestoreManager.shared)
+        .environmentObject(AuthService.shared)
 }

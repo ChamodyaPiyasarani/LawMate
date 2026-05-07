@@ -32,10 +32,16 @@ class EventKitManager: ObservableObject {
     func createEvent(title: String, startDate: Date, endDate: Date, location: String? = nil, notes: String? = nil, completion: @escaping (Bool, Error?) -> Void) {
         let status = EKEventStore.authorizationStatus(for: .event)
         
-        switch status {
-        case .authorized, .fullAccess:
+        let hasAccess: Bool
+        if #available(iOS 17.0, *) {
+            hasAccess = (status == .fullAccess)
+        } else {
+            hasAccess = (status == .authorized)
+        }
+        
+        if hasAccess {
             self.saveEvent(title: title, startDate: startDate, endDate: endDate, location: location, notes: notes, completion: completion)
-        case .notDetermined:
+        } else if status == .notDetermined {
             requestAccess { granted, error in
                 if granted {
                     self.saveEvent(title: title, startDate: startDate, endDate: endDate, location: location, notes: notes, completion: completion)
@@ -43,7 +49,7 @@ class EventKitManager: ObservableObject {
                     completion(false, error)
                 }
             }
-        default:
+        } else {
             completion(false, NSError(domain: "EventKitManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Calendar access denied."]))
         }
     }
@@ -65,6 +71,38 @@ class EventKitManager: ObservableObject {
         } catch let error {
             DispatchQueue.main.async {
                 completion(false, error)
+            }
+        }
+    }
+    
+    // Remove an event from the default calendar
+    func removeEvent(title: String, startDate: Date) {
+        let status = EKEventStore.authorizationStatus(for: .event)
+        
+        // Handle iOS 17+ and legacy authorization
+        let hasAccess: Bool
+        if #available(iOS 17.0, *) {
+            hasAccess = (status == .fullAccess)
+        } else {
+            hasAccess = (status == .authorized)
+        }
+        
+        guard hasAccess else { return }
+        
+        // Find events in a small window around the start date
+        let predicate = eventStore.predicateForEvents(withStart: startDate.addingTimeInterval(-60), 
+                                                     end: startDate.addingTimeInterval(60), 
+                                                     calendars: nil)
+        let events = eventStore.events(matching: predicate)
+        
+        // Match by title
+        let eventToDelete = events.first { $0.title.contains(title) || title.contains($0.title) }
+        
+        if let event = eventToDelete {
+            do {
+                try eventStore.remove(event, span: .thisEvent)
+            } catch {
+                print("Error removing event: \(error)")
             }
         }
     }

@@ -24,7 +24,6 @@ struct EventListView: View {
     }
     
     let services = ["Case Review (1 hour)", "Legal Consultation (30 mins)", "Document Drafting", "Court Representation"]
-    let timeSlots = ["09:00 AM", "10:30 AM", "01:00 PM", "02:30 PM"]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -184,29 +183,27 @@ struct EventListView: View {
                         }
                     }
                     
-                    // MARK: Time Slot
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Available Time Slots")
+                    // MARK: Time Selection
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Select Time")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.lmPrimary)
                         
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                            ForEach(timeSlots, id: \.self) { time in
-                                Button {
-                                    selectedTime = time
-                                } label: {
-                                    Text(time)
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(selectedTime == time ? .white : .lmPrimary)
-                                        .padding(.vertical, 12)
-                                        .frame(maxWidth: .infinity)
-                                        .background(selectedTime == time ? Color.lmPrimary : Color.white)
-                                        .clipShape(Capsule())
-                                        .overlay(Capsule().stroke(Color.lmPrimary.opacity(0.2), lineWidth: 1))
-                                }
-                                .buttonStyle(.plain)
-                            }
+                        HStack {
+                            Label("Appointment Time", systemImage: "clock")
+                                .font(.system(size: 14))
+                                .foregroundColor(.lmTextSecondary)
+                            
+                            Spacer()
+                            
+                            DatePicker("", selection: $viewModel.selectedDate, in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                                .labelsHidden()
+                                .accentColor(.lmPrimary)
                         }
+                        .padding()
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.lmPrimary.opacity(0.1), lineWidth: 1))
                     }
                     
                     // MARK: Method
@@ -289,15 +286,14 @@ struct EventListView: View {
             return
         }
         
-        guard let time = selectedTime, !time.isEmpty else {
-            ToastManager.shared.show(title: "Select Time", message: "Please select a time slot.", type: .error)
-            return
-        }
-        
         isSaving = true
         
+        let formatter = DateFormatter()
+        formatter.dateFormat = "hh:mm a"
+        let timeString = formatter.string(from: viewModel.selectedDate)
+        
         // Use Firestore as source of truth — validates limit AND time conflict
-        FirestoreManager.shared.validateAppointmentSlot(lawyerId: lawyer.id, date: viewModel.selectedDate, time: time) { canBook, reason in
+        FirestoreManager.shared.validateAppointmentSlot(lawyerId: lawyer.id, date: viewModel.selectedDate, time: timeString) { canBook, reason in
             DispatchQueue.main.async {
                 if canBook {
                     self.saveManualAppointment()
@@ -316,21 +312,29 @@ struct EventListView: View {
             return 
         }
 
-        let appointmentDate = combineDateAndTime(day: viewModel.selectedDate, timeString: selectedTime ?? "")
+        let formatter = DateFormatter()
+        formatter.dateFormat = "hh:mm a"
+        let timeString = formatter.string(from: viewModel.selectedDate)
+        
+        let clientImage = FirestoreManager.shared.clients.first(where: { $0.id == selectedClientId })?.profileImage
         
         let appointment = FBAppointment(
             clientId: selectedClientId,
             clientName: clientSearchName,
+            clientImage: clientImage,
             lawyerId: currentLawyer.id,
             lawyerName: currentLawyer.fullName,
-            lawyerImage: currentLawyer.profileImage,
-            lawyerSpecialty: currentLawyer.specialty,
+            lawyerImage: currentLawyer.profileImage ?? "",
+            lawyerSpecialty: currentLawyer.specialty ?? "Lawyer",
             service: selectedService,
-            date: appointmentDate,
-            time: selectedTime ?? "TBD",
+            date: viewModel.selectedDate,
+            time: timeString,
             method: isVideoCall ? "Video Call" : "In Person",
             description: caseDescription,
-            status: "Pending"
+            status: "Confirmed",
+            lastActionBy: currentLawyer.id,
+            locationLat: currentLawyer.latitude ?? 6.9271,
+            locationLng: currentLawyer.longitude ?? 79.8612
         )
 
         FirestoreManager.shared.createAppointmentWithValidation(appointment) { success, reason, appointmentId in
