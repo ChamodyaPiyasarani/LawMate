@@ -17,7 +17,18 @@ class CalendarViewModel: ObservableObject {
     var upcomingAppointments: [FBAppointment] {
         appointmentsForSelectedDate.filter { 
             let s = $0.status.lowercased()
-            return s == "confirmed" || s == "pending" || s == "in progress" || s == "rescheduled"
+            let isPast = $0.date < Date()
+            let isActive = s == "confirmed" || s == "pending" || s == "in progress" || s == "rescheduled"
+            return isActive && !isPast
+        }
+    }
+    
+    var overdueAppointments: [FBAppointment] {
+        appointmentsForSelectedDate.filter {
+            let s = $0.status.lowercased()
+            let isPast = $0.date < Date()
+            let isActive = s == "confirmed" || s == "pending" || s == "in progress" || s == "rescheduled"
+            return isActive && isPast
         }
     }
     

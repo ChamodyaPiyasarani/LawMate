@@ -472,6 +472,29 @@ class FirestoreManager: ObservableObject {
         referrals = unique.sorted { $0.timestamp > $1.timestamp }
     }
 
+    func updateReferral(_ referral: FBReferral, completion: ((Bool) -> Void)? = nil) {
+        guard let id = referral.id else { return }
+        do {
+            try db.collection("referrals").document(id).setData(from: referral, merge: true)
+            completion?(true)
+        } catch {
+            print("Error updating referral: \(error)")
+            completion?(false)
+        }
+    }
+
+    func deleteReferral(_ referral: FBReferral, completion: ((Bool) -> Void)? = nil) {
+        guard let id = referral.id else { return }
+        db.collection("referrals").document(id).delete { error in
+            if let error = error {
+                print("Error deleting referral: \(error)")
+                completion?(false)
+            } else {
+                completion?(true)
+            }
+        }
+    }
+
     func createReferralRequest(targetLawyerId: String, targetLawyerName: String, note: String?) {
         guard let requester = AuthService.shared.currentUser else { return }
 
@@ -731,8 +754,11 @@ class FirestoreManager: ObservableObject {
         }
     }
     
-    func updateCase(_ modifiedCase: FBLegalCase) {
-        guard let id = modifiedCase.id else { return }
+    func updateCase(_ modifiedCase: FBLegalCase, completion: ((Bool) -> Void)? = nil) {
+        guard let id = modifiedCase.id else { 
+            completion?(false)
+            return 
+        }
         
         // Optimistic update for immediate UI feedback
         DispatchQueue.main.async {
@@ -744,8 +770,10 @@ class FirestoreManager: ObservableObject {
         do {
             try db.collection("cases").document(id).setData(from: modifiedCase)
             cacheCase(modifiedCase)
+            completion?(true)
         } catch {
             print("Error updating case: \(error)")
+            completion?(false)
         }
     }
     
@@ -1910,6 +1938,39 @@ class FirestoreManager: ObservableObject {
         validateAppointmentSlot(lawyerId: lawyerId, date: date, time: "") { canBook, _ in
             completion(canBook)
         }
+    }
+    /// Fetches dates for a specific month where the lawyer has reached their daily appointment limit.
+    func fetchLawyerBusyDates(lawyerId: String, forMonth month: Date, completion: @escaping ([Date]) -> Void) {
+        let calendar = Calendar.current
+        guard let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: month)),
+              let endOfMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth) else {
+            completion([])
+            return
+        }
+
+        db.collection("appointments")
+            .whereField("lawyerId", isEqualTo: lawyerId)
+            .getDocuments { snapshot, error in
+                guard let documents = snapshot?.documents else {
+                    completion([])
+                    return
+                }
+
+                var counts: [Date: Int] = [:]
+                for doc in documents {
+                    guard let timestamp = doc.get("date") as? Timestamp else { continue }
+                    let dateValue = timestamp.dateValue()
+                    let day = calendar.startOfDay(for: dateValue)
+                    
+                    if day >= startOfMonth && day < endOfMonth {
+                        counts[day, default: 0] += 1
+                    }
+                }
+
+                // Match the limit in validateAppointmentSlot (3)
+                let busyDates = counts.filter { $0.value >= 3 }.map { $0.key }
+                completion(busyDates)
+            }
     }
 }
 

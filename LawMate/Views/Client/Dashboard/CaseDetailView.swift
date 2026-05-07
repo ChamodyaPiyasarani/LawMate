@@ -23,6 +23,9 @@ struct CaseDetailView: View {
     @State private var activeStageIndex: Int? = nil
     @State private var showFilePicker = false
     @State private var showScanner = false
+    @State private var showAddHearingSheet = false
+    @State private var newHearingDate = Date()
+    @State private var newHearingLocation = ""
     
     private var isLawyer: Bool {
         AuthService.shared.currentUser?.role == .lawyer
@@ -83,47 +86,8 @@ struct CaseDetailView: View {
                         .padding(.top, 12)
                 }
                 
-                if currentCase.hearingDates.count > 0 {
-                    VStack(spacing: 8) {
-                        ForEach(currentCase.hearingDates.sorted(), id: \.self) { date in
-                            HStack {
-                                Image(systemName: "calendar")
-                                Text("Hearing: \(date, style: .date)")
-                                Spacer()
-                                if let address = currentCase.address {
-                                    Image(systemName: "mappin")
-                                    Text(address).lineLimit(1)
-                                }
-                            }
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.lmPrimary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(Color.lmPrimary.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                        }
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 12)
-                } else if let hDate = currentCase.hearingDate {
-                    HStack {
-                        Image(systemName: "calendar")
-                        Text("Hearing: \(hDate, style: .date)")
-                        Spacer()
-                        if let address = currentCase.address {
-                            Image(systemName: "mappin")
-                            Text(address).lineLimit(1)
-                        }
-                    }
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.lmPrimary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.lmPrimary.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .padding(.horizontal, 24)
-                    .padding(.top, 12)
-                }
+                // Redundant hearing list removed — now shown in timeline below nodes
+                // .padding(.horizontal, 24) and .padding(.top, 12) removed as they were attached to the deleted list
                 
                 // MARK: Segmented Control
                 HStack(spacing: 0) {
@@ -206,6 +170,56 @@ struct CaseDetailView: View {
         .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.pdf, .png, .jpeg]) { result in
             handleFileURLUpload(result: result)
         }
+        .sheet(isPresented: $showAddHearingSheet) {
+            addHearingSheet
+        }
+    }
+    
+    private var addHearingSheet: some View {
+        NavigationStack {
+            Form {
+                Section("Hearing Details") {
+                    DatePicker("Date & Time", selection: $newHearingDate)
+                    TextField("Location (Court/Room)", text: $newHearingLocation)
+                }
+            }
+            .navigationTitle("Add Hearing Date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showAddHearingSheet = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        saveNewHearing()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+    
+    private func saveNewHearing() {
+        var updatedCase = currentCase
+        let newHearing = FBHearingDate(date: newHearingDate, location: newHearingLocation, notes: "")
+        
+        // Add and sort
+        updatedCase.hearings.append(newHearing)
+        updatedCase.hearings.sort { $0.date < $1.date }
+        
+        // Also update legacy array for safety
+        updatedCase.hearingDates.append(newHearingDate)
+        updatedCase.hearingDates.sort()
+        updatedCase.hearingDate = updatedCase.hearings.first?.date
+        
+        FirestoreManager.shared.updateCase(updatedCase) { success in
+            if success {
+                showAddHearingSheet = false
+                newHearingLocation = ""
+                newHearingDate = Date()
+                ToastManager.shared.show(title: "Hearing Added", message: "Successfully added new hearing date.", type: .success)
+            }
+        }
     }
     
     // MARK: - Progress Section
@@ -249,6 +263,67 @@ struct CaseDetailView: View {
                             .padding(.top, 12)
                         }
                         
+                        // Show Attached Hearings if this is a hearing stage
+                        if stage.title.lowercased().contains("hearing") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                if !currentCase.hearings.isEmpty {
+                                    ForEach(currentCase.hearings.sorted(by: { $0.date < $1.date })) { hearing in
+                                        HStack {
+                                            Image(systemName: "calendar")
+                                                .font(.system(size: 10))
+                                            Text(hearing.date, style: .date)
+                                                .font(.system(size: 11, weight: .bold))
+                                            Text(hearing.date, style: .time)
+                                                .font(.system(size: 11))
+                                            Spacer()
+                                            if !hearing.location.isEmpty {
+                                                Image(systemName: "mappin")
+                                                    .font(.system(size: 10))
+                                                Text(hearing.location)
+                                                    .font(.system(size: 10))
+                                                    .lineLimit(1)
+                                            }
+                                        }
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 8)
+                                        .background(Color.lmPrimary.opacity(0.05))
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                    }
+                                } else if !currentCase.hearingDates.isEmpty {
+                                    let uniqueDates = deduplicateDatesByDay(currentCase.hearingDates)
+                                    ForEach(uniqueDates.sorted(), id: \.self) { date in
+                                        HStack {
+                                            Image(systemName: "calendar")
+                                                .font(.system(size: 10))
+                                            Text(date, style: .date)
+                                                .font(.system(size: 11, weight: .bold))
+                                            Spacer()
+                                        }
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 8)
+                                        .background(Color.lmPrimary.opacity(0.05))
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                    }
+                                }
+                                
+                                if isLawyer {
+                                    Button {
+                                        // Open a simple sheet or just update a state to show a picker
+                                        showAddHearingSheet = true
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: "plus.circle.fill")
+                                            Text("Add Hearing Date")
+                                        }
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(.lmPrimary)
+                                        .padding(.vertical, 4)
+                                    }
+                                }
+                            }
+                            .padding(.top, 4)
+                        }
+
                         // Show Attached Files if any
                         let stageDocs = firestore.caseDocuments.filter { $0.stageIndex == index }
                         if !stageDocs.isEmpty {
@@ -281,6 +356,7 @@ struct CaseDetailView: View {
                                     .buttonStyle(.plain)
                                 }
                             }
+                            .padding(.top, 8)
                         }
                     }
                     .padding(.leading, 42)
@@ -439,6 +515,16 @@ struct CaseDetailView: View {
         
         ToastManager.shared.show(title: "Success", message: "Document uploaded successfully.", type: .success)
         isUploading = false
+    }
+
+    private func deduplicateDatesByDay(_ dates: [Date]) -> [Date] {
+        var uniqueDates: [Date] = []
+        for date in dates {
+            if !uniqueDates.contains(where: { Calendar.current.isDate($0, inSameDayAs: date) }) {
+                uniqueDates.append(date)
+            }
+        }
+        return uniqueDates
     }
 }
 

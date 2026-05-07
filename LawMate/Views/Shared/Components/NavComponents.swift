@@ -1275,3 +1275,162 @@ struct FilterChip: View {
         .buttonStyle(.plain)
     }
 }
+import SwiftUI
+
+struct BookingCalendarView: View {
+    @Binding var selectedDate: Date
+    let lawyerId: String?
+    
+    @State private var currentMonth = Date()
+    @State private var busyDates: [Date] = []
+    
+    let daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            // Month Header
+            HStack {
+                Text(currentMonth, formatter: monthYearFormatter)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.lmPrimary)
+                
+                Spacer()
+                
+                HStack(spacing: 20) {
+                    Button(action: previousMonth) {
+                        Image(systemName: "chevron.left")
+                            .foregroundColor(.lmPrimary)
+                    }
+                    Button(action: nextMonth) {
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.lmPrimary)
+                    }
+                }
+            }
+            .padding(.horizontal, 8)
+            
+            // Day Names
+            HStack(spacing: 0) {
+                ForEach(daysOfWeek, id: \.self) { day in
+                    Text(day)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.lmTextSecondary)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            
+            // Days Grid
+            let days = generateDaysInMonth(for: currentMonth)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 8) {
+                ForEach(days) { day in
+                    if let date = day.date {
+                        dayCell(for: date)
+                    } else {
+                        Color.clear.frame(height: 40)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .onAppear {
+            fetchBusyDates()
+        }
+        .onChange(of: currentMonth) { _, _ in
+            fetchBusyDates()
+        }
+        .onChange(of: lawyerId) { _, _ in
+            fetchBusyDates()
+        }
+    }
+    
+    private func dayCell(for date: Date) -> some View {
+        let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
+        let isToday = Calendar.current.isDateInToday(date)
+        let isPast = date < Calendar.current.startOfDay(for: Date())
+        let isBusy = busyDates.contains(where: { Calendar.current.isDate($0, inSameDayAs: date) })
+        let isDisabled = isPast || isBusy
+        
+        return Button {
+            if !isDisabled {
+                selectedDate = date
+            }
+        } label: {
+            ZStack {
+                if isSelected {
+                    Circle()
+                        .fill(Color.lmPrimary)
+                        .frame(width: 36, height: 36)
+                } else if isToday {
+                    Circle()
+                        .stroke(Color.lmPrimary, lineWidth: 1)
+                        .frame(width: 36, height: 36)
+                }
+                
+                VStack(spacing: 2) {
+                    Text("\(Calendar.current.component(.day, from: date))")
+                        .font(.system(size: 15, weight: isSelected || isToday ? .bold : .medium))
+                        .foregroundColor(isSelected ? .white : (isDisabled ? .gray.opacity(0.3) : .lmPrimary))
+                    
+                    if isBusy {
+                        Text("FULL")
+                            .font(.system(size: 7, weight: .black))
+                            .foregroundColor(.red.opacity(0.6))
+                    }
+                }
+            }
+        }
+        .disabled(isDisabled)
+        .buttonStyle(.plain)
+    }
+    
+    private func fetchBusyDates() {
+        guard let id = lawyerId else { return }
+        FirestoreManager.shared.fetchLawyerBusyDates(lawyerId: id, forMonth: currentMonth) { dates in
+            DispatchQueue.main.async {
+                self.busyDates = dates
+            }
+        }
+    }
+    
+    private func generateDaysInMonth(for date: Date) -> [CalendarDay] {
+        let calendar = Calendar.current
+        guard let monthRange = calendar.range(of: .day, in: .month, for: date),
+              let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: date)) else {
+            return []
+        }
+        
+        let weekday = calendar.component(.weekday, from: startOfMonth)
+        let leadingEmptyDays = weekday - 1
+        
+        var days: [CalendarDay] = []
+        for _ in 0..<leadingEmptyDays {
+            days.append(CalendarDay(date: nil))
+        }
+        for day in 1...monthRange.count {
+            if let date = calendar.date(byAdding: .day, value: day - 1, to: startOfMonth) {
+                days.append(CalendarDay(date: date))
+            }
+        }
+        return days
+    }
+    
+    private func nextMonth() {
+        if let next = Calendar.current.date(byAdding: .month, value: 1, to: currentMonth) {
+            currentMonth = next
+        }
+    }
+    
+    private func previousMonth() {
+        if let prev = Calendar.current.date(byAdding: .month, value: -1, to: currentMonth) {
+            currentMonth = prev
+        }
+    }
+    
+    private var monthYearFormatter: DateFormatter {
+        let f = DateFormatter()
+        f.dateFormat = "MMMM yyyy"
+        return f
+    }
+}

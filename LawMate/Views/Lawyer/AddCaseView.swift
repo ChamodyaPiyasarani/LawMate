@@ -24,6 +24,7 @@ struct AddCaseView: View {
     @State private var selectedImages: [UIImage] = []
     @State private var selectedFiles: [URL] = []
     @State private var isFileImporterPresented = false
+    @State private var isUpdating = false
     
     // MARK: Search State
     @State private var showClientSuggestions = false
@@ -315,10 +316,20 @@ struct AddCaseView: View {
                             let targetId = editingCase?.id ?? UUID().uuidString
                             
                             var combinedDates = editingCase?.hearingDates ?? []
-                            if isHearingDateSet && !combinedDates.contains(where: { Calendar.current.isDate($0, inSameDayAs: hearingDate) }) {
+                            var combinedHearings = editingCase?.hearings ?? []
+                            
+                            if isHearingDateSet {
+                                // Deduplicate: only one hearing per day in this view's logic
+                                combinedDates.removeAll(where: { Calendar.current.isDate($0, inSameDayAs: hearingDate) })
                                 combinedDates.append(hearingDate)
                                 combinedDates.sort()
+                                
+                                combinedHearings.removeAll(where: { Calendar.current.isDate($0.date, inSameDayAs: hearingDate) })
+                                combinedHearings.append(FBHearingDate(date: hearingDate, location: selectedAddress, notes: description))
+                                combinedHearings.sort { $0.date < $1.date }
                             }
+                            
+                            isUpdating = true
                             
                             let modifiedCase = FBLegalCase(
                                 id: targetId,
@@ -336,6 +347,7 @@ struct AddCaseView: View {
                                 description: description,
                                 hearingDate: isHearingDateSet ? hearingDate : nil,
                                 hearingDates: combinedDates,
+                                hearings: combinedHearings,
                                 locationLat: location?.latitude,
                                 locationLng: location?.longitude,
                                 address: selectedAddress,
@@ -409,6 +421,14 @@ struct AddCaseView: View {
                                 body: "Successfully \(editingCase == nil ? "created" : "updated") active case: \(modifiedCase.title)"
                             )
                             dismiss()
+                        }
+                        .disabled(isUpdating || caseTitle.isEmpty)
+                        .opacity((isUpdating || caseTitle.isEmpty) ? 0.6 : 1.0)
+                        .overlay {
+                            if isUpdating {
+                                ProgressView()
+                                    .tint(.white)
+                            }
                         }
                         .padding(.top, 20)
                         

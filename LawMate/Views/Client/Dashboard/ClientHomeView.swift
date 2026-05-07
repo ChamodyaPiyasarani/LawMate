@@ -236,7 +236,8 @@ struct ClientHomeView: View {
 
     @ViewBuilder
     private var caseProgressSection: some View {
-        if let latestCase = firestore.cases.sorted(by: { ($0.createdDate ?? Date.distantPast) > ($1.createdDate ?? Date.distantPast) }).first {
+        let activeCases = firestore.cases.filter { $0.status.lowercased() != "closed" }
+        if let latestCase = activeCases.sorted(by: { ($0.createdDate ?? Date.distantPast) > ($1.createdDate ?? Date.distantPast) }).first {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Active Case Progress")
                     .font(.system(size: 18, weight: .bold))

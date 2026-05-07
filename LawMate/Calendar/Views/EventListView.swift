@@ -61,6 +61,9 @@ struct EventListView: View {
                 TabButton(title: "Upcoming", isSelected: selectedScheduleTab == 0) {
                     selectedScheduleTab = 0
                 }
+                TabButton(title: "Overdue", isSelected: selectedScheduleTab == 2) {
+                    selectedScheduleTab = 2
+                }
                 TabButton(title: "Completed", isSelected: selectedScheduleTab == 1) {
                     selectedScheduleTab = 1
                 }
@@ -70,14 +73,21 @@ struct EventListView: View {
             .clipShape(Capsule())
             .padding(.horizontal, 24)
             
-            let displayList = (selectedScheduleTab == 0) ? viewModel.upcomingAppointments : viewModel.completedAppointments
+            let displayList: [FBAppointment] = {
+                switch selectedScheduleTab {
+                case 0: return viewModel.upcomingAppointments
+                case 1: return viewModel.completedAppointments
+                case 2: return viewModel.overdueAppointments
+                default: return []
+                }
+            }()
             
             if displayList.isEmpty {
                 VStack(spacing: 16) {
-                    Image(systemName: selectedScheduleTab == 0 ? "calendar.badge.plus" : "clock.arrow.circlepath")
+                    Image(systemName: selectedScheduleTab == 0 ? "calendar.badge.plus" : (selectedScheduleTab == 2 ? "exclamationmark.triangle" : "clock.arrow.circlepath"))
                         .font(.system(size: 40))
                         .foregroundColor(.lmPrimary.opacity(0.2))
-                    Text(selectedScheduleTab == 0 ? "No upcoming appointments." : "No completed appointments yet.")
+                    Text(selectedScheduleTab == 0 ? "No upcoming appointments." : (selectedScheduleTab == 2 ? "No overdue appointments." : "No completed appointments yet."))
                         .font(.system(size: 14))
                         .foregroundColor(.lmTextSecondary)
                 }

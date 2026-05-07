@@ -49,19 +49,24 @@ struct LawyerHomeView: View {
     var todayAppointments: [FBAppointment] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
+        let now = Date()
         return firestore.appointments.filter { 
             let s = $0.status.lowercased()
-            return calendar.startOfDay(for: $0.date) == today && s != "cancelled" && s != "rejected" && s != "done" && s != "completed"
+            let isActive = s != "cancelled" && s != "rejected" && s != "done" && s != "completed"
+            return calendar.startOfDay(for: $0.date) == today && isActive && $0.date > now
         }
     }
     
     var todayCaseHearings: [FBLegalCase] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
+        let now = Date()
         return firestore.cases.filter { currentCase in
-            if currentCase.hearingDates.contains(where: { calendar.startOfDay(for: $0) == today }) { return true }
+            let todayDates = currentCase.hearingDates.filter { calendar.startOfDay(for: $0) == today && $0 > now }
+            if !todayDates.isEmpty { return true }
+            
             if let hDate = currentCase.hearingDate {
-                return calendar.startOfDay(for: hDate) == today
+                return calendar.startOfDay(for: hDate) == today && hDate > now
             }
             return false
         }

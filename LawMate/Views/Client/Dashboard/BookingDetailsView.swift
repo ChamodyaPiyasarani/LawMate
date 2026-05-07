@@ -11,12 +11,25 @@ struct BookingDetailsView: View {
     @State private var searchQuery = ""
     @State private var selectedFilter = "Confirmed"
     
-    private let filters = ["Confirmed", "Pending", "Rescheduled", "In progress", "Done"]
+    private let filters = ["Confirmed", "Pending", "Rescheduled", "Overdue", "Cancelled", "Done"]
     
     var filteredBookings: [FBAppointment] {
         firestore.appointments.filter { booking in
-            let matchesSearch = searchQuery.isEmpty || booking.lawyerName.localizedCaseInsensitiveContains(searchQuery)
-            let matchesFilter = booking.status.lowercased() == selectedFilter.lowercased()
+            let matchesSearch = searchQuery.isEmpty || 
+                               booking.lawyerName.localizedCaseInsensitiveContains(searchQuery) ||
+                               booking.clientName.localizedCaseInsensitiveContains(searchQuery)
+            
+            let matchesFilter: Bool
+            let s = booking.status.lowercased()
+            
+            if selectedFilter == "Overdue" {
+                matchesFilter = booking.isOverdue
+            } else if selectedFilter == "Done" {
+                matchesFilter = (s == "done" || s == "completed")
+            } else {
+                matchesFilter = s == selectedFilter.lowercased()
+            }
+            
             return matchesSearch && matchesFilter
         }
     }
@@ -68,7 +81,8 @@ struct BookingDetailsView: View {
                         LawMateFilterPill(icon: "checkmark.circle.fill", title: "Confirmed", isActive: selectedFilter == "Confirmed") { selectedFilter = "Confirmed" }
                         LawMateFilterPill(icon: "clock.fill", title: "Pending", isActive: selectedFilter == "Pending") { selectedFilter = "Pending" }
                         LawMateFilterPill(icon: "calendar.badge.clock", title: "Rescheduled", isActive: selectedFilter == "Rescheduled") { selectedFilter = "Rescheduled" }
-                        LawMateFilterPill(icon: "arrow.triangle.2.circlepath", title: "In progress", isActive: selectedFilter == "In progress") { selectedFilter = "In progress" }
+                        LawMateFilterPill(icon: "exclamationmark.triangle.fill", title: "Overdue", isActive: selectedFilter == "Overdue") { selectedFilter = "Overdue" }
+                        LawMateFilterPill(icon: "xmark.circle.fill", title: "Cancelled", isActive: selectedFilter == "Cancelled") { selectedFilter = "Cancelled" }
                         LawMateFilterPill(icon: "checkmark.seal.fill", title: "Done", isActive: selectedFilter == "Done") { selectedFilter = "Done" }
                     }
                     .padding(.horizontal, 24)

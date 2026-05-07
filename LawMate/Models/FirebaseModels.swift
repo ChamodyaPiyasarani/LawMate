@@ -18,6 +18,7 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
     var description: String? = nil
     var hearingDate: Date? = nil
     var hearingDates: [Date] = []
+    var hearings: [FBHearingDate] = []
     var locationLat: Double? = nil
     var locationLng: Double? = nil
     var address: String? = nil
@@ -27,10 +28,10 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
     
     enum CodingKeys: String, CodingKey {
         case id
-        case caseNumber, title, clientName, clientId, clientImage, lawyerName, lawyerId, lawyerImage, type, status, priority, description, hearingDate, hearingDates, locationLat, locationLng, address, createdDate, stages, documents
+        case caseNumber, title, clientName, clientId, clientImage, lawyerName, lawyerId, lawyerImage, type, status, priority, description, hearingDate, hearingDates, hearings, locationLat, locationLng, address, createdDate, stages, documents
     }
     
-    init(id: String? = nil, caseNumber: String, title: String, clientName: String, clientId: String, clientImage: String? = nil, lawyerName: String, lawyerId: String, lawyerImage: String? = nil, type: String, status: String, priority: String, description: String? = nil, hearingDate: Date? = nil, hearingDates: [Date] = [], locationLat: Double? = nil, locationLng: Double? = nil, address: String? = nil, createdDate: Date? = nil, stages: [FBCaseStage] = [], documents: [FBDocument]? = nil) {
+    init(id: String? = nil, caseNumber: String, title: String, clientName: String, clientId: String, clientImage: String? = nil, lawyerName: String, lawyerId: String, lawyerImage: String? = nil, type: String, status: String, priority: String, description: String? = nil, hearingDate: Date? = nil, hearingDates: [Date] = [], hearings: [FBHearingDate] = [], locationLat: Double? = nil, locationLng: Double? = nil, address: String? = nil, createdDate: Date? = nil, stages: [FBCaseStage] = [], documents: [FBDocument]? = nil) {
         self._id = DocumentID(wrappedValue: id)
         self.caseNumber = caseNumber
         self.title = title
@@ -46,6 +47,7 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
         self.description = description
         self.hearingDate = hearingDate
         self.hearingDates = hearingDates
+        self.hearings = hearings
         self.locationLat = locationLat
         self.locationLng = locationLng
         self.address = address
@@ -480,4 +482,11 @@ struct FBReferral: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case requesterId, requesterName, targetLawyerId, targetLawyerName, status, note, recommendedLawyerId, recommendedLawyerName, timestamp
     }
+}
+
+struct FBHearingDate: Identifiable, Codable, Hashable {
+    var id: UUID = UUID()
+    var date: Date
+    var location: String
+    var notes: String
 }
