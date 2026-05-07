@@ -472,6 +472,24 @@ class FirestoreManager: ObservableObject {
         referrals = unique.sorted { $0.timestamp > $1.timestamp }
     }
 
+    func deleteReferral(_ referral: FBReferral) {
+        guard let id = referral.id else { return }
+        db.collection("referrals").document(id).delete() { error in
+            if let error = error {
+                print("Error deleting referral: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    func updateReferral(_ referral: FBReferral) {
+        guard let id = referral.id else { return }
+        do {
+            try db.collection("referrals").document(id).setData(from: referral, merge: true)
+        } catch {
+            print("Error updating referral: \(error.localizedDescription)")
+        }
+    }
+
     func createReferralRequest(targetLawyerId: String, targetLawyerName: String, note: String?) {
         guard let requester = AuthService.shared.currentUser else { return }
 
@@ -1057,12 +1075,12 @@ class FirestoreManager: ObservableObject {
         }
     }
     
-    func sendMessage(to conversationId: String, text: String, senderId: String) {
+    func sendMessage(to conversationId: String, text: String, senderId: String, recipientId explicitRecipientId: String? = nil) {
         let senderPublicKey = MessageCryptoManager.shared.publicKeyBase64()
         
-        // Find recipient ID from loaded conversations
+        // Find recipient ID from loaded conversations or use explicit one
         let conversation = conversations.first(where: { $0.id == conversationId })
-        let recipientId = conversation?.participants.first(where: { $0 != senderId })
+        let recipientId = explicitRecipientId ?? conversation?.participants.first(where: { $0 != senderId })
         let senderName = AuthService.shared.currentUser?.fullName ?? "Someone"
 
         var encryptedText: String? = nil

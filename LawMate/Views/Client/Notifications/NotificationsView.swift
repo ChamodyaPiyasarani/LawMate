@@ -26,25 +26,36 @@ struct NotificationsView: View {
             
             VStack(spacing: 0) {
                 // MARK: Custom Header
-                LawMateNavigationBar(
-                    title: "Notifications",
-                    showBack: true,
-                    onBack: { dismiss() },
-                    trailingView: AnyView(
-                        Group {
-                            if !firestore.notifications.isEmpty {
-                                Button {
-                                    showClearAlert = true
-                                } label: {
-                                    Text("Clear All")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(.red)
-                                }
+                ZStack {
+                    HStack {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 28))
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundColor(.lmPrimary.opacity(0.4))
+                        }
+                        
+                        Spacer()
+                        
+                        if !firestore.notifications.isEmpty {
+                            Button {
+                                showClearAlert = true
+                            } label: {
+                                Text("Clear All")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.red)
                             }
                         }
-                    )
-                )
-                .padding(.top, 65)
+                    }
+                    
+                    Text("Notifications")
+                        .font(.lmHeading)
+                        .foregroundColor(.lmPrimary)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 30)
                 .zIndex(10)
                 
                 if firestore.notifications.isEmpty {
@@ -108,51 +119,52 @@ struct NotificationsView: View {
         }
         
         let type = notification.type
-        guard let relatedId = notification.relatedId else { return }
+        let relatedId = notification.relatedId
         
-        switch type {
-        case "message":
-            if let conv = firestore.conversations.first(where: { $0.id == relatedId }) {
-                activeConversation = conv
-                dismiss() // Go back to messages view (or it will push if in Home)
-            } else {
-                ToastManager.shared.show(title: "Not Found", message: "This conversation is no longer available.", type: .error)
-            }
+        // Close drawer first
+        NotificationManager.shared.showNotifications = false
+        
+        // Wait for dismissal then navigate
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            switch type {
+            case "message":
+                if let rId = relatedId, let conv = firestore.conversations.first(where: { $0.id == rId }) {
+                    activeConversation = conv
+                } else {
+                    ToastManager.shared.show(title: "Not Found", message: "Conversation not available.", type: .error)
+                }
 
-        case "case":
-            if let clientCase = firestore.cases.first(where: { $0.id == relatedId }) {
-                navPath.append(clientCase)
-                dismiss()
-            } else {
-                ToastManager.shared.show(title: "Not Found", message: "This case could not be found.", type: .error)
-            }
+            case "case":
+                if let rId = relatedId, let clientCase = firestore.cases.first(where: { $0.id == rId }) {
+                    navPath.append(clientCase)
+                } else {
+                    navPath.append(ClientHomeView.AppRoute.myCases)
+                }
 
-        case "document":
-            if let doc = firestore.advisoryDocuments.first(where: { $0.id == relatedId }) {
-                navPath.append(doc)
-                dismiss()
-            } else {
-                ToastManager.shared.show(title: "Not Found", message: "This document could not be found.", type: .error)
-            }
-            
-        case "booking", "appointment":
-            if let appointment = firestore.appointments.first(where: { $0.id == relatedId }) {
-                navPath.append(appointment)
-                dismiss()
-            } else {
-                ToastManager.shared.show(title: "Not Found", message: "This appointment could not be found.", type: .error)
-            }
+            case "document":
+                if let rId = relatedId, let doc = firestore.advisoryDocuments.first(where: { $0.id == rId }) {
+                    navPath.append(doc)
+                } else {
+                    navPath.append(ClientHomeView.AppRoute.documents)
+                }
+                
+            case "booking", "appointment":
+                if let rId = relatedId, let appointment = firestore.appointments.first(where: { $0.id == rId }) {
+                    navPath.append(appointment)
+                } else {
+                    navPath.append(ClientHomeView.AppRoute.allAppointments)
+                }
 
-        case "referral":
-            if auth.currentUser?.role == .lawyer {
-                navPath.append(LawyerRoute.referrals)
-            } else {
-                navPath.append(ClientHomeView.AppRoute.referrals)
+            case "referral":
+                if auth.currentUser?.role == .lawyer {
+                    navPath.append(LawyerRoute.referrals)
+                } else {
+                    navPath.append(ClientHomeView.AppRoute.referrals)
+                }
+                
+            default:
+                print("Unhandled notification type: \(type)")
             }
-            dismiss()
-            
-        default:
-            print("Unhandled notification type: \(type)")
         }
     }
     

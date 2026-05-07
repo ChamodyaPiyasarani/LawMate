@@ -5,6 +5,7 @@ struct LawyerDetailView: View {
     let lawyer: Lawyer
     var referringLawyerName: String? = nil
     @Environment(\.dismiss) private var dismiss
+    @Binding var navPath: NavigationPath
     @Binding var activeConversation: FBConversation?
     @EnvironmentObject var firestore: FirestoreManager
     @EnvironmentObject var auth: AuthService
@@ -14,14 +15,11 @@ struct LawyerDetailView: View {
     
     private func startChat() {
         guard let currentUser = auth.currentUser else { return }
-        
         let partnerInfo = (name: lawyer.name, image: (lawyer.image.count > 15 ? lawyer.image : nil))
-        
         firestore.getOrCreateConversation(between: currentUser.id, and: lawyer.id, partnerInfo: partnerInfo, currentUser: currentUser) { convId in
             if let conversation = firestore.conversations.first(where: { $0.id == convId }) {
                 activeConversation = conversation
             } else {
-                // Fallback: manually fetch if not in local list yet
                 firestore.db.collection("conversations").document(convId).getDocument { snap, _ in
                     if let conversation = try? snap?.data(as: FBConversation.self) {
                         DispatchQueue.main.async {
@@ -37,155 +35,119 @@ struct LawyerDetailView: View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
             
-            // Green blob top-left (Client Style)
+            // Modern Header Background
             GreenBlobBackground(style: .client)
-                .frame(height: 300)
+                .frame(height: 350)
+                .offset(y: -50)
 
             VStack(spacing: 0) {
-                // MARK: Custom Header
+                // MARK: Custom Navigation
                 LawMateNavigationBar(
                     title: "Lawyer Details",
                     showBack: true,
                     showNotification: true,
-                    showCamera: false,
                     onBack: { dismiss() }
                 )
                 .padding(.top, 65)
 
-
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 32) {
+                    VStack(spacing: 24) {
                         
-                        // MARK: Profile Section
-                        VStack(spacing: 20) {
-                            Text(lawyer.name)
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(.lmPrimary)
-
-                            if let referringLawyerName {
-                                Text("Referred by \(referringLawyerName)")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(.lmTextSecondary)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(Color.lmPrimary.opacity(0.08))
-                                    .clipShape(Capsule())
-                            }
-
+                        // MARK: Hero Profile Section
+                        VStack(spacing: 16) {
                             ZStack(alignment: .bottomTrailing) {
-                                // Profile Image Placeholder
-                                RoundedRectangle(cornerRadius: 32, style: .continuous)
-                                    .fill(.ultraThinMaterial)
-                                    .frame(maxWidth: .infinity)
-                                    .aspectRatio(1.5, contentMode: .fill)
-                                    .overlay(
-                                        Image(systemName: "person.fill")
-                                            .font(.system(size: 80))
-                                            .foregroundColor(.lmPrimary.opacity(0.2))
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 32, style: .continuous)
-                                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                    )
+                                LawMateAvatar(url: lawyer.image, name: lawyer.name, size: 120)
+                                    .shadow(color: .black.opacity(0.1), radius: 15, x: 0, y: 8)
                                 
                                 // Rating Badge
                                 HStack(spacing: 4) {
                                     Image(systemName: "star.fill")
+                                        .font(.system(size: 10))
                                         .foregroundColor(.orange)
                                     Text(String(format: "%.1f", lawyer.rating))
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.lmTextPrimary)
+                                        .font(.system(size: 12, weight: .bold))
                                 }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color.white)
                                 .clipShape(Capsule())
-                                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
-                                .offset(x: -20, y: 15)
+                                .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
+                                .offset(x: 5, y: 5)
+                            }
+                            
+                            VStack(spacing: 4) {
+                                Text(lawyer.name)
+                                    .font(.system(size: 24, weight: .bold))
+                                    .foregroundColor(.lmPrimary)
+                                
+                                Text(lawyer.specialty)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.lmTextSecondary)
+                            }
+                            
+                            if let referringLawyerName {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "arrowshape.turn.up.right.fill")
+                                        .font(.system(size: 10))
+                                    Text("Referred by \(referringLawyerName)")
+                                }
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.lmPrimary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.lmPrimary.opacity(0.08))
+                                .clipShape(Capsule())
                             }
                         }
-                        .padding(.horizontal, 24)
+                        .padding(.top, 20)
 
-                        // MARK: Stats Row
+                        // MARK: Primary Actions Row (Modern & Compact)
+                        HStack(spacing: 32) {
+                            ActionButton(icon: "bubble.left.fill", title: "Message", color: .white, textColor: .lmPrimary, borderColor: .lmPrimary.opacity(0.1)) {
+                                startChat()
+                            }
+                            
+                            ActionButton(icon: "calendar", title: "Book", color: .lmPrimary, textColor: .white) {
+                                navPath.append(ClientHomeView.AppRoute.booking(lawyer))
+                            }
+                            
+                            ActionButton(icon: "person.2.fill", title: "Refer", color: .lmPrimary.opacity(0.05), textColor: .lmPrimary) {
+                                showReferralAlert = true
+                            }
+                        }
+                        .padding(.vertical, 10)
+
+                        // MARK: Info Cards
                         HStack(spacing: 16) {
-                            StatCard(title: "EXPERIENCE", value: lawyer.experience)
-                            StatCard(title: "CASES WON", value: lawyer.casesWon)
+                            InfoCard(icon: "briefcase.fill", title: "Experience", value: lawyer.experience)
+                            InfoCard(icon: "trophy.fill", title: "Cases Won", value: lawyer.casesWon)
                         }
                         .padding(.horizontal, 24)
 
-                        // MARK: Description
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("Description:")
+                        // MARK: About Section
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("About Lawyer")
                                 .font(.system(size: 18, weight: .bold))
                                 .foregroundColor(.lmPrimary)
 
                             Text(lawyer.description)
-                                .font(.system(size: 16))
+                                .font(.system(size: 15))
                                 .foregroundColor(.lmTextSecondary)
-                                .lineSpacing(6)
+                                .lineSpacing(4)
                         }
-                        .padding(.horizontal, 24)
+                        .padding(24)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.bottom, 24) // Controlled gap
+                        .background(
+                            RoundedRectangle(cornerRadius: 32)
+                                .fill(Color.white)
+                                .shadow(color: Color.black.opacity(0.03), radius: 15, x: 0, y: 5)
+                        )
+                        .padding(.horizontal, 24)
 
-                        // MARK: CTAs
-                        VStack(spacing: 12) {
-                            NavigationLink(value: ClientHomeView.AppRoute.booking(lawyer)) {
-                                HStack {
-                                    Spacer()
-                                    Text("Book An Appointment")
-                                        .font(.lmButton)
-                                        .foregroundColor(.white)
-                                    Spacer()
-                                }
-                                .padding(.vertical, 14)
-                                .background(Color.lmPrimary)
-                                .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            
-                            Button {
-                                startChat()
-                            } label: {
-                                HStack {
-                                    Spacer()
-                                    Image(systemName: "bubble.right.fill")
-                                    Text("Chat with Lawyer")
-                                        .font(.lmButton)
-                                    Spacer()
-                                }
-                                .padding(.vertical, 14)
-                                .background(Color.white)
-                                .foregroundColor(.lmPrimary)
-                                .clipShape(Capsule())
-                                .overlay(Capsule().stroke(Color.lmPrimary, lineWidth: 2))
-                            }
-                            .buttonStyle(.plain)
-
-                            Button {
-                                showReferralAlert = true
-                            } label: {
-                                HStack {
-                                    Spacer()
-                                    Image(systemName: "arrowshape.turn.up.right.fill")
-                                    Text("Request Referral")
-                                        .font(.lmButton)
-                                    Spacer()
-                                }
-                                .padding(.vertical, 14)
-                                .background(Color.lmPrimary.opacity(0.1))
-                                .foregroundColor(.lmPrimary)
-                                .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.horizontal, 40)
-                        .padding(.bottom, 8)
-
-                        // MARK: Ratings & Reviews
+                        // MARK: Reviews Section
                         VStack(alignment: .leading, spacing: 16) {
                             HStack {
-                                Text("Ratings & Reviews")
+                                Text("Reviews")
                                     .font(.system(size: 18, weight: .bold))
                                     .foregroundColor(.lmPrimary)
                                 
@@ -194,65 +156,30 @@ struct LawyerDetailView: View {
                                 Button {
                                     showRatingSheet = true
                                 } label: {
-                                    Text("Write a review")
+                                    Text("Write a Review")
                                         .font(.system(size: 13, weight: .bold))
                                         .foregroundColor(.lmPrimary)
                                 }
                             }
-                            
-                            // Real Reviews from Firestore
-                            ForEach(firestore.lawyerReviews) { review in
-                                HStack(alignment: .top, spacing: 12) {
-                                    Circle()
-                                        .fill(Color.lmPrimary.opacity(0.1))
-                                        .frame(width: 36, height: 36)
-                                        .overlay(
-                                            Text(review.clientName.prefix(1))
-                                                .font(.system(size: 12, weight: .bold))
-                                                .foregroundColor(.lmPrimary)
-                                        )
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        HStack(spacing: 4) {
-                                            ForEach(0..<5) { i in
-                                                Image(systemName: "star.fill")
-                                                    .font(.system(size: 10))
-                                                    .foregroundColor(i < review.rating ? .orange : .gray.opacity(0.3))
-                                            }
-                                            Spacer()
-                                            Text(formatTimestamp(review.timestamp))
-                                                .font(.system(size: 10))
-                                                .foregroundColor(.lmTextSecondary.opacity(0.6))
-                                        }
-                                        
-                                        Text(review.reviewText)
-                                            .font(.system(size: 13))
-                                            .foregroundColor(.lmTextSecondary)
-                                            .lineLimit(3)
-                                    }
-                                }
-                                .padding(16)
-                                .background(Color.white.opacity(0.4))
-                                .clipShape(RoundedRectangle(cornerRadius: 16))
-                            }
+                            .padding(.horizontal, 24)
                             
                             if firestore.lawyerReviews.isEmpty {
-                                Text("No reviews yet. Be the first to write one!")
+                                Text("No reviews yet. Be the first to share your experience!")
                                     .font(.system(size: 13))
                                     .foregroundColor(.lmTextSecondary.opacity(0.6))
+                                    .padding(.horizontal, 24)
                                     .padding(.top, 8)
+                            } else {
+                                ForEach(firestore.lawyerReviews) { review in
+                                    ReviewItem(review: review)
+                                        .padding(.horizontal, 24)
+                                }
                             }
                         }
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 20)
-                        
-                        // Footer padding for global TabBar
-                        Color.clear.frame(height: 220)
+                        .padding(.bottom, 120)
                     }
-                    .padding(.top, 20)
                 }
             }
-            
         }
         .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
@@ -280,6 +207,122 @@ struct LawyerDetailView: View {
             firestore.listenForReviews(forLawyerId: lawyer.id)
         }
     }
+}
+
+// MARK: - Subviews
+
+private struct ActionButton: View {
+    let icon: String
+    let title: String
+    let color: Color
+    let textColor: Color
+    var borderColor: Color? = nil
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 56, height: 56)
+                        .shadow(color: color.opacity(0.15), radius: 10, x: 0, y: 6)
+                    
+                    if let borderColor = borderColor {
+                        Circle()
+                            .stroke(borderColor, lineWidth: 1.5)
+                            .frame(width: 56, height: 56)
+                    }
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(textColor)
+                }
+                
+                Text(title)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.lmTextSecondary)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct InfoCard: View {
+    let icon: String
+    let title: String
+    let value: String
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.lmPrimary.opacity(0.05))
+                    .frame(width: 36, height: 36)
+                Image(systemName: icon)
+                    .font(.system(size: 14))
+                    .foregroundColor(.lmPrimary)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title.uppercased())
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.lmTextSecondary.opacity(0.6))
+                Text(value)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.lmPrimary)
+            }
+            Spacer()
+        }
+        .padding(16)
+        .background(Color.white)
+        .cornerRadius(20)
+        .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 5)
+    }
+}
+
+private struct ReviewItem: View {
+    let review: FBReview
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Circle()
+                    .fill(Color.lmPrimary.opacity(0.1))
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Text(review.clientName.prefix(1))
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                    )
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(review.clientName)
+                        .font(.system(size: 13, weight: .bold))
+                    HStack(spacing: 2) {
+                        ForEach(0..<5) { i in
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 8))
+                                .foregroundColor(i < review.rating ? .orange : .gray.opacity(0.3))
+                        }
+                    }
+                }
+                Spacer()
+                Text(formatTimestamp(review.timestamp))
+                    .font(.system(size: 10))
+                    .foregroundColor(.lmTextSecondary.opacity(0.6))
+            }
+            
+            Text(review.reviewText)
+                .font(.system(size: 13))
+                .foregroundColor(.lmTextSecondary)
+                .lineLimit(3)
+        }
+        .padding(16)
+        .background(Color.white)
+        .cornerRadius(20)
+        .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
+    }
     
     private func formatTimestamp(_ date: Date) -> String {
         let formatter = RelativeDateTimeFormatter()
@@ -305,32 +348,6 @@ struct LawyerDetailView: View {
             location: "Colombo, Sri Lanka",
             image: "person.fill",
             coordinate: .init(latitude: 6.9271, longitude: 79.8612)
-        ), activeConversation: .constant(nil))
-    }
-}
-
-// MARK: - Stat Card
-struct StatCard: View {
-    let title: String
-    let value: String
-
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(title)
-                .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.lmTextSecondary.opacity(0.6))
-            
-            Text(value)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.lmPrimary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(.ultraThinMaterial)
-        .clipShape(Capsule())
-        .overlay(
-            Capsule()
-                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-        )
+        ), navPath: .constant(NavigationPath()), activeConversation: .constant(nil))
     }
 }

@@ -10,7 +10,7 @@ enum ProfileRoute: Hashable {
     case privacyPolicy
     case myUploads
     case accessibility
-    case referrals
+    case accessibility
 }
 
 struct ProfileView: View {
@@ -27,6 +27,8 @@ struct ProfileView: View {
     @State private var isUploading = false
     @State private var showNotifications = false
     @State private var showLogoutAlert = false
+    @State private var showDeleteAlert = false
+    @State private var isDeleting = false
     @Binding var navPath: NavigationPath
     @Binding var activeConversation: FBConversation?
     
@@ -78,39 +80,70 @@ struct ProfileView: View {
                                 ("shield", "Privacy Policy", ProfileRoute.privacyPolicy)
                             ])
 
-                            // MARK: Logout Section
+                            // MARK: Account Actions Section
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Account Actions")
                                     .font(.system(size: 13, weight: .bold))
                                     .foregroundColor(.lmTextSecondary.opacity(0.6))
                                     .padding(.horizontal, 8)
                                 
-                                Button(action: {
-                                    showLogoutAlert = true
-                                }) {
-                                    HStack(spacing: 16) {
-                                        Image(systemName: "rectangle.portrait.and.arrow.right")
-                                            .font(.system(size: 18))
-                                            .foregroundColor(.red)
-                                            .frame(width: 24)
-                                        
-                                        Text("Logout")
-                                            .font(.system(size: 14, weight: .bold))
-                                            .foregroundColor(.red)
-                                        
-                                        Spacer()
+                                VStack(spacing: 0) {
+                                    Button(action: {
+                                        showLogoutAlert = true
+                                    }) {
+                                        HStack(spacing: 16) {
+                                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                                                .font(.system(size: 18))
+                                                .foregroundColor(.red)
+                                                .frame(width: 24)
+                                            
+                                            Text("Logout")
+                                                .font(.system(size: 14, weight: .bold))
+                                                .foregroundColor(.red)
+                                            
+                                            Spacer()
+                                        }
+                                        .padding(.vertical, 16)
+                                        .padding(.horizontal, 20)
+                                        .background(Color.white.opacity(0.6))
+                                        .background(.ultraThinMaterial)
                                     }
-                                    .padding(.vertical, 16)
-                                    .padding(.horizontal, 20)
-                                    .background(Color.red.opacity(0.05))
-                                    .background(.ultraThinMaterial)
-                                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 16)
-                                            .stroke(Color.red.opacity(0.1), lineWidth: 1)
-                                    )
+                                    .buttonStyle(.plain)
+                                    
+                                    Divider().padding(.horizontal, 20)
+                                    
+                                    Button(action: {
+                                        showDeleteAlert = true
+                                    }) {
+                                        HStack(spacing: 16) {
+                                            Image(systemName: "person.badge.minus")
+                                                .font(.system(size: 18))
+                                                .foregroundColor(.red)
+                                                .frame(width: 24)
+                                            
+                                            Text("Delete Account")
+                                                .font(.system(size: 14, weight: .bold))
+                                                .foregroundColor(.red)
+                                            
+                                            Spacer()
+                                            
+                                            if isDeleting {
+                                                ProgressView().tint(.red)
+                                            }
+                                        }
+                                        .padding(.vertical, 16)
+                                        .padding(.horizontal, 20)
+                                        .background(Color.white.opacity(0.6))
+                                        .background(.ultraThinMaterial)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(isDeleting)
                                 }
-                                .buttonStyle(.plain)
+                                .clipShape(RoundedRectangle(cornerRadius: 16))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(Color.red.opacity(0.1), lineWidth: 1)
+                                )
                             }
                         }
                     }
@@ -146,9 +179,7 @@ struct ProfileView: View {
                 uploadImage(img)
             }
         }
-        .sheet(isPresented: $showNotifications) {
-            NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
-        }
+
         .alert("Logout", isPresented: $showLogoutAlert) {
             Button("Logout", role: .destructive) {
                 auth.logout()
@@ -156,6 +187,29 @@ struct ProfileView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Are you sure you want to log out?")
+        }
+        .alert("Delete Account", isPresented: $showDeleteAlert) {
+            Button("Delete Permanently", role: .destructive) {
+                performDeleteAccount()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This action is permanent and cannot be undone. All your data, cases, and messages will be lost.")
+        }
+    }
+    
+    private func performDeleteAccount() {
+        isDeleting = true
+        auth.deleteAccount { result in
+            DispatchQueue.main.async {
+                isDeleting = false
+                switch result {
+                case .success:
+                    ToastManager.shared.show(title: "Account Deleted", message: "Your data has been removed.", type: .success)
+                case .failure(let error):
+                    ToastManager.shared.show(title: "Deletion Failed", message: error.localizedDescription, type: .error)
+                }
+            }
         }
     }
     
@@ -180,9 +234,6 @@ struct ProfileView: View {
             ("lock", "Security & Password", ProfileRoute.security),
             ("faceid", "Biometric Settings", ProfileRoute.biometrics)
         ]
-        if userRole == .client {
-            items.append(("arrowshape.turn.up.right", "Referral Network", ProfileRoute.referrals))
-        }
         if userRole == .lawyer {
             items.append(("doc.text", "My Advisory Documents", ProfileRoute.myUploads))
         }

@@ -6,6 +6,7 @@ enum LawyerRoute: Hashable {
     case uploadAdvisory
     case notifications
     case referrals
+    case hearings
 }
 
 struct LawyerHomeView: View {
@@ -23,6 +24,27 @@ struct LawyerHomeView: View {
     @EnvironmentObject var auth: AuthService
     @State private var todayEvents: [EKEvent] = []
     @State private var weekEvents: [EKEvent] = []
+    
+    private var filteredTodayEvents: [EKEvent] {
+        todayEvents.filter { event in
+            // 1. Filter out appointments that are already in todayAppointments
+            let isAppointment = todayAppointments.contains { appt in
+                let titleMatches = event.title.contains(appt.service) && (event.title.contains(appt.clientName) || event.title.contains(appt.lawyerName))
+                return titleMatches && Calendar.current.isDate(event.startDate, inSameDayAs: appt.date)
+            }
+            if isAppointment { return false }
+            
+            // 2. Filter out hearings that are already in todayCaseHearings
+            let isHearing = todayCaseHearings.contains { lCase in
+                let titleMatches = event.title.contains(lCase.title)
+                let dateMatches = lCase.hearingDates.contains(where: { Calendar.current.isDate(event.startDate, inSameDayAs: $0) }) || (lCase.hearingDate != nil && Calendar.current.isDate(event.startDate, inSameDayAs: lCase.hearingDate!))
+                return titleMatches && dateMatches
+            }
+            if isHearing { return false }
+            
+            return true
+        }
+    }
     
     var todayAppointments: [FBAppointment] {
         let calendar = Calendar.current
@@ -105,7 +127,20 @@ struct LawyerHomeView: View {
                 }
             }
             
-            bottomTabBar
+            // Persistent Tab Bar
+            if activeConversation == nil {
+                VStack {
+                    Spacer()
+                    TabBarView(selectedTab: $selectedTab, role: .lawyer)
+                }
+                .ignoresSafeArea(edges: .bottom)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .sheet(isPresented: $notifications.showNotifications) {
+            NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
+                .presentationDetents([.large, .medium])
+                .presentationDragIndicator(.visible)
         }
         .animation(.easeInOut(duration: 0.2), value: navPath.isEmpty && activeConversation == nil)
         .onChange(of: selectedTab) { _, _ in
@@ -156,8 +191,11 @@ struct LawyerHomeView: View {
                     VStack(alignment: .leading, spacing: 28) {
                         statsCardsSection
                         
-                        HearingsCard(count: String(format: "%02d", hearingsThisWeekCount))
-                            .padding(.horizontal, 24)
+                        NavigationLink(value: LawyerRoute.hearings) {
+                            HearingsCard(count: String(format: "%02d", hearingsThisWeekCount))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 24)
                         
                         actionButtonsSection
                         
@@ -172,29 +210,25 @@ struct LawyerHomeView: View {
     }
 
     private var dashboardHeader: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Hello, \(auth.currentUser?.fullName ?? "User") !")
-                    .font(.system(size: 14, weight: .semibold))
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Welcome back,")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.lmTextSecondary)
+                
+                Text(auth.currentUser?.fullName ?? "User")
+                    .font(.system(size: 32, weight: .bold))
                     .foregroundColor(.lmPrimary)
-
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Justice,")
-                        .font(.lmHero)
-                        .foregroundColor(.lmPrimary)
-                    Text("Refined.")
-                        .font(.lmHero)
-                        .foregroundColor(.lmTextSecondary.opacity(0.5))
-                }
             }
             Spacer()
             
-            NotificationButton(action: {
-                navPath.append(LawyerRoute.notifications)
-            })
+            NotificationButton()
+                .padding(6)
+                .background(Circle().fill(Color.white.opacity(0.9)))
+                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
         }
         .padding(.horizontal, 24)
-        .padding(.top, 65)
+        .padding(.top, 75)
     }
 
     private var statsCardsSection: some View {
@@ -206,7 +240,7 @@ struct LawyerHomeView: View {
                     selectedTab = .calendar
                 }
             } label: {
-                DashboardStatCard(title: "Today\nAppointments", value: String(format: "%02d", todayEvents.count + todayAppointments.count), isGreen: true)
+                DashboardStatCard(title: "Today\nAppointments", value: String(format: "%02d", filteredTodayEvents.count + todayAppointments.count), isGreen: true)
             }
             .buttonStyle(.plain)
         }
@@ -215,13 +249,13 @@ struct LawyerHomeView: View {
 
     private var actionButtonsSection: some View {
         HStack(spacing: 12) {
-            ActionPill(icon: "plus.circle.fill", title: "Add new case") {
+            LawyerActionButton(icon: "plus.circle.fill", title: "Add new case", color: .blue) {
                 navPath.append(LawyerRoute.addCase)
             }
-            ActionPill(icon: "doc.badge.plus", title: "Add documents") {
+            LawyerActionButton(icon: "doc.badge.plus", title: "Add documents", color: .orange) {
                 navPath.append(LawyerRoute.uploadAdvisory)
             }
-            ActionPill(icon: "arrowshape.turn.up.right.fill", title: "Referrals") {
+            LawyerActionButton(icon: "arrowshape.turn.up.right.fill", title: "Referrals", color: .purple) {
                 navPath.append(LawyerRoute.referrals)
             }
         }
@@ -229,11 +263,11 @@ struct LawyerHomeView: View {
     }
 
     private var schedulesSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .firstTextBaseline) {
                 Text("Today Schedules")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.lmTextSecondary.opacity(0.6))
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.lmPrimary)
                 
                 Spacer()
                 
@@ -250,7 +284,7 @@ struct LawyerHomeView: View {
             .padding(.horizontal, 24)
 
             VStack(spacing: 16) {
-                if todayEvents.isEmpty && todayAppointments.isEmpty && todayCaseHearings.isEmpty {
+                if filteredTodayEvents.isEmpty && todayAppointments.isEmpty && todayCaseHearings.isEmpty {
                     Text("No schedules for today")
                         .font(.lmCaption)
                         .foregroundColor(.lmTextSecondary.opacity(0.5))
@@ -291,7 +325,7 @@ struct LawyerHomeView: View {
             .buttonStyle(.plain)
         }
         
-        ForEach(todayEvents, id: \.eventIdentifier) { event in
+        ForEach(filteredTodayEvents, id: \.eventIdentifier) { event in
             Button {
                 withAnimation(.spring()) {
                     selectedTab = .calendar
@@ -327,10 +361,9 @@ struct LawyerHomeView: View {
             AddCaseView()
         case .uploadAdvisory:
             UploadAdvisoryView()
-        case .notifications:
-            NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
-        case .referrals:
-            ReferralRequestsView(activeConversation: $activeConversation)
+        case .notifications: NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
+        case .referrals: ReferralRequestsView(activeConversation: $activeConversation)
+        case .hearings: LawyerHearingsListView()
         }
     }
 
@@ -345,24 +378,31 @@ struct LawyerHomeView: View {
         case .privacyPolicy: PrivacyView()
         case .myUploads: LawyerMyUploadsView()
         case .accessibility: AccessibilitySettingsView()
-        case .referrals: ReferralNetworkView(navPath: $navPath, activeConversation: $activeConversation)
         }
     }
 
     private func handleNotificationRoute(_ route: NotificationManager.DeepLinkRoute?) {
         guard let route = route else { return }
+        
+        // Reset navigation state for any route that moves the user to a specific detail view
+        // to prevent "stacking" conflicts.
+        switch route {
+        case .chat, .myCases, .appointment, .lawyerProfile:
+            navPath = NavigationPath()
+            activeConversation = nil
+        case .notificationCenter:
+            break
+        }
+        
         switch route {
         case .chat(let conversationId):
             selectedTab = .messages
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                navPath = NavigationPath()
                 pendingChatId = conversationId
                 tryNavigateToPendingChat()
             }
         case .notificationCenter:
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                navPath.append(LawyerRoute.notifications)
-            }
+            notifications.showNotifications = true
         case .myCases:
             selectedTab = .cases
         case .appointment(let appointmentId):
@@ -372,6 +412,12 @@ struct LawyerHomeView: View {
                 }
             } else {
                 selectedTab = .home
+            }
+        case .lawyerProfile:
+            // For lawyers, we can redirect to the referral network or just the notification center
+            selectedTab = .profile
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                navPath.append(ProfileRoute.referrals)
             }
         }
         notifications.pendingRoute = nil
@@ -432,22 +478,35 @@ private struct DashboardStatCard: View {
     let isGreen: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(value)
-                .font(.system(size: 48, weight: .bold))
-                .foregroundColor(isGreen ? .white : .lmPrimary)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(value)
+                    .font(.system(size: 40, weight: .bold))
+                    .foregroundColor(isGreen ? .white : .lmPrimary)
+                Spacer()
+                Image(systemName: isGreen ? "calendar.badge.clock" : "briefcase.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(isGreen ? .white.opacity(0.6) : .lmPrimary.opacity(0.2))
+            }
             
             Text(title)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(isGreen ? .white : .lmTextSecondary)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(isGreen ? .white.opacity(0.9) : .lmTextSecondary)
                 .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(24)
-        .background(isGreen ? Color.lmPrimary : Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 30))
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+        .background(
+            ZStack {
+                if isGreen {
+                    LinearGradient(colors: [.lmPrimary, .lmPrimary.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                } else {
+                    Color.white
+                }
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: isGreen ? Color.lmPrimary.opacity(0.3) : Color.black.opacity(0.05), radius: 15, x: 0, y: 8)
     }
 }
 
@@ -456,77 +515,67 @@ private struct HearingsCard: View {
 
     var body: some View {
         HStack(spacing: 20) {
-            ZStack {
-                Circle()
-                    .fill(Color.lmPrimary.opacity(0.1))
-                    .frame(width: 56, height: 56)
-                
-                Image(systemName: "briefcase.fill")
-                    .font(.system(size: 24))
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Hearings This Week")
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.lmPrimary)
+                Text("Your upcoming court sessions")
+                    .font(.system(size: 12))
+                    .foregroundColor(.lmTextSecondary.opacity(0.7))
             }
-            
-            Text("Hearings\nThis Week")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.lmPrimary)
             
             Spacer()
             
-            Text(count)
-                .font(.system(size: 48, weight: .bold))
-                .foregroundColor(.lmTextSecondary.opacity(0.3))
+            ZStack {
+                Circle()
+                    .fill(Color.lmPrimary.opacity(0.05))
+                    .frame(width: 50, height: 50)
+                
+                Text(count)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.lmPrimary)
+            }
         }
-        .padding(24)
+        .padding(20)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 30))
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 5)
     }
 }
 
-private struct ActionPill: View {
+private struct LawyerActionButton: View {
     let icon: String
     let title: String
+    let color: Color
     let action: () -> Void
-
-    private var pillBackground: Color {
-        AccessibilityManager.shared.effectiveHighContrast ? .black : Color(red: 0.05, green: 0.25, blue: 0.15)
-    }
-
-    private var pillForeground: Color {
-        AccessibilityManager.shared.effectiveHighContrast ? .white : .white
-    }
-
-    private var iconBackground: Color {
-        AccessibilityManager.shared.effectiveHighContrast ? .white.opacity(0.25) : Color.white.opacity(0.2)
-    }
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 6) {
+            VStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(iconBackground)
-                        .frame(width: 30, height: 30)
+                        .fill(color.opacity(0.12))
+                        .frame(width: 50, height: 50)
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(pillForeground)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(color)
                 }
 
                 Text(title)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(pillForeground)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.lmPrimary)
                     .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.9)
             }
-            .frame(maxWidth: .infinity, minHeight: 70)
-            .padding(.vertical, 10)
-            .background(pillBackground)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(.plain)
     }
 }
+
 private struct ScheduleRow: View {
     let time: String
     let event: String
@@ -536,16 +585,15 @@ private struct ScheduleRow: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            // Minimalist timeline indicator
-            VStack {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(time.split(separator: " ").first ?? "")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.lmTextPrimary)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.lmPrimary)
                 Text(time.split(separator: " ").last ?? "")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.lmTextPrimary.opacity(0.6))
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.lmTextSecondary)
             }
-            .frame(width: 60)
+            .frame(width: 60, alignment: .leading)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(event)
@@ -553,34 +601,32 @@ private struct ScheduleRow: View {
                     .foregroundColor(.lmPrimary)
                 
                 Text(category)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.lmTextSecondary.opacity(0.5))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.lmTextSecondary.opacity(0.7))
             }
             
             Spacer()
             
             if let status = statusTitle {
                 Text(status)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 9, weight: .black))
                     .foregroundColor(statusColor)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(statusColor.opacity(0.1))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(statusColor.opacity(0.12))
                     .clipShape(Capsule())
             }
         }
-        .padding(20)
-        .background(Color.white.opacity(0.6))
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-        .overlay(
-            HStack {
-                Rectangle()
-                    .fill(Color.lmPrimary)
-                    .frame(width: 4)
-                    .padding(.vertical, 12)
-                Spacer()
+        .padding(16)
+        .background(
+            ZStack {
+                Color.green.opacity(0.04) // Light green highlight
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.green.opacity(0.1), lineWidth: 1)
             }
         )
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: Color.black.opacity(0.01), radius: 5, x: 0, y: 2)
     }
 }
 

@@ -3,6 +3,7 @@ import SwiftUI
 struct LawMateSearchBar: View {
     @Binding var text: String
     var placeholder: String = "Search..."
+    var onSubmit: (() -> Void)? = nil
     
     var body: some View {
         HStack(spacing: 12) {
@@ -14,6 +15,10 @@ struct LawMateSearchBar: View {
                 .font(.lmField)
                 .foregroundColor(.lmTextPrimary)
                 .autocorrectionDisabled()
+                .submitLabel(.search)
+                .onSubmit {
+                    onSubmit?()
+                }
             
             if !text.isEmpty {
                 Button {

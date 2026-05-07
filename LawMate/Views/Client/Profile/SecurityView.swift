@@ -19,13 +19,17 @@ struct SecurityView: View {
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
-                        ProfileInputRow(icon: "lock.fill", title: "Current Password", text: $currentPassword)
-                        ProfileInputRow(icon: "key.fill", title: "New Password", text: $newPassword)
-                        ProfileInputRow(icon: "checkmark.shield.fill", title: "Confirm Password", text: $confirmPassword)
+                        ProfileInputRow(icon: "lock.fill", title: "Current Password", text: $currentPassword, isSecure: true)
+                        ProfileInputRow(icon: "key.fill", title: "New Password", text: $newPassword, isSecure: true)
+                        ProfileInputRow(icon: "checkmark.shield.fill", title: "Confirm Password", text: $confirmPassword, isSecure: true)
                         
                         Button {
+                            guard !currentPassword.isEmpty else {
+                                ToastManager.shared.show(title: "Error", message: "Current password cannot be empty.", type: .error)
+                                return
+                            }
                             guard !newPassword.isEmpty else {
-                                ToastManager.shared.show(title: "Error", message: "Password cannot be empty.", type: .error)
+                                ToastManager.shared.show(title: "Error", message: "New password cannot be empty.", type: .error)
                                 return
                             }
                             guard newPassword == confirmPassword else {
@@ -34,7 +38,7 @@ struct SecurityView: View {
                             }
                             
                             isUpdating = true
-                            AuthService.shared.updatePassword(newPassword: newPassword) { result in
+                            AuthService.shared.updatePassword(currentPassword: currentPassword, newPassword: newPassword) { result in
                                 DispatchQueue.main.async {
                                     isUpdating = false
                                     switch result {

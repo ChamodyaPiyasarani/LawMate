@@ -12,6 +12,7 @@ struct ClientHomeView: View {
     @EnvironmentObject var firestore: FirestoreManager
     @EnvironmentObject var notifications: NotificationManager
     @EnvironmentObject var auth: AuthService
+    @State private var isTabBarHidden = false
     
     // Simple routes for screens without complex data models
     enum AppRoute: Hashable {
@@ -28,7 +29,7 @@ struct ClientHomeView: View {
                     case .home:
                         homeDashboard
                     case .lawyers:
-                        LawyersListView(onBack: { selectedTab = .home })
+                        LawyersListView(onBack: { selectedTab = .home }, isTabBarHidden: $isTabBarHidden, initialSearchQuery: searchQuery)
                     case .booking:
                         BookingDetailsView(navPath: $navPath, onBack: { selectedTab = .home })
                     case .messages:
@@ -67,18 +68,25 @@ struct ClientHomeView: View {
                 .onChange(of: notifications.pendingRoute) { _, route in
                     guard let route = route else { return }
                     
+                    // Reset navigation state for any route that moves the user to a specific detail view
+                    // to prevent "stacking" conflicts.
+                    switch route {
+                    case .chat, .myCases, .appointment, .lawyerProfile:
+                        navPath = NavigationPath()
+                        activeConversation = nil
+                    case .notificationCenter:
+                        break
+                    }
+                    
                     switch route {
                     case .chat(let conversationId):
                         selectedTab = .messages
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            navPath = NavigationPath()
                             pendingChatId = conversationId
                             tryNavigateToPendingChat()
                         }
                     case .notificationCenter:
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            navPath.append(AppRoute.notifications)
-                        }
+                        notifications.showNotifications = true
                     case .myCases:
                         selectedTab = .home
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -92,13 +100,40 @@ struct ClientHomeView: View {
                         } else {
                             selectedTab = .home
                         }
+                    case .lawyerProfile(let lawyerId):
+                        if let user = firestore.lawyers.first(where: { $0.id == lawyerId }) {
+                            // Map User to Lawyer model
+                            let lawyer = Lawyer(
+                                id: user.id,
+                                name: user.fullName,
+                                specialty: user.specialty ?? "General",
+                                bio: user.bio ?? "",
+                                description: user.bio ?? "",
+                                experience: user.experience ?? "",
+                                experienceYears: Int(user.experience?.components(separatedBy: " ").first ?? "0") ?? 0,
+                                casesWon: user.casesWon ?? "0",
+                                wonCount: Int(user.casesWon ?? "0") ?? 0,
+                                rating: user.rating ?? 0.0,
+                                reviewCount: user.reviewCount ?? 0,
+                                location: user.address ?? "",
+                                image: user.profileImage ?? "",
+                                coordinate: CLLocationCoordinate2D(latitude: user.latitude ?? 0, longitude: user.longitude ?? 0)
+                            )
+                            selectedTab = .home
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                navPath.append(lawyer)
+                            }
+                        } else {
+                            selectedTab = .home
+                        }
                     }
                     notifications.pendingRoute = nil
                 }
                 .toolbar(.hidden, for: .navigationBar)
             }
 
-            if navPath.isEmpty && activeConversation == nil {
+            // Persistent Tab Bar
+            if activeConversation == nil && !isTabBarHidden {
                 VStack {
                     Spacer()
                     TabBarView(selectedTab: $selectedTab, role: .client)
@@ -106,6 +141,11 @@ struct ClientHomeView: View {
                 .ignoresSafeArea(edges: .bottom)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+        }
+        .sheet(isPresented: $notifications.showNotifications) {
+            NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
+                .presentationDetents([.large, .medium])
+                .presentationDragIndicator(.visible)
         }
         .animation(.easeInOut(duration: 0.2), value: navPath.isEmpty && activeConversation == nil)
         .onChange(of: selectedTab) { _, _ in
@@ -133,61 +173,120 @@ struct ClientHomeView: View {
         }
     }
 
-    @ViewBuilder
     private var homeDashboard: some View {
         ScrollView(showsIndicators: false) {
             ZStack(alignment: .topTrailing) {
                 GreenBlobBackground(style: .client)
                     .frame(height: 300)
 
-                VStack(alignment: .leading, spacing: 32) {
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Hello, \(auth.currentUser?.fullName ?? "User") !")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.lmPrimary)
-
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text("Justice,")
-                                    .font(.lmHero)
-                                    .foregroundColor(.lmPrimary)
-                                Text("Refined.")
-                                    .font(.lmHero)
-                                    .foregroundColor(.lmTextSecondary.opacity(0.5))
-                            }
-                        }
-                        Spacer()
-                        NotificationButton(action: {
-                            navPath.append(AppRoute.notifications)
-                        })
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 65)
-                    
-                    upcomingAppointmentsSection
+                VStack(alignment: .leading, spacing: 28) {
+                    dashboardHeader
                     
                     VStack(spacing: 24) {
+                        // 1. Search Bar at the top
                         FindLawyerCard(searchQuery: $searchQuery, selectedTab: $selectedTab, navPath: $navPath)
                         
-                        HomeFeatureCard(
-                            title: "My Cases",
-                            description: "Detailed Breakthroughs On Current Legislation And Your Rights In The Modern World.",
-                            imageName: "doc.text.fill",
-                            imageOnLeft: false,
-                            route: .myCases
-                        )
+                        // 2. Upcoming Appointments
+                        upcomingAppointmentsSection
                         
-                        HomeFeatureCard(
-                            title: "Document Templates",
-                            description: "Standard Contracts, NDAs, And More. Ready For Signature.",
-                            imageName: "doc.on.doc.fill",
-                            imageOnLeft: true,
-                            route: .documents
-                        )
+                        // 3. Case Progress
+                        caseProgressSection
+                        
+                        // 4. Quick Actions
+                        HStack(spacing: 12) {
+                            ClientActionButton(icon: "doc.text.fill", title: "My Cases", color: .blue) {
+                                navPath.append(AppRoute.myCases)
+                            }
+                            ClientActionButton(icon: "doc.on.doc.fill", title: "Templates", color: .orange) {
+                                navPath.append(AppRoute.documents)
+                            }
+                            ClientActionButton(icon: "arrowshape.turn.up.right.fill", title: "Referrals", color: .purple) {
+                                navPath.append(AppRoute.referrals)
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        
+                        Color.clear.frame(height: 120) // Bottom padding for floating tab bar
                     }
-                    .padding(.horizontal, 24)
-                    Color.clear.frame(height: 120)
                 }
+            }
+        }
+    }
+
+    private var dashboardHeader: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Welcome back,")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.lmTextSecondary)
+                
+                Text(auth.currentUser?.fullName ?? "User")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(.lmPrimary)
+            }
+            Spacer()
+            NotificationButton()
+                .padding(6)
+                .background(Circle().fill(Color.white.opacity(0.9)))
+                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 75)
+    }
+
+    @ViewBuilder
+    private var caseProgressSection: some View {
+        if let latestCase = firestore.cases.sorted(by: { ($0.createdDate ?? Date.distantPast) > ($1.createdDate ?? Date.distantPast) }).first {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Active Case Progress")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.lmPrimary)
+                    .padding(.horizontal, 24)
+                
+                Button {
+                    navPath.append(latestCase)
+                } label: {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(latestCase.title)
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.lmPrimary)
+                                Text("Status: \(latestCase.status)")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.lmTextSecondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chart.bar.fill")
+                                .foregroundColor(.green.opacity(0.3))
+                        }
+                        
+                        let progress = latestCase.stages.isEmpty ? 0.0 : Double(latestCase.stages.filter({ $0.isCompleted }).count) / Double(latestCase.stages.count)
+                        
+                        VStack(spacing: 8) {
+                            HStack {
+                                Text("\(Int(progress * 100))%")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.lmPrimary)
+                                Spacer()
+                                Text("\(latestCase.stages.filter({ $0.isCompleted }).count) / \(latestCase.stages.count) Stages")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.lmTextSecondary)
+                            }
+                            
+                            ProgressView(value: progress)
+                                .accentColor(.green)
+                                .scaleEffect(x: 1, y: 1.5, anchor: .center)
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .padding(20)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 5)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 24)
             }
         }
     }
@@ -233,42 +332,57 @@ struct ClientHomeView: View {
     }
 
     private func appointmentCard(_ appointment: FBAppointment) -> some View {
-        let isHearing = appointment.service.localizedCaseInsensitiveContains("hearing") ||
-            appointment.description.localizedCaseInsensitiveContains("hearing")
-            
-        return NavigationLink(value: appointment) {
-            VStack(alignment: .leading, spacing: 12) {
+        NavigationLink(value: appointment) {
+            VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    Label(appointment.time, systemImage: "clock.fill")
-                        .font(.system(size: 10, weight: .bold))
+                    ZStack {
+                        Circle()
+                            .fill(Color.lmPrimary.opacity(0.1))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.lmPrimary)
+                    }
+                    
+                    Text(appointment.time)
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.lmPrimary)
+                    
                     Spacer()
+                    
                     Image(systemName: appointment.specialtyIcon)
-                        .font(.system(size: 12))
-                        .foregroundColor(.lmPrimary.opacity(0.3))
+                        .font(.system(size: 14))
+                        .foregroundColor(.lmPrimary.opacity(0.2))
                 }
                 
-                Text(appointment.lawyerName)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.lmPrimary)
-                
-                HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(appointment.lawyerName)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.lmPrimary)
+                    
                     Text(appointment.service)
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                         .foregroundColor(.lmTextSecondary)
-                    Spacer()
-                    if appointment.isOverdue {
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 8, height: 8)
+                }
+                
+                if appointment.isOverdue {
+                    HStack {
+                        Spacer()
+                        Text("Overdue")
+                            .font(.system(size: 9, weight: .black))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.red)
+                            .clipShape(Capsule())
                     }
                 }
             }
-            .padding(16)
-            .frame(width: 160)
-            .background(isHearing ? Color.orange.opacity(0.12) : Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
+            .padding(18)
+            .frame(width: 200)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
         }
         .buttonStyle(.plain)
     }
@@ -281,13 +395,13 @@ private struct ClientHomeNavigationDestinations: ViewModifier {
     func body(content: Content) -> some View {
         content
             .navigationDestination(for: Lawyer.self) { lawyer in
-                LawyerDetailView(lawyer: lawyer, activeConversation: $activeConversation)
+                LawyerDetailView(lawyer: lawyer, navPath: $navPath, activeConversation: $activeConversation)
             }
             .navigationDestination(for: ReferralLawyerContext.self) { context in
-                LawyerDetailView(lawyer: context.lawyer, referringLawyerName: context.referringLawyerName, activeConversation: $activeConversation)
+                LawyerDetailView(lawyer: context.lawyer, referringLawyerName: context.referringLawyerName, navPath: $navPath, activeConversation: $activeConversation)
             }
             .navigationDestination(for: FBAppointment.self) { appointment in
-                MyCaseDetailsView(appointment: appointment, navPath: $navPath, activeConversation: $activeConversation)
+                MyCaseDetailsView(initialAppointment: appointment, navPath: $navPath, activeConversation: $activeConversation)
             }
             .navigationDestination(for: ClientHomeView.AppRoute.self) { route in
                 switch route {
@@ -332,8 +446,6 @@ private struct ClientHomeNavigationDestinations: ViewModifier {
                     LawyerMyUploadsView()
                 case .accessibility:
                     AccessibilitySettingsView()
-                case .referrals:
-                    ReferralNetworkView(navPath: $navPath, activeConversation: $activeConversation)
                 }
             }
     }
@@ -380,143 +492,99 @@ private struct FindLawyerCard: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            VStack(spacing: 0) {
-                // Search field
-                LawMateSearchBar(text: $searchQuery, placeholder: "Search by name or specialization...")
-                
-                if !suggestions.isEmpty {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(suggestions.prefix(3)) { lawyer in
-                            Button {
-                                searchQuery = lawyer.name
-                                navPath.append(lawyer)
-                            } label: {
-                                HStack(spacing: 12) {
-                                    LawMateAvatar(url: lawyer.image, name: lawyer.name, size: 32)
-                                    
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(lawyer.name)
-                                            .font(.system(size: 14, weight: .bold))
-                                            .foregroundColor(.lmPrimary)
-                                        Text(lawyer.specialty)
-                                            .font(.system(size: 11))
-                                            .foregroundColor(.lmTextSecondary)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "arrow.up.left")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.lmPrimary.opacity(0.3))
-                                }
-                                .padding(.vertical, 10)
-                                .padding(.horizontal, 16)
-                            }
-                            .buttonStyle(.plain)
-                            
-                            if lawyer.id != suggestions.prefix(3).last?.id {
-                                Divider()
-                                    .padding(.horizontal, 16)
-                            }
-                        }
-                    }
-                    .background(Color.white.opacity(0.9))
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-                    .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
-                    .padding(.top, 8)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+        VStack(spacing: 0) {
+            // Search field
+            LawMateSearchBar(text: $searchQuery, placeholder: "Search for lawyer, service...") {
+                // When user submits search, switch to lawyers tab
+                if !searchQuery.isEmpty {
+                    selectedTab = .lawyers
                 }
             }
-
-            // CTA button
-            Button {
-                if let match = lawyers.first(where: { $0.name.lowercased() == searchQuery.lowercased() }) {
-                    navPath.append(match)
-                } else {
-                    withAnimation(.spring()) {
-                        selectedTab = .lawyers
-                    }
-                }
-            } label: {
-                HStack {
-                    Spacer()
-                    Text("Find My Lawyer →")
-                        .font(.lmButton)
-                        .foregroundColor(.white)
-                    Spacer()
-                }
-                .padding(.vertical, 14)
-                .background(Color.lmPrimary)
-                .clipShape(Capsule())
+            
+            if !suggestions.isEmpty {
+                suggestionsListView
             }
-            .buttonStyle(.plain)
         }
-        .padding(20) // Balanced padding
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 24)) // Refined radius
-        .overlay(
-            RoundedRectangle(cornerRadius: 24)
-                .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
-        )
+        .padding(.horizontal, 24)
+    }
+
+    @ViewBuilder
+    private var suggestionsListView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(suggestions.prefix(3)) { lawyer in
+                Button {
+                    searchQuery = lawyer.name
+                    navPath.append(lawyer)
+                } label: {
+                    HStack(spacing: 12) {
+                        LawMateAvatar(url: lawyer.image, name: lawyer.name, size: 32)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(lawyer.name)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.lmPrimary)
+                            Text(lawyer.specialty)
+                                .font(.system(size: 11))
+                                .foregroundColor(.lmTextSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "arrow.up.left")
+                            .font(.system(size: 12))
+                            .foregroundColor(.lmPrimary.opacity(0.3))
+                    }
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 16)
+                }
+                .buttonStyle(.plain)
+                
+                if lawyer.id != suggestions.prefix(3).last?.id {
+                    Divider()
+                        .padding(.horizontal, 16)
+                }
+            }
+        }
+        .background(Color.white.opacity(0.9))
+        .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+        .padding(.top, 8)
+        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 }
 
-// MARK: - Home feature card (My Cases / Document Templates)
-private struct HomeFeatureCard: View {
+private struct ClientActionButton: View {
+    let icon: String
     let title: String
-    let description: String
-    let imageName: String
-    let imageOnLeft: Bool
-    let route: ClientHomeView.AppRoute
+    let color: Color
+    let action: () -> Void
 
     var body: some View {
-        NavigationLink(value: route) {
-            HStack(alignment: .center, spacing: 16) {
-                if imageOnLeft {
-                    featureIcon
+        Button(action: action) {
+            VStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(0.12))
+                        .frame(width: 50, height: 50)
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(color)
                 }
 
-                VStack(alignment: imageOnLeft ? .trailing : .leading, spacing: 6) {
-                    Text(title)
-                        .font(.lmHeading)
-                        .foregroundColor(.lmPrimary)
-                        .multilineTextAlignment(imageOnLeft ? .trailing : .leading)
-
-                    Text(description)
-                        .font(.lmCaption)
-                        .foregroundColor(.lmTextSecondary.opacity(0.7))
-                        .multilineTextAlignment(imageOnLeft ? .trailing : .leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: imageOnLeft ? .trailing : .leading)
-
-                if !imageOnLeft {
-                    featureIcon
-                }
+                Text(title)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.lmPrimary)
+                    .multilineTextAlignment(.center)
             }
-            .padding(20) // Balanced padding
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 24)) // Refined radius
-            .overlay(
-                RoundedRectangle(cornerRadius: 24)
-                    .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
-            )
-            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(.plain)
     }
-
-    private var featureIcon: some View {
-        Image(systemName: imageName)
-            .font(.system(size: 60)) // Refined large icon
-            .foregroundColor(Color.lmPrimary.opacity(0.05)) 
-            .overlay(
-                Image(systemName: imageName)
-                    .font(.system(size: 24))
-                    .foregroundColor(Color.lmPrimary.opacity(0.4))
-            )
-    }
 }
+
+
 
 #Preview {
     ClientHomeView()

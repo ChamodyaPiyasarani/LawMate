@@ -52,14 +52,20 @@ struct LawMateBackButton: View {
 struct NotificationButton: View {
     @EnvironmentObject var firestore: FirestoreManager
     var badgeCount: Int? = nil // Optional override
-    var action: () -> Void = {}
+    var action: (() -> Void)? = nil // Optional override
 
     private var displayCount: Int {
         badgeCount ?? firestore.unreadNotificationsCount
     }
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            if let action = action {
+                action()
+            } else {
+                NotificationManager.shared.showNotifications = true
+            }
+        } label: {
             ZStack(alignment: .topTrailing) {
                 ZStack {
                     // Liquid glass background
@@ -259,6 +265,22 @@ struct AppointmentRowView: View {
                     }
                 }
                 .padding(.top, 4)
+            } else if appointment.status.lowercased() == "confirmed" && auth.currentUser?.role == .lawyer {
+                Button {
+                    firestore.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Done") { _ in }
+                } label: {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Mark as Done")
+                    }
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.lmPrimary)
+                    .clipShape(Capsule())
+                }
+                .padding(.top, 4)
             }
         }
         .padding(16)
@@ -436,7 +458,7 @@ struct LawMateNavigationBar: View {
     var showNotification: Bool = false
     var showCamera: Bool = false
     var onBack: () -> Void = {}
-    var onNotification: () -> Void = {}
+    var onNotification: (() -> Void)? = nil
     var onCamera: () -> Void = {}
     var trailingView: AnyView? = nil
     
@@ -680,25 +702,20 @@ struct PDFKitViewerSheet: View {
                 
                 VStack(spacing: 0) {
                     if isLoading {
-                        ProgressView("Preparing document...")
-                            .frame(maxHeight: .infinity)
-                    } else if let url = localURL {
-                        let ext = url.pathExtension.lowercased()
-                        if ["jpg", "jpeg", "png", "heic"].contains(ext) {
-                            // Image Viewer with Live Text and Zoom
-                            ZoomableLiveTextImageView(image: UIImage(contentsOfFile: url.path) ?? UIImage())
-                                .edgesIgnoringSafeArea(.bottom)
-                        } else {
-                            // Document Viewer (PDF/DOCX)
-                            PDFKitView(url: url)
-                                .edgesIgnoringSafeArea(.bottom)
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                                .tint(.lmPrimary)
+                            Text("Preparing document...")
+                                .font(.lmCaption)
+                                .foregroundColor(.lmTextSecondary)
                         }
-                    } else if let urlString = document.fileURL, let url = URL(string: urlString) {
-                        // Fallback to URL if no Base64 (Old documents)
-                        PDFKitView(url: url)
+                        .frame(maxHeight: .infinity)
+                    } else if let url = localURL {
+                        QuickLookController(url: url)
                             .edgesIgnoringSafeArea(.bottom)
                     } else {
-                        errorView(message: "Document file not found. It may have been removed or is still uploading.")
+                        errorView(message: "Document preview unavailable. Please try downloading the file manually.")
                     }
                 }
             }
@@ -715,10 +732,6 @@ struct PDFKitViewerSheet: View {
                         ShareLink(item: url) {
                             Image(systemName: "square.and.arrow.up")
                         }
-                    } else if let urlString = document.fileURL, let url = URL(string: urlString) {
-                        ShareLink(item: url) {
-                            Image(systemName: "square.and.arrow.up")
-                        }
                     }
                 }
             }
@@ -729,31 +742,58 @@ struct PDFKitViewerSheet: View {
     }
     
     private func prepareDocument() {
-        // If we have Base64, decode it to a temp file
-        if let base64 = document.fileBase64 {
-            DispatchQueue.global(qos: .userInitiated).async {
-                if let data = Data(base64Encoded: base64) {
-                    let tempDir = FileManager.default.temporaryDirectory
-                    let fileName = document.title.replacingOccurrences(of: " ", with: "_") + "." + (document.fileType.lowercased())
-                    let fileURL = tempDir.appendingPathComponent(fileName)
-                    
-                    try? data.write(to: fileURL)
-                    
-                    DispatchQueue.main.async {
-                        self.localURL = fileURL
-                        self.isLoading = false
-                    }
-                } else {
-                    DispatchQueue.main.async { self.isLoading = false }
-                }
-            }
-        } else if let urlString = document.fileURL, let url = URL(string: urlString) {
-            // Already a URL, just use it
-            self.localURL = url
-            self.isLoading = false
-        } else {
-            self.isLoading = false
+        // 1. Handle Base64 Data
+        if let base64 = document.fileBase64, let data = Data(base64Encoded: base64) {
+            decodeAndSave(data: data)
+            return
         }
+        
+        // 2. Handle Remote/Local URL
+        if let urlString = document.fileURL, let url = URL(string: urlString) {
+            if url.isFileURL {
+                self.localURL = url
+                self.isLoading = false
+            } else {
+                downloadDocument(url: url)
+            }
+            return
+        }
+        
+        self.isLoading = false
+    }
+    
+    private func decodeAndSave(data: Data) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let tempDir = FileManager.default.temporaryDirectory
+            let extensionName = document.fileType.lowercased()
+            let fileName = document.id + "." + (extensionName.isEmpty ? "pdf" : extensionName)
+            let fileURL = tempDir.appendingPathComponent(fileName)
+            
+            try? data.write(to: fileURL)
+            
+            DispatchQueue.main.async {
+                self.localURL = fileURL
+                self.isLoading = false
+            }
+        }
+    }
+    
+    private func downloadDocument(url: URL) {
+        URLSession.shared.downloadTask(with: url) { tempURL, response, error in
+            guard let tempURL = tempURL, error == nil else {
+                DispatchQueue.main.async { self.isLoading = false }
+                return
+            }
+            
+            let destinationURL = FileManager.default.temporaryDirectory.appendingPathComponent(url.lastPathComponent)
+            try? FileManager.default.removeItem(at: destinationURL)
+            try? FileManager.default.moveItem(at: tempURL, to: destinationURL)
+            
+            DispatchQueue.main.async {
+                self.localURL = destinationURL
+                self.isLoading = false
+            }
+        }.resume()
     }
     
     private func errorView(message: String) -> some View {

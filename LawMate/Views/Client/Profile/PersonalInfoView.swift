@@ -119,6 +119,17 @@ struct PersonalInfoView: View {
                     address = user.address ?? ""
                 }
             }
+            .onChange(of: auth.currentUser) { _, user in
+                if let user = user {
+                    fullName = user.fullName
+                    email = user.email
+                    phone = user.phoneNumber
+                    specialty = user.specialty ?? ""
+                    experience = user.experience ?? ""
+                    bio = user.bio ?? ""
+                    address = user.address ?? ""
+                }
+            }
         }
         .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
@@ -148,7 +159,10 @@ struct ProfileInputRow: View {
     let icon: String
     let title: String
     @Binding var text: String
+    var isSecure: Bool = false
     var errorMessage: String? = nil
+    
+    @State private var isPasswordVisible: Bool = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -162,9 +176,24 @@ struct ProfileInputRow: View {
                     .foregroundColor(errorMessage != nil ? .red : .lmPrimary)
                     .frame(width: 24)
                 
-                TextField(title, text: $text)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.lmTextPrimary)
+                if isSecure && !isPasswordVisible {
+                    SecureField(title, text: $text)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.lmTextPrimary)
+                } else {
+                    TextField(title, text: $text)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.lmTextPrimary)
+                }
+                
+                if isSecure {
+                    Button {
+                        isPasswordVisible.toggle()
+                    } label: {
+                        Image(systemName: isPasswordVisible ? "eye.slash" : "eye")
+                            .foregroundColor(.lmTextSecondary)
+                    }
+                }
             }
             .padding(16)
             .background(Color.white.opacity(0.8))

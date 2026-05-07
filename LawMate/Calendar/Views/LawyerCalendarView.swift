@@ -3,7 +3,6 @@ import SwiftUI
 struct LawyerCalendarView: View {
     @StateObject private var viewModel = CalendarViewModel()
     @Environment(\.dismiss) private var dismiss
-    @State private var showNotifications = false
     @Binding var navPath: NavigationPath
     @Binding var activeConversation: FBConversation?
     var showBack: Bool = true
@@ -28,9 +27,7 @@ struct LawyerCalendarView: View {
                     
                     Spacer()
                     
-                    NotificationButton(action: {
-                        showNotifications = true
-                    })
+                    NotificationButton()
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 64)
@@ -59,9 +56,7 @@ struct LawyerCalendarView: View {
         .onAppear {
             viewModel.refreshMonthData()
         }
-        .sheet(isPresented: $showNotifications) {
-            NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
-        }
+
     }
     
     // MARK: - Subviews

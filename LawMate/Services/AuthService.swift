@@ -315,18 +315,98 @@ class AuthService: ObservableObject {
     }
     
     // MARK: - Update Password
-    func updatePassword(newPassword: String, completion: @escaping (Result<Void, Error>) -> Void) {
+    func updatePassword(currentPassword: String, newPassword: String, completion: @escaping (Result<Void, Error>) -> Void) {
         guard let user = Auth.auth().currentUser else {
-            completion(.failure(NSError(domain: "", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not logged in."])))
+            completion(.failure(NSError(domain: "AuthService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not logged in."])))
             return
         }
         
-        user.updatePassword(to: newPassword) { error in
+        // Robust email detection
+        var email = user.email ?? ""
+        if email.isEmpty {
+            email = user.providerData.first(where: { !$0.email.isNilOrEmpty })?.email ?? ""
+        }
+        if email.isEmpty {
+            email = self.currentUser?.email ?? ""
+        }
+        
+        guard !email.isEmpty else {
+            print("DEBUG: Could not resolve email for re-authentication")
+            completion(.failure(NSError(domain: "AuthService", code: 400, userInfo: [NSLocalizedDescriptionKey: "User email could not be resolved. Please re-login."])))
+            return
+        }
+        
+        let trimmedCurrent = currentPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedNew = newPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        print("DEBUG: Performing fresh signIn for: \(email)")
+        
+        // 1. Force a fresh sign-in to get a fresh session (replaces reauthenticate for better reliability)
+        Auth.auth().signIn(withEmail: email, password: trimmedCurrent) { (authResult, error) in
             if let error = error {
+                print("DEBUG: Fresh signIn failed: \(error.localizedDescription)")
                 completion(.failure(error))
-            } else {
-                completion(.success(()))
+                return
+            }
+            
+            guard let freshUser = authResult?.user else {
+                completion(.failure(NSError(domain: "AuthService", code: 404, userInfo: [NSLocalizedDescriptionKey: "User session lost."])))
+                return
+            }
+            
+            print("DEBUG: Fresh session obtained. Updating password...")
+            
+            // 2. Perform the update on the fresh user session
+            freshUser.updatePassword(to: trimmedNew) { error in
+                if let error = error {
+                    print("DEBUG: Update password failed: \(error.localizedDescription)")
+                    completion(.failure(error))
+                } else {
+                    print("DEBUG: Password updated successfully in Firebase.")
+                    
+                    // 3. Sync local state
+                    freshUser.reload { _ in
+                        KeychainManager.shared.saveCredentials(email: email, password: trimmedNew)
+                        completion(.success(()))
+                    }
+                }
             }
         }
+    }
+
+    func deleteAccount(completion: @escaping (Result<Void, Error>) -> Void) {
+        guard let user = Auth.auth().currentUser else {
+            completion(.failure(NSError(domain: "AuthService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not logged in."])))
+            return
+        }
+        
+        let uid = user.uid
+        
+        // 1. Delete Firestore Data
+        db.collection("users").document(uid).delete { [weak self] error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            // 2. Delete Auth User
+            user.delete { error in
+                if let error = error {
+                    completion(.failure(error))
+                } else {
+                    self?.isAuthenticated = false
+                    self?.currentUser = nil
+                    UserDefaults.standard.set(false, forKey: "isLoggedIn")
+                    completion(.success(()))
+                }
+            }
+        }
+    }
+}
+
+// Helper for optional string check
+extension Optional where Wrapped == String {
+    var isNilOrEmpty: Bool {
+        return self?.isEmpty ?? true
     }
 }

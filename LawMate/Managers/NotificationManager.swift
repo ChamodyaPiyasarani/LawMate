@@ -13,8 +13,10 @@ class NotificationManager: NSObject, ObservableObject {
         case notificationCenter
         case myCases
         case appointment(appointmentId: String)
+        case lawyerProfile(lawyerId: String)
     }
     @Published var pendingRoute: DeepLinkRoute? = nil
+    @Published var showNotifications = false
     
     override init() {
         super.init()
@@ -127,6 +129,8 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
                 self.pendingRoute = .chat(conversationId: id)
             } else if type == "case" {
                 self.pendingRoute = .myCases
+            } else if type == "lawyer_profile", let id = relatedId {
+                self.pendingRoute = .lawyerProfile(lawyerId: id)
             } else {
                 self.pendingRoute = .notificationCenter
             }

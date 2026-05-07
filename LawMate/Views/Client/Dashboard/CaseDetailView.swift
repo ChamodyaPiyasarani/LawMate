@@ -44,9 +44,6 @@ struct CaseDetailView: View {
                     showNotification: !isLawyer,
                     showCamera: isLawyer,
                     onBack: { dismiss() },
-                    onNotification: {
-                        navPath.append(ClientHomeView.AppRoute.notifications)
-                    },
                     onCamera: { showScanner = true }
                 )
                 .padding(.top, 65)

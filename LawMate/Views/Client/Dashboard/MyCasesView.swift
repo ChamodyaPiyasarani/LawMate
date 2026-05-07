@@ -17,7 +17,6 @@ struct ClientCase: Identifiable, Hashable {
 struct MyCasesView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var firestore: FirestoreManager
-    @State private var showNotifications = false
     @State private var editingCase: FBLegalCase? = nil
     @State private var showEditSheet = false
     @Binding var navPath: NavigationPath
@@ -68,7 +67,7 @@ struct MyCasesView: View {
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 10)
-                    .padding(.bottom, 120) // Give space for bottom nav
+                    .padding(.bottom, 140) // Give space for bottom nav
                 }
             }
             
@@ -82,9 +81,7 @@ struct MyCasesView: View {
                 }
             }
         }
-        .sheet(isPresented: $showNotifications) {
-            NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
-        }
+
         .onAppear {
             if let currentUser = AuthService.shared.currentUser {
                 firestore.listenForCases(role: currentUser.role, userId: currentUser.id)

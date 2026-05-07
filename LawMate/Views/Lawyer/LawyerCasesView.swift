@@ -8,7 +8,6 @@ struct LawyerCasesView: View {
     let statuses = ["Active", "Pending", "Closed"]
     
     @EnvironmentObject var firestore: FirestoreManager
-    @State private var showNotifications = false
     @Binding var navPath: NavigationPath
     @Binding var activeConversation: FBConversation?
     
@@ -114,9 +113,7 @@ struct LawyerCasesView: View {
                     firestore.listenForCases(role: currentUser.role, userId: currentUser.id)
                 }
             }
-            .sheet(isPresented: $showNotifications) {
-                NotificationsView(navPath: $navPath, activeConversation: $activeConversation)
-            }
+
         }
     }
     
@@ -304,7 +301,7 @@ struct LawyerCaseDetailView: View {
                             documentsTab
                         }
                         
-                        Color.clear.frame(height: 100)
+                        Color.clear.frame(height: 140)
                     }
                     .padding(24)
                 }

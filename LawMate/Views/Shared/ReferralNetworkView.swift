@@ -11,6 +11,9 @@ struct ReferralNetworkView: View {
     @Binding var activeConversation: FBConversation?
     @EnvironmentObject var firestore: FirestoreManager
     @EnvironmentObject var auth: AuthService
+    @State private var selectedReferral: FBReferral? = nil
+    @State private var showEditSheet = false
+    @State private var editNoteText = ""
 
     private var myReferrals: [FBReferral] {
         firestore.referrals.sorted { $0.timestamp > $1.timestamp }
@@ -50,6 +53,54 @@ struct ReferralNetworkView: View {
                 firestore.listenForReferrals(userId: user.id, role: user.role)
             }
         }
+        .sheet(isPresented: $showEditSheet) {
+            editReferralSheet
+        }
+    }
+
+    @ViewBuilder
+    private var editReferralSheet: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                Text("Edit Referral Request")
+                    .font(.lmHeading)
+                    .padding(.top, 20)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Note to Lawyer")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.lmTextSecondary)
+                    
+                    TextEditor(text: $editNoteText)
+                        .padding(12)
+                        .background(Color.black.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .frame(height: 150)
+                }
+                .padding(.horizontal, 24)
+                
+                Button {
+                    if var updated = selectedReferral {
+                        updated.note = editNoteText
+                        firestore.updateReferral(updated)
+                    }
+                    showEditSheet = false
+                } label: {
+                    Text("Save Changes")
+                        .font(.lmHeading)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.lmPrimary)
+                        .clipShape(Capsule())
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 10)
+                
+                Spacer()
+            }
+            .navigationBarItems(trailing: Button("Cancel") { showEditSheet = false })
+        }
     }
 
     private func referralCard(_ referral: FBReferral) -> some View {
@@ -59,6 +110,29 @@ struct ReferralNetworkView: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.lmPrimary)
                 Spacer()
+                
+                Menu {
+                    Button(role: .destructive) {
+                        firestore.deleteReferral(referral)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                    
+                    if referral.status.lowercased() == "pending" {
+                        Button {
+                            selectedReferral = referral
+                            editNoteText = referral.note ?? ""
+                            showEditSheet = true
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 20))
+                        .foregroundColor(.lmTextSecondary.opacity(0.5))
+                }
+                
                 Text(referral.status)
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(statusColor(referral.status))
@@ -132,8 +206,8 @@ struct ReferralNetworkView: View {
 
     private func statusColor(_ status: String) -> Color {
         switch status.lowercased() {
-        case "recommended": return .green
-        case "declined": return .red
+        case "recommended", "accepted": return .green
+        case "declined", "rejected": return .red
         default: return .orange
         }
     }
@@ -178,6 +252,8 @@ struct ReferralRequestsView: View {
     @State private var introMessage = ""
     @Binding var activeConversation: FBConversation?
     @State private var selectedTab: ReferralInboxTab = .requests
+    @State private var showEditNoteSheet = false
+    @State private var editNoteText = ""
 
     enum ReferralInboxTab: String, CaseIterable, Identifiable {
         case requests = "Requests"
@@ -276,11 +352,30 @@ struct ReferralRequestsView: View {
         .sheet(isPresented: $showIntroSheet) {
             ReferralIntroductionSheet(
                 message: $introMessage,
-                onSend: {
+                onSend: { mentionedClientId in
                     guard let referralId = selectedReferral?.id else { return }
                     let trimmed = introMessage.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !trimmed.isEmpty else { return }
-                    firestore.sendReferralIntroduction(referralId: referralId, message: trimmed) { _ in }
+                    
+                    // Send introduction to Firestore
+                    firestore.sendReferralIntroduction(referralId: referralId, message: trimmed) { _ in
+                        // If a client was mentioned, send them a notification
+                        if let clientId = mentionedClientId {
+                            let lawyerId = auth.currentUser?.id ?? ""
+                            let lawyerName = auth.currentUser?.fullName ?? "A Lawyer"
+                            
+                            let notification = FBNotification(
+                                title: "New Lawyer Introduction",
+                                body: "\(lawyerName) has mentioned you in an introduction note.",
+                                type: "lawyer_profile",
+                                timestamp: Date(),
+                                relatedId: lawyerId
+                            )
+                            
+                            firestore.addNotification(notification, toUserId: clientId)
+                        }
+                    }
+                    
                     introMessage = ""
                     selectedReferral = nil
                     showIntroSheet = false
@@ -304,6 +399,18 @@ struct ReferralRequestsView: View {
                 Text(timeAgo(referral.timestamp))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.lmTextSecondary)
+                
+                Menu {
+                    Button(role: .destructive) {
+                        firestore.deleteReferral(referral)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .padding(4)
+                        .foregroundColor(.lmTextSecondary)
+                }
             }
 
             if let note = referral.note, !note.isEmpty {
@@ -363,6 +470,18 @@ struct ReferralRequestsView: View {
                     .padding(.vertical, 4)
                     .background(statusColor(referral.status).opacity(0.1))
                     .clipShape(Capsule())
+                
+                Menu {
+                    Button(role: .destructive) {
+                        firestore.deleteReferral(referral)
+                    } label: {
+                        Label("Delete Record", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .padding(4)
+                        .foregroundColor(.lmTextSecondary)
+                }
             }
 
             if let recommendedName = referral.recommendedLawyerName {
@@ -506,8 +625,7 @@ struct ReferralRequestsView: View {
 
     private func statusColor(_ status: String) -> Color {
         switch status.lowercased() {
-        case "accepted": return .green
-        case "recommended": return .blue
+        case "accepted", "recommended": return .green
         case "rejected", "declined": return .red
         default: return .orange
         }
@@ -622,38 +740,194 @@ private struct RecommendLawyerSheet: View {
 
 private struct ReferralIntroductionSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var firestore: FirestoreManager
+    @EnvironmentObject var auth: AuthService
     @Binding var message: String
-    var onSend: () -> Void
+    var onSend: (String?) -> Void // Returns mentionedClientId if any
+
+    @State private var showMentions = false
+    @State private var mentionSearchQuery = ""
+    @State private var selectedClientId: String? = nil
+
+    var filteredClients: [User] {
+        if mentionSearchQuery.isEmpty {
+            return firestore.clients
+        } else {
+            return firestore.clients.filter { $0.fullName.lowercased().contains(mentionSearchQuery.lowercased()) }
+        }
+    }
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text("Introduce Client")
-                .font(.lmHeading)
-                .padding(.top, 12)
+        ZStack(alignment: .top) {
+            Color.lmBackground.ignoresSafeArea()
+            GreenBlobBackground(style: .lawyer)
+                .frame(height: 220)
+                .ignoresSafeArea()
 
-            TextField("Write a short introduction...", text: $message, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(4...6)
+            VStack(spacing: 24) {
+                // Header
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Introduce Client")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                        Text("Share thoughts or mention a specific client")
+                            .font(.lmCaption)
+                            .foregroundColor(.lmTextSecondary)
+                    }
+                    Spacer()
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 32))
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundColor(.lmPrimary.opacity(0.2))
+                    }
+                }
+                .padding(.top, 40)
 
-            Button("Send Introduction") {
-                onSend()
-                dismiss()
+                // Note Input
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Introduction Note")
+                        .font(.lmCaption.weight(.bold))
+                        .foregroundColor(.lmPrimary)
+                        .padding(.leading, 4)
+                    
+                    ZStack(alignment: .topLeading) {
+                        RoundedRectangle(cornerRadius: 24)
+                            .fill(Color.white)
+                            .shadow(color: Color.black.opacity(0.06), radius: 15, x: 0, y: 10)
+                        
+                        TextEditor(text: $message)
+                            .font(.lmBody)
+                            .padding(16)
+                            .scrollContentBackground(.hidden)
+                            .frame(height: 200)
+                            .onChange(of: message) { _, newValue in
+                                handleMention(newValue)
+                            }
+
+                        if message.isEmpty {
+                            Text("Write a short introduction... use @ to tag a client")
+                                .font(.lmBody)
+                                .foregroundColor(.lmTextSecondary.opacity(0.4))
+                                .padding(.horizontal, 20)
+                                .padding(.top, 24)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                // Actions
+                VStack(spacing: 16) {
+                    Button {
+                        onSend(selectedClientId)
+                        dismiss()
+                    } label: {
+                        HStack {
+                            Text("Send Introduction")
+                            Image(systemName: "paperplane.fill")
+                        }
+                        .font(.lmButton)
+                        .foregroundColor(.white)
+                        .padding(.vertical, 18)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            Capsule()
+                                .fill(message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray.opacity(0.3) : Color.lmPrimary)
+                        )
+                        .shadow(color: Color.lmPrimary.opacity(0.3), radius: 10, x: 0, y: 5)
+                    }
+                    .disabled(message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                    Button { dismiss() } label: {
+                        Text("Cancel")
+                            .font(.lmButton)
+                            .foregroundColor(.lmPrimary)
+                            .padding(.vertical, 12)
+                    }
+                }
+                .padding(.bottom, 34)
             }
-            .font(.system(size: 14, weight: .bold))
-            .foregroundColor(.white)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity)
-            .background(Color.lmPrimary)
-            .clipShape(Capsule())
+            .padding(.horizontal, 24)
 
-            Button("Cancel") {
-                dismiss()
+            // Mention List - Placed at root ZStack to ensure it's on top of everything
+            if showMentions && !filteredClients.isEmpty {
+                VStack(spacing: 0) {
+                    Spacer().frame(height: 340) // Positioned below the TextEditor
+                    
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Tag Client")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.lmTextSecondary)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+                            .padding(.bottom, 4)
+                        
+                        ScrollView {
+                            LazyVStack(spacing: 0) {
+                                ForEach(filteredClients) { client in
+                                    Button {
+                                        insertMention(client: client)
+                                    } label: {
+                                        HStack(spacing: 12) {
+                                            LawMateAvatar(url: client.profileImage, name: client.fullName, size: 36)
+                                            Text(client.fullName)
+                                                .font(.lmBody.weight(.medium))
+                                                .foregroundColor(.lmPrimary)
+                                            Spacer()
+                                            Image(systemName: "at")
+                                                .font(.caption)
+                                                .foregroundColor(.lmPrimary.opacity(0.3))
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 12)
+                                        .contentShape(Rectangle())
+                                    }
+                                    Divider().padding(.horizontal, 16).opacity(0.5)
+                                }
+                            }
+                        }
+                        .frame(maxHeight: 200)
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 24)
+                            .fill(Color.white)
+                            .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
+                    )
+                    .padding(.horizontal, 36) // Slight indent
+                    
+                    Spacer()
+                }
+                .transition(.asymmetric(insertion: .opacity.combined(with: .move(edge: .top)), removal: .opacity))
+                .zIndex(100)
             }
-            .font(.system(size: 14, weight: .bold))
-            .foregroundColor(.lmPrimary)
-            .padding(.bottom, 16)
         }
-        .padding(.horizontal, 24)
+        .onAppear {
+            firestore.listenForClients()
+        }
+    }
+
+    private func handleMention(_ newValue: String) {
+        if let lastAt = newValue.lastIndex(of: "@") {
+            let afterAt = newValue[newValue.index(after: lastAt)...]
+            if !afterAt.contains(" ") {
+                mentionSearchQuery = String(afterAt)
+                showMentions = true
+                return
+            }
+        }
+        showMentions = false
+    }
+
+    private func insertMention(client: User) {
+        if let lastAt = message.lastIndex(of: "@") {
+            let prefix = message[..<lastAt]
+            message = String(prefix) + "@" + client.fullName + " "
+            selectedClientId = client.id
+            showMentions = false
+        }
     }
 }
 
@@ -669,75 +943,148 @@ struct ReferralConfirmationView: View {
     var body: some View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
-            GreenBlobBackground(style: .client)
-                .frame(height: 300)
-
+            
+            // Success background blobs
+            Circle()
+                .fill(Color.green.opacity(0.1))
+                .frame(width: 400, height: 400)
+                .offset(x: -100, y: -150)
+                .blur(radius: 50)
+            
             VStack(spacing: 0) {
                 LawMateNavigationBar(title: "Referral Confirmed", showBack: true, onBack: { navPath.removeLast() })
                     .padding(.top, 65)
-
+                
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 16) {
-                        Text("Referred by \(referringLawyerName)")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.lmTextSecondary)
-
-                        VStack(spacing: 12) {
-                            LawMateAvatar(url: recommended.image, name: recommended.name, size: 64)
-                            Text(recommended.name)
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(.lmPrimary)
-                            Text(recommended.specialty)
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.lmTextSecondary)
+                    VStack(spacing: 32) {
+                        // Success Icon & Message
+                        VStack(spacing: 16) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.green.opacity(0.1))
+                                    .frame(width: 80, height: 80)
+                                
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 48))
+                                    .foregroundColor(.green)
+                            }
+                            
+                            VStack(spacing: 8) {
+                                Text("Great News!")
+                                    .font(.system(size: 24, weight: .bold))
+                                    .foregroundColor(.lmPrimary)
+                                
+                                Text("Referred by \(referringLawyerName)")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundColor(.lmTextSecondary)
+                            }
                         }
-                        .padding(.vertical, 12)
-
-                        Button {
-                            navPath.append(ReferralLawyerContext(lawyer: recommended, referringLawyerName: referringLawyerName))
-                        } label: {
-                            Text("View Lawyer Profile")
-                                .font(.lmButton)
+                        .padding(.top, 20)
+                        
+                        // Lawyer Card
+                        VStack(spacing: 20) {
+                            HStack(spacing: 16) {
+                                LawMateAvatar(url: recommended.image, name: recommended.name, size: 80)
+                                    .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(recommended.name)
+                                        .font(.system(size: 20, weight: .bold))
+                                        .foregroundColor(.lmPrimary)
+                                    
+                                    HStack(spacing: 6) {
+                                        Image(systemName: recommended.specialtyIcon)
+                                            .font(.system(size: 10))
+                                        Text(recommended.specialty)
+                                            .font(.system(size: 13, weight: .bold))
+                                    }
+                                    .foregroundColor(.lmPrimary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Color.lmPrimary.opacity(0.1))
+                                    .clipShape(Capsule())
+                                    
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "star.fill")
+                                            .foregroundColor(.orange)
+                                        Text(String(format: "%.1f", recommended.rating))
+                                            .fontWeight(.bold)
+                                        Text("(\(recommended.reviewCount) reviews)")
+                                            .foregroundColor(.lmTextSecondary)
+                                    }
+                                    .font(.system(size: 12))
+                                    .padding(.top, 4)
+                                }
+                            }
+                            
+                            Divider()
+                                .background(Color.lmPrimary.opacity(0.1))
+                            
+                            Text("You can now connect with \(recommended.name) regarding your legal matter. Choose an action below to get started.")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.lmTextSecondary)
+                                .lineSpacing(4)
+                        }
+                        .padding(24)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                        .shadow(color: Color.black.opacity(0.05), radius: 15, x: 0, y: 8)
+                        
+                        // Actions
+                        VStack(spacing: 16) {
+                            Button {
+                                startChat()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "message.fill")
+                                    Text("Start Chat")
+                                }
+                                .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(.white)
-                                .padding(.vertical, 12)
+                                .padding(.vertical, 16)
                                 .frame(maxWidth: .infinity)
                                 .background(Color.lmPrimary)
                                 .clipShape(Capsule())
+                                .shadow(color: Color.lmPrimary.opacity(0.3), radius: 10, x: 0, y: 5)
+                            }
+                            .buttonStyle(.plain)
+                            
+                            HStack(spacing: 12) {
+                                Button {
+                                    navPath.append(ReferralLawyerContext(lawyer: recommended, referringLawyerName: referringLawyerName))
+                                } label: {
+                                    Text("View Profile")
+                                        .font(.system(size: 15, weight: .bold))
+                                        .foregroundColor(.lmPrimary)
+                                        .padding(.vertical, 14)
+                                        .frame(maxWidth: .infinity)
+                                        .background(Color.white)
+                                        .clipShape(Capsule())
+                                        .overlay(Capsule().stroke(Color.lmPrimary.opacity(0.2), lineWidth: 1.5))
+                                }
+                                .buttonStyle(.plain)
+                                
+                                Button {
+                                    navPath.append(ClientHomeView.AppRoute.booking(recommended))
+                                } label: {
+                                    Text("Book Now")
+                                        .font(.system(size: 15, weight: .bold))
+                                        .foregroundColor(.lmPrimary)
+                                        .padding(.vertical, 14)
+                                        .frame(maxWidth: .infinity)
+                                        .background(Color.lmPrimary.opacity(0.08))
+                                        .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
-                        .buttonStyle(.plain)
-
-                        Button {
-                            startChat()
-                        } label: {
-                            Text("Start Chat")
-                                .font(.lmButton)
-                                .foregroundColor(.lmPrimary)
-                                .padding(.vertical, 12)
-                                .frame(maxWidth: .infinity)
-                                .background(Color.white)
-                                .clipShape(Capsule())
-                                .overlay(Capsule().stroke(Color.lmPrimary, lineWidth: 2))
-                        }
-                        .buttonStyle(.plain)
-
-                        Button {
-                            navPath.append(ClientHomeView.AppRoute.booking(recommended))
-                        } label: {
-                            Text("Book Consultation")
-                                .font(.lmButton)
-                                .foregroundColor(.lmPrimary)
-                                .padding(.vertical, 12)
-                                .frame(maxWidth: .infinity)
-                                .background(Color.lmPrimary.opacity(0.1))
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
+                        
+                        Color.clear.frame(height: 50)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
                 }
             }
-            
         }
         .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)

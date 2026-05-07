@@ -19,6 +19,15 @@ struct Lawyer: Identifiable, Hashable {
     
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
     static func == (lhs: Lawyer, rhs: Lawyer) -> Bool { lhs.id == rhs.id }
+    
+    var specialtyIcon: String {
+        let spec = specialty.lowercased()
+        if spec.contains("family") { return "house.fill" }
+        if spec.contains("criminal") { return "building.columns.fill" }
+        if spec.contains("civil") { return "person.2.fill" }
+        if spec.contains("business") || spec.contains("corporate") { return "briefcase.fill" }
+        return "briefcase.fill"
+    }
 }
 
 enum SortingOption: String, CaseIterable {
@@ -30,8 +39,15 @@ enum SortingOption: String, CaseIterable {
 struct LawyersListView: View {
     var onBack: () -> Void = {}
     @EnvironmentObject var firestore: FirestoreManager
+    @Binding var isTabBarHidden: Bool
     @State private var searchText = ""
     @State private var selectedSpecialty: String? = nil
+    
+    init(onBack: @escaping () -> Void = {}, isTabBarHidden: Binding<Bool> = .constant(false), initialSearchQuery: String = "") {
+        self.onBack = onBack
+        self._isTabBarHidden = isTabBarHidden
+        self._searchText = State(initialValue: initialSearchQuery)
+    }
     @State private var minRating: Double = 0.0
     @State private var selectedLocation: String? = nil
     @State private var isMapViewActive = false
@@ -350,6 +366,9 @@ struct LawyersListView: View {
         .navigationBarBackButtonHidden(true)
         .onAppear {
             firestore.listenForLawyers()
+        }
+        .onChange(of: isMapViewActive) { _, newValue in
+            isTabBarHidden = newValue
         }
     }
     

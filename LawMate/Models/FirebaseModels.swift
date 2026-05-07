@@ -26,6 +26,7 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
     var documents: [FBDocument]? = nil
     
     enum CodingKeys: String, CodingKey {
+        case id
         case caseNumber, title, clientName, clientId, clientImage, lawyerName, lawyerId, lawyerImage, type, status, priority, description, hearingDate, hearingDates, locationLat, locationLng, address, createdDate, stages, documents
     }
     
@@ -55,6 +56,7 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self._id = try container.decode(DocumentID<String>.self, forKey: .id)
         caseNumber = try container.decode(String.self, forKey: .caseNumber)
         title = try container.decode(String.self, forKey: .title)
         clientName = try container.decode(String.self, forKey: .clientName)
@@ -219,6 +221,7 @@ struct FBConversation: Identifiable, Codable, Hashable {
     var unreadCounts: [String: Int]? // [UID: Count] for unread badges
     
     enum CodingKeys: String, CodingKey {
+        case id
         case participants, lastMessage, lastMessageAt, memberNames, memberImages, unreadCounts
     }
     
@@ -234,6 +237,7 @@ struct FBConversation: Identifiable, Codable, Hashable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self._id = try container.decode(DocumentID<String>.self, forKey: .id)
         participants = try container.decode([String].self, forKey: .participants)
         lastMessage = try? container.decode(String.self, forKey: .lastMessage)
         lastMessageAt = try? container.decode(Date.self, forKey: .lastMessageAt)

@@ -168,7 +168,7 @@ struct ChatDetailView: View {
         guard !messageText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         guard let conversationId = validConversationId, let userId = auth.currentUser?.id else { return }
         
-        firestore.sendMessage(to: conversationId, text: messageText, senderId: userId)
+        firestore.sendMessage(to: conversationId, text: messageText, senderId: userId, recipientId: partner.id)
         messageText = ""
     }
     

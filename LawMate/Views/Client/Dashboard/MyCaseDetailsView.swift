@@ -2,10 +2,16 @@ import SwiftUI
 import MapKit
 
 struct MyCaseDetailsView: View {
-    let appointment: FBAppointment
+    let initialAppointment: FBAppointment
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var firestore: FirestoreManager
     @Binding var navPath: NavigationPath
     @Binding var activeConversation: FBConversation?
+    
+    var appointment: FBAppointment {
+        firestore.appointments.first(where: { $0.id == initialAppointment.id }) ?? initialAppointment
+    }
+    
     @State private var showRescheduleSheet = false
     @State private var showCancelSheet = false
     @State private var route: MKRoute?
@@ -38,10 +44,7 @@ struct MyCaseDetailsView: View {
                     showBack: true,
                     showNotification: true,
                     showCamera: false,
-                    onBack: { dismiss() },
-                    onNotification: {
-                        navPath.append(ClientHomeView.AppRoute.notifications)
-                    }
+                    onBack: { dismiss() }
                 )
                 .padding(.top, 65)
                 .zIndex(10)
@@ -99,7 +102,7 @@ struct MyCaseDetailsView: View {
                         .padding(.top, 10)
                         
                         // Bottom Padding for Tab Bar equivalent area
-                        Color.clear.frame(height: 100)
+                        Color.clear.frame(height: 140)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 30)
@@ -254,7 +257,7 @@ struct MyCaseDetailsView: View {
 
 #Preview {
     MyCaseDetailsView(
-        appointment: FBAppointment(
+        initialAppointment: FBAppointment(
             clientId: "C1",
             clientName: "John Doe",
             lawyerId: "L1",
