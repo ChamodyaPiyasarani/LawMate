@@ -43,7 +43,7 @@ struct MyCasesView: View {
                     Spacer()
                     
                     NotificationButton(action: {
-                        showNotifications = true
+                        navPath.append(ClientHomeView.AppRoute.notifications)
                     })
                 }
                 .padding(.horizontal, 24)

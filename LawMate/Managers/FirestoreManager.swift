@@ -472,24 +472,6 @@ class FirestoreManager: ObservableObject {
         referrals = unique.sorted { $0.timestamp > $1.timestamp }
     }
 
-    func deleteReferral(_ referral: FBReferral) {
-        guard let id = referral.id else { return }
-        db.collection("referrals").document(id).delete() { error in
-            if let error = error {
-                print("Error deleting referral: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    func updateReferral(_ referral: FBReferral) {
-        guard let id = referral.id else { return }
-        do {
-            try db.collection("referrals").document(id).setData(from: referral, merge: true)
-        } catch {
-            print("Error updating referral: \(error.localizedDescription)")
-        }
-    }
-
     func createReferralRequest(targetLawyerId: String, targetLawyerName: String, note: String?) {
         guard let requester = AuthService.shared.currentUser else { return }
 

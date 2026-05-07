@@ -197,7 +197,7 @@ struct ClientHomeView: View {
                             ClientActionButton(icon: "doc.text.fill", title: "My Cases", color: .blue) {
                                 navPath.append(AppRoute.myCases)
                             }
-                            ClientActionButton(icon: "doc.on.doc.fill", title: "Templates", color: .orange) {
+                            ClientActionButton(icon: "doc.on.doc.fill", title: "Documents", color: .orange) {
                                 navPath.append(AppRoute.documents)
                             }
                             ClientActionButton(icon: "arrowshape.turn.up.right.fill", title: "Referrals", color: .purple) {

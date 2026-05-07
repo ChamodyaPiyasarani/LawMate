@@ -43,7 +43,7 @@ struct LawyerCasesView: View {
                         Spacer()
                         
                         NotificationButton(action: {
-                            showNotifications = true
+                            navPath.append(LawyerRoute.notifications)
                         })
                     }
                     .padding(.horizontal, 24)

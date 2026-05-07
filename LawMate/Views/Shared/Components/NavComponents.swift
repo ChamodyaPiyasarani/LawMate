@@ -18,6 +18,7 @@ import CoreLocation
 import Combine
 import WebKit
 import VisionKit
+import QuickLook
 
 // MARK: - Back Button
 struct LawMateBackButton: View {
@@ -713,7 +714,7 @@ struct PDFKitViewerSheet: View {
                         .frame(maxHeight: .infinity)
                     } else if let url = localURL {
                         QuickLookController(url: url)
-                            .edgesIgnoringSafeArea(.bottom)
+                            .ignoresSafeArea(edges: .bottom)
                     } else {
                         errorView(message: "Document preview unavailable. Please try downloading the file manually.")
                     }
@@ -766,7 +767,7 @@ struct PDFKitViewerSheet: View {
         DispatchQueue.global(qos: .userInitiated).async {
             let tempDir = FileManager.default.temporaryDirectory
             let extensionName = document.fileType.lowercased()
-            let fileName = document.id + "." + (extensionName.isEmpty ? "pdf" : extensionName)
+            let fileName = (document.id ?? UUID().uuidString) + "." + (extensionName.isEmpty ? "pdf" : extensionName)
             let fileURL = tempDir.appendingPathComponent(fileName)
             
             try? data.write(to: fileURL)
@@ -1218,5 +1219,59 @@ struct LawMatePlusButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Add New Chat")
+    }
+}
+
+// MARK: - QuickLook Controller
+struct QuickLookController: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> QLPreviewController {
+        let controller = QLPreviewController()
+        controller.dataSource = context.coordinator
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: QLPreviewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    class Coordinator: NSObject, QLPreviewControllerDataSource {
+        let parent: QuickLookController
+
+        init(parent: QuickLookController) {
+            self.parent = parent
+        }
+
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
+            1
+        }
+
+        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+            parent.url as QLPreviewItem
+        }
+    }
+}
+
+// MARK: - Shared Filter Chip
+struct FilterChip: View {
+    let title: String
+    let isSelected: Bool
+    var action: () -> Void = {}
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: .bold))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(isSelected ? Color.lmPrimary : Color.white)
+                .foregroundColor(isSelected ? .white : .lmPrimary)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Color.lmPrimary.opacity(0.2), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 }

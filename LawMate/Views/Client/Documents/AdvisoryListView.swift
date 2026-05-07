@@ -359,26 +359,6 @@ struct FilterBottomSheet: View {
     }
 }
 
-struct FilterChip: View {
-    let title: String
-    let isSelected: Bool
-    var action: () -> Void = {}
-    
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: .bold))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(isSelected ? Color.lmPrimary : Color.white)
-                .foregroundColor(isSelected ? .white : .lmPrimary)
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.lmPrimary.opacity(0.2), lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 #Preview {
     AdvisoryListView()
 }

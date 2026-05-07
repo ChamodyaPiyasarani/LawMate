@@ -256,7 +256,7 @@ struct UploadAdvisoryView: View {
                         .disabled(title.isEmpty || (selectedFile == nil && selectedImage == nil))
                         .opacity((title.isEmpty || (selectedFile == nil && selectedImage == nil)) ? 0.5 : 1.0)
                         
-                        Color.clear.frame(height: 120)
+                        Color.clear.frame(height: 140)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 24)

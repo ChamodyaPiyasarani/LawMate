@@ -10,7 +10,6 @@ enum ProfileRoute: Hashable {
     case privacyPolicy
     case myUploads
     case accessibility
-    case accessibility
 }
 
 struct ProfileView: View {

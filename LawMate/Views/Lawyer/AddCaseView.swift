@@ -412,7 +412,7 @@ struct AddCaseView: View {
                         }
                         .padding(.top, 20)
                         
-                        Color.clear.frame(height: 100)
+                        Color.clear.frame(height: 140)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 20)
