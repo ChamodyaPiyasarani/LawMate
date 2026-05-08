@@ -9,7 +9,9 @@ public class AccessibilityManager: ObservableObject {
     
     @Published public var textScale: Double = 1.0
     @Published public var highContrast: Bool = false
+    @Published public var reduceMotion: Bool = false
     @Published public var systemHighContrast: Bool = UIAccessibility.isDarkerSystemColorsEnabled
+    @Published public var systemReduceMotion: Bool = UIAccessibility.isReduceMotionEnabled
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -20,6 +22,7 @@ public class AccessibilityManager: ObservableObject {
             .sink { [weak self] user in
                 self?.textScale = user.textScale ?? 1.0
                 self?.highContrast = user.highContrast ?? false
+                self?.reduceMotion = user.reduceMotion ?? false
             }
             .store(in: &cancellables)
 
@@ -28,10 +31,20 @@ public class AccessibilityManager: ObservableObject {
                 self?.systemHighContrast = UIAccessibility.isDarkerSystemColorsEnabled
             }
             .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: UIAccessibility.reduceMotionStatusDidChangeNotification)
+            .sink { [weak self] _ in
+                self?.systemReduceMotion = UIAccessibility.isReduceMotionEnabled
+            }
+            .store(in: &cancellables)
     }
 
     public var effectiveHighContrast: Bool {
         highContrast || systemHighContrast
+    }
+    
+    public var effectiveReduceMotion: Bool {
+        reduceMotion || systemReduceMotion
     }
     
     /// Converts the user's scale (e.g. 1.5) to a SwiftUI DynamicTypeSize

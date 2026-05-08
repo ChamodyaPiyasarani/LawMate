@@ -68,7 +68,7 @@ struct LawyerCalendarView: View {
             VStack(spacing: 16) {
                 Text("Calendar Access Required")
                     .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(Color(hex: "0F4D33")) // LawMate Dark Green
+                    .foregroundColor(.lmPrimary)
                     .multilineTextAlignment(.center)
                 
                 Text("To manage your hearings and appointments, LawMate needs access to your iOS Calendar.")
@@ -86,7 +86,7 @@ struct LawyerCalendarView: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.white)
                     .frame(width: 260, height: 64)
-                    .background(Color(hex: "1A4331")) // Dark variant for button
+                    .background(Color.lmPrimary)
                     .clipShape(Capsule())
                     .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
             }

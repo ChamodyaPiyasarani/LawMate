@@ -45,6 +45,7 @@ struct User: Identifiable, Codable, Hashable {
     // Accessibility Preferences
     var textScale: Double?
     var highContrast: Bool?
+    var reduceMotion: Bool?
 
     
     // Location Information
@@ -54,11 +55,11 @@ struct User: Identifiable, Codable, Hashable {
     
     enum CodingKeys: String, CodingKey {
         case id, fullName, email, role, profileImage, phoneNumber
-        case specialty, experience, bio, casesWon, fcmToken, apnsToken, messagePublicKey, textScale, highContrast
+        case specialty, experience, bio, casesWon, fcmToken, apnsToken, messagePublicKey, textScale, highContrast, reduceMotion
         case address, latitude, longitude, rating, reviewCount
     }
     
-    init(id: String, fullName: String, email: String, role: UserRole, profileImage: String? = nil, phoneNumber: String = "", specialty: String? = nil, experience: String? = nil, bio: String? = nil, casesWon: String? = nil, fcmToken: String? = nil, apnsToken: String? = nil, messagePublicKey: String? = nil, textScale: Double = 1.0, highContrast: Bool = false, address: String? = nil, latitude: Double? = nil, longitude: Double? = nil, rating: Double? = nil, reviewCount: Int? = nil) {
+    init(id: String, fullName: String, email: String, role: UserRole, profileImage: String? = nil, phoneNumber: String = "", specialty: String? = nil, experience: String? = nil, bio: String? = nil, casesWon: String? = nil, fcmToken: String? = nil, apnsToken: String? = nil, messagePublicKey: String? = nil, textScale: Double = 1.0, highContrast: Bool = false, reduceMotion: Bool = false, address: String? = nil, latitude: Double? = nil, longitude: Double? = nil, rating: Double? = nil, reviewCount: Int? = nil) {
         self.id = id
         self.fullName = fullName
         self.email = email
@@ -74,6 +75,7 @@ struct User: Identifiable, Codable, Hashable {
         self.messagePublicKey = messagePublicKey
         self.textScale = textScale
         self.highContrast = highContrast
+        self.reduceMotion = reduceMotion
         self.address = address
         self.latitude = latitude
         self.longitude = longitude
@@ -108,6 +110,7 @@ struct User: Identifiable, Codable, Hashable {
         messagePublicKey = try? container.decode(String.self, forKey: .messagePublicKey)
         textScale = (try? container.decode(Double.self, forKey: .textScale)) ?? 1.0
         highContrast = (try? container.decode(Bool.self, forKey: .highContrast)) ?? false
+        reduceMotion = (try? container.decode(Bool.self, forKey: .reduceMotion)) ?? false
         address = try? container.decode(String.self, forKey: .address)
         latitude = try? container.decode(Double.self, forKey: .latitude)
         longitude = try? container.decode(Double.self, forKey: .longitude)

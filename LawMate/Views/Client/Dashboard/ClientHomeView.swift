@@ -39,7 +39,10 @@ struct ClientHomeView: View {
                     case .profile:
                         ProfileView(navPath: $navPath, activeConversation: $activeConversation, onBack: { selectedTab = .home })
                     case .cases, .calendar:
-                        EmptyView()
+                        Color.lmBackground.onAppear {
+                            ToastManager.shared.show(title: "Unauthorized", message: "This feature is only available for lawyers.", type: .error)
+                            selectedTab = .home
+                        }
                     }
                 }
                 .modifier(ClientHomeNavigationDestinations(navPath: $navPath, activeConversation: $activeConversation))

@@ -7,6 +7,7 @@ struct AccessibilitySettingsView: View {
     
     @State private var textScale: Double = 1.0
     @State private var highContrast: Bool = false
+    @State private var reduceMotion: Bool = false
     @State private var isSaving = false
     
     var body: some View {
@@ -94,6 +95,30 @@ struct AccessibilitySettingsView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 24))
                         .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.white.opacity(0.5), lineWidth: 1))
                         
+                        // MARK: - Reduce Motion
+                        VStack(alignment: .leading, spacing: 16) {
+                            Toggle(isOn: $reduceMotion) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "slowmo")
+                                        .foregroundColor(.lmPrimary)
+                                        .font(.system(size: 20))
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Reduce Motion")
+                                            .font(.lmHeading)
+                                        Text("Minimize animations and UI transitions.")
+                                            .font(.lmCaption)
+                                            .foregroundColor(.lmTextSecondary)
+                                    }
+                                }
+                            }
+                            .tint(.lmPrimary)
+                        }
+                        .padding(20)
+                        .background(Color.white.opacity(0.8))
+                        .background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.white.opacity(0.5), lineWidth: 1))
+                        
                         // MARK: - Preview Section
                         VStack(alignment: .leading, spacing: 16) {
                             Text("Preview")
@@ -158,6 +183,7 @@ struct AccessibilitySettingsView: View {
             if let user = auth.currentUser {
                 textScale = user.textScale ?? 1.0
                 highContrast = user.highContrast ?? false
+                reduceMotion = user.reduceMotion ?? false
             }
         }
     }
@@ -173,7 +199,8 @@ struct AccessibilitySettingsView: View {
             experience: auth.currentUser?.experience,
             bio: auth.currentUser?.bio,
             textScale: textScale,
-            highContrast: highContrast
+            highContrast: highContrast,
+            reduceMotion: reduceMotion
         ) { _ in
             isSaving = false
         }

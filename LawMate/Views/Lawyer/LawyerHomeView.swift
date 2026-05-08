@@ -179,7 +179,10 @@ struct LawyerHomeView: View {
         case .profile:
             ProfileView(navPath: $navPath, activeConversation: $activeConversation, onBack: { selectedTab = .home })
         case .lawyers, .booking:
-            EmptyView()
+            Color.lmBackground.onAppear {
+                ToastManager.shared.show(title: "Unauthorized", message: "This feature is only available for clients.", type: .error)
+                selectedTab = .home
+            }
         }
     }
 
@@ -635,33 +638,7 @@ private struct ScheduleRow: View {
     }
 }
 
-private struct ComingSoonView: View {
-    let title: String
-    let icon: String
-    let onBack: () -> Void
-    
-    var body: some View {
-        ZStack {
-            Color.lmBackground.ignoresSafeArea()
-            VStack(spacing: 20) {
-                LawMateNavigationBar(title: title, showBack: true, showNotification: false, onBack: onBack)
-                    .padding(.top, 65)
-                
-                Spacer()
-                Image(systemName: icon)
-                    .font(.system(size: 60))
-                    .foregroundColor(.lmPrimary.opacity(0.3))
-                Text("\(title) coming soon")
-                    .font(.lmBody)
-                    .foregroundColor(.lmTextSecondary)
-                Spacer()
-            }
-            
-        }
-        .ignoresSafeArea(edges: .top)
-        .navigationBarBackButtonHidden(true)
-    }
-}
+
 
 #Preview {
     LawyerHomeView()

@@ -144,7 +144,7 @@ class AuthService: ObservableObject {
         }
     }
     
-    func updateUserProfile(fullName: String? = nil, phoneNumber: String? = nil, specialty: String? = nil, experience: String? = nil, bio: String? = nil, casesWon: String? = nil, profileImage: String? = nil, textScale: Double? = nil, highContrast: Bool? = nil, address: String? = nil, latitude: Double? = nil, longitude: Double? = nil, completion: ((Bool) -> Void)? = nil) {
+    func updateUserProfile(fullName: String? = nil, phoneNumber: String? = nil, specialty: String? = nil, experience: String? = nil, bio: String? = nil, casesWon: String? = nil, profileImage: String? = nil, textScale: Double? = nil, highContrast: Bool? = nil, reduceMotion: Bool? = nil, address: String? = nil, latitude: Double? = nil, longitude: Double? = nil, completion: ((Bool) -> Void)? = nil) {
         guard let uid = Auth.auth().currentUser?.uid else { 
             completion?(false)
             return 
@@ -161,6 +161,7 @@ class AuthService: ObservableObject {
         if let profileImage = profileImage { updateData["profileImage"] = profileImage }
         if let textScale = textScale { updateData["textScale"] = textScale }
         if let highContrast = highContrast { updateData["highContrast"] = highContrast }
+        if let reduceMotion = reduceMotion { updateData["reduceMotion"] = reduceMotion }
         if let address = address { updateData["address"] = address }
         if let latitude = latitude { updateData["latitude"] = latitude }
         if let longitude = longitude { updateData["longitude"] = longitude }
@@ -196,6 +197,7 @@ class AuthService: ObservableObject {
                     if let profileImage = profileImage { user.profileImage = profileImage }
                     if let textScale = textScale { user.textScale = textScale }
                     if let highContrast = highContrast { user.highContrast = highContrast }
+                    if let reduceMotion = reduceMotion { user.reduceMotion = reduceMotion }
                     if let address = address { user.address = address }
                     if let latitude = latitude { user.latitude = latitude }
                     if let longitude = longitude { user.longitude = longitude }

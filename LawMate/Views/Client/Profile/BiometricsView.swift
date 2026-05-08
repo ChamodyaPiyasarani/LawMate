@@ -1,4 +1,5 @@
 import SwiftUI
+import LocalAuthentication
 
 struct BiometricsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -30,8 +31,24 @@ struct BiometricsView: View {
                         
                         VStack(spacing: 0) {
                             ToggleRow(title: "Use Biometrics", icon: "faceid", isOn: $biometricsEnabled)
+                                .onChange(of: biometricsEnabled) { _, newValue in
+                                    if newValue {
+                                        checkBiometricAvailability()
+                                    } else {
+                                        appLockEnabled = false
+                                        ToastManager.shared.show(title: "Biometrics Disabled", message: "Face ID / Touch ID has been disabled for login.", type: .success)
+                                    }
+                                }
                             Divider().padding(.leading, 60).padding(.trailing, 20)
                             ToggleRow(title: "Require for App Launch", icon: "lock.shield", isOn: $appLockEnabled)
+                                .onChange(of: appLockEnabled) { _, newValue in
+                                    if newValue && !biometricsEnabled {
+                                        appLockEnabled = false
+                                        ToastManager.shared.show(title: "Enable Biometrics First", message: "You must enable 'Use Biometrics' before requiring it for app launch.", type: .error)
+                                    } else if newValue {
+                                        ToastManager.shared.show(title: "App Lock Enabled", message: "LawMate will require biometrics on every launch.", type: .success)
+                                    }
+                                }
                         }
                         .background(Color.white.opacity(0.8))
                         .background(.ultraThinMaterial)
@@ -50,6 +67,18 @@ struct BiometricsView: View {
         }
         .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
+    }
+
+    private func checkBiometricAvailability() {
+        let context = LocalAuthentication.LAContext()
+        var error: NSError?
+        
+        if !context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+            biometricsEnabled = false
+            ToastManager.shared.show(title: "Unavailable", message: "Face ID / Touch ID is not configured or available on this device.", type: .error)
+        } else {
+            ToastManager.shared.show(title: "Biometrics Enabled", message: "Face ID / Touch ID will be used for your next login.", type: .success)
+        }
     }
 }
 
