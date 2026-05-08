@@ -30,6 +30,7 @@ struct User: Identifiable, Codable, Hashable {
     var role: UserRole
     var profileImage: String?
     var phoneNumber: String
+    var password: String?
     
     // Lawyer specific optional fields
     var specialty: String?
@@ -47,19 +48,18 @@ struct User: Identifiable, Codable, Hashable {
     var highContrast: Bool?
     var reduceMotion: Bool?
 
-    
     // Location Information
     var address: String?
     var latitude: Double?
     var longitude: Double?
     
     enum CodingKeys: String, CodingKey {
-        case id, fullName, email, role, profileImage, phoneNumber
+        case id, fullName, email, role, profileImage, phoneNumber, password
         case specialty, experience, bio, casesWon, fcmToken, apnsToken, messagePublicKey, textScale, highContrast, reduceMotion
         case address, latitude, longitude, rating, reviewCount
     }
     
-    init(id: String, fullName: String, email: String, role: UserRole, profileImage: String? = nil, phoneNumber: String = "", specialty: String? = nil, experience: String? = nil, bio: String? = nil, casesWon: String? = nil, fcmToken: String? = nil, apnsToken: String? = nil, messagePublicKey: String? = nil, textScale: Double = 1.0, highContrast: Bool = false, reduceMotion: Bool = false, address: String? = nil, latitude: Double? = nil, longitude: Double? = nil, rating: Double? = nil, reviewCount: Int? = nil) {
+    init(id: String, fullName: String, email: String, role: UserRole, profileImage: String? = nil, phoneNumber: String = "", specialty: String? = nil, experience: String? = nil, bio: String? = nil, casesWon: String? = nil, fcmToken: String? = nil, apnsToken: String? = nil, messagePublicKey: String? = nil, textScale: Double = 1.0, highContrast: Bool = false, reduceMotion: Bool = false, address: String? = nil, latitude: Double? = nil, longitude: Double? = nil, rating: Double? = nil, reviewCount: Int? = nil, password: String? = nil) {
         self.id = id
         self.fullName = fullName
         self.email = email
@@ -81,6 +81,7 @@ struct User: Identifiable, Codable, Hashable {
         self.longitude = longitude
         self.rating = rating
         self.reviewCount = reviewCount
+        self.password = password
     }
     
     init(from decoder: Decoder) throws {

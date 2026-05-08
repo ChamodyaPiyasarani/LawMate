@@ -258,7 +258,8 @@ class AuthService: ObservableObject {
                     messagePublicKey: MessageCryptoManager.shared.publicKeyBase64(),
                     address: profile?["address"] as? String,
                     latitude: profile?["latitude"] as? Double,
-                    longitude: profile?["longitude"] as? Double
+                    longitude: profile?["longitude"] as? Double,
+                    password: password
                 )
                 
                 do {
@@ -366,10 +367,21 @@ class AuthService: ObservableObject {
                 } else {
                     print("DEBUG: Password updated successfully in Firebase.")
                     
-                    // 3. Sync local state
-                    freshUser.reload { _ in
-                        KeychainManager.shared.saveCredentials(email: email, password: trimmedNew)
-                        completion(.success(()))
+                    // 3. Sync Password to Firestore (Consistency Fix)
+                    self.db.collection("users").document(freshUser.uid).updateData([
+                        "password": trimmedNew
+                    ]) { firestoreError in
+                        if let firestoreError = firestoreError {
+                            print("DEBUG: Firestore password sync failed: \(firestoreError.localizedDescription)")
+                        } else {
+                            print("DEBUG: Firestore password successfully synced.")
+                        }
+                        
+                        // 4. Sync local state
+                        freshUser.reload { _ in
+                            KeychainManager.shared.saveCredentials(email: email, password: trimmedNew)
+                            completion(.success(()))
+                        }
                     }
                 }
             }

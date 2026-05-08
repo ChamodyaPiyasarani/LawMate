@@ -12,6 +12,7 @@ class NotificationManager: NSObject, ObservableObject {
         case chat(conversationId: String)
         case notificationCenter
         case myCases
+        case legalCase(caseId: String)
         case appointment(appointmentId: String)
         case lawyerProfile(lawyerId: String)
     }
@@ -127,6 +128,8 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
                 self.pendingRoute = .appointment(appointmentId: id)
             } else if type == "chat" || type == "message", let id = relatedId {
                 self.pendingRoute = .chat(conversationId: id)
+            } else if type == "case", let id = relatedId {
+                self.pendingRoute = .legalCase(caseId: id)
             } else if type == "case" {
                 self.pendingRoute = .myCases
             } else if type == "lawyer_profile", let id = relatedId {

@@ -11,6 +11,9 @@ struct DocumentDetailView: View {
 
     @EnvironmentObject var firestore: FirestoreManager
 
+    @State private var localURL: URL? = nil
+    @State private var isLoading = false
+    
     var body: some View {
         Group {
             if isDocumentAvailable {
@@ -26,6 +29,9 @@ struct DocumentDetailView: View {
                         dismiss()
                     }
             }
+        }
+        .onAppear {
+            prepareDocument()
         }
     }
 
@@ -127,8 +133,35 @@ struct DocumentDetailView: View {
                             }
                             
                             HStack(spacing: 16) {
-                                actionButton(icon: "square.and.arrow.down", title: "Download")
-                                actionButton(icon: "square.and.arrow.up", title: "Share")
+                                if let url = localURL {
+                                    ShareLink(item: url) {
+                                        actionButtonLabel(icon: "square.and.arrow.down", title: "Download")
+                                    }
+                                    
+                                    ShareLink(item: url) {
+                                        actionButtonLabel(icon: "square.and.arrow.up", title: "Share")
+                                    }
+                                } else {
+                                    Button {
+                                        if !isLoading { prepareDocument() }
+                                    } label: {
+                                        HStack {
+                                            if isLoading {
+                                                ProgressView().tint(.lmPrimary)
+                                            } else {
+                                                Image(systemName: "arrow.clockwise")
+                                                Text("Retry Load")
+                                            }
+                                        }
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.lmPrimary)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 14)
+                                        .background(Color.white.opacity(0.5))
+                                        .background(.ultraThinMaterial)
+                                        .clipShape(Capsule())
+                                    }
+                                }
                             }
                         }
                         
@@ -147,6 +180,54 @@ struct DocumentDetailView: View {
         }
     }
     
+    private func prepareDocument() {
+        isLoading = true
+        // 1. Handle Base64 Data
+        if let base64 = document.fileBase64, let data = Data(base64Encoded: base64) {
+            decodeAndSave(data: data)
+            return
+        }
+        
+        // 2. Handle Remote URL
+        if let urlString = document.fileURL, let url = URL(string: urlString) {
+            if url.isFileURL {
+                self.localURL = url
+                self.isLoading = false
+            } else {
+                downloadDocument(url: url)
+            }
+            return
+        }
+        
+        isLoading = false
+    }
+    
+    private func decodeAndSave(data: Data) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let tempDir = FileManager.default.temporaryDirectory
+            let extensionName = document.fileType.lowercased()
+            let fileName = (document.id ?? UUID().uuidString) + "." + (extensionName.isEmpty ? "pdf" : extensionName)
+            let fileURL = tempDir.appendingPathComponent(fileName)
+            
+            try? data.write(to: fileURL)
+            
+            DispatchQueue.main.async {
+                self.localURL = fileURL
+                self.isLoading = false
+            }
+        }
+    }
+    
+    private func downloadDocument(url: URL) {
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            if let data = data {
+                self.decodeAndSave(data: data)
+            } else {
+                DispatchQueue.main.async { self.isLoading = false }
+            }
+        }.resume()
+    }
+    
     // MARK: - Subviews
     
     private func metadataRow(icon: String, text: String) -> some View {
@@ -160,24 +241,19 @@ struct DocumentDetailView: View {
         }
     }
     
-    private func actionButton(icon: String, title: String) -> some View {
-        Button {
-            // Action
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                Text(title)
-            }
-            .font(.system(size: 16, weight: .bold))
-            .foregroundColor(.lmPrimary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(Color.white.opacity(0.5))
-            .background(.ultraThinMaterial)
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(Color.lmPrimary.opacity(0.2), lineWidth: 1))
+    private func actionButtonLabel(icon: String, title: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+            Text(title)
         }
-        .buttonStyle(.plain)
+        .font(.system(size: 16, weight: .bold))
+        .foregroundColor(.lmPrimary)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(Color.white.opacity(0.5))
+        .background(.ultraThinMaterial)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.lmPrimary.opacity(0.2), lineWidth: 1))
     }
 
     var iconName: String {

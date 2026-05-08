@@ -24,7 +24,6 @@ struct ProfileView: View {
     @State private var imageSource: UIImagePickerController.SourceType = .photoLibrary
     @State private var showSourceSelection = false
     @State private var isUploading = false
-    @State private var showNotifications = false
     @State private var showLogoutAlert = false
     @State private var showDeleteAlert = false
     @State private var isDeleting = false
@@ -50,9 +49,10 @@ struct ProfileView: View {
                     
                     Spacer()
                     
-                    NotificationButton(action: {
-                        showNotifications = true
-                    })
+                    NotificationButton()
+                        .padding(6)
+                        .background(Circle().fill(Color.white.opacity(0.9)))
+                        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 65)

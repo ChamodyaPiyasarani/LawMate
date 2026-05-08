@@ -188,8 +188,13 @@ struct FBDocument: Identifiable, Codable, Hashable {
     var localFileName: String?
     var fileBase64: String?
     
+    // New Versioning & Category Fields
+    var version: Int = 1
+    var category: String = "Other" // e.g., "Evidence", "Contract", "Court Order", "Identity"
+    var groupId: String? // Used to group versions of the same document
+    
     enum CodingKeys: String, CodingKey {
-        case legalCaseId, fileName, fileType, fileURL, stageIndex, uploadedAt, localFileName, fileBase64
+        case legalCaseId, fileName, fileType, fileURL, stageIndex, uploadedAt, localFileName, fileBase64, version, category, groupId
     }
 }
 

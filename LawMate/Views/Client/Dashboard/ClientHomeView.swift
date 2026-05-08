@@ -38,11 +38,10 @@ struct ClientHomeView: View {
                         })
                     case .profile:
                         ProfileView(navPath: $navPath, activeConversation: $activeConversation, onBack: { selectedTab = .home })
-                    case .cases, .calendar:
-                        Color.lmBackground.onAppear {
-                            ToastManager.shared.show(title: "Unauthorized", message: "This feature is only available for lawyers.", type: .error)
-                            selectedTab = .home
-                        }
+                    case .cases:
+                        MyCasesView(navPath: $navPath, activeConversation: $activeConversation)
+                    case .calendar:
+                        BookingDetailsView(navPath: $navPath)
                     }
                 }
                 .modifier(ClientHomeNavigationDestinations(navPath: $navPath, activeConversation: $activeConversation))
@@ -71,41 +70,40 @@ struct ClientHomeView: View {
                 .onChange(of: notifications.pendingRoute) { _, route in
                     guard let route = route else { return }
                     
-                    // Reset navigation state for any route that moves the user to a specific detail view
-                    // to prevent "stacking" conflicts.
-                    switch route {
-                    case .chat, .myCases, .appointment, .lawyerProfile:
-                        navPath = NavigationPath()
-                        activeConversation = nil
-                    case .notificationCenter:
-                        break
-                    }
+                    // We no longer reset navPath = NavigationPath() here to avoid losing user work.
+                    // Instead, we append the new route to the existing stack.
                     
                     switch route {
                     case .chat(let conversationId):
-                        selectedTab = .messages
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        // If conversation is already loaded, open it immediately
+                        if let conversation = firestore.conversations.first(where: { $0.id == conversationId }) {
+                            activeConversation = conversation
+                        } else {
+                            // Otherwise, set pending ID and let the listener handle it
                             pendingChatId = conversationId
-                            tryNavigateToPendingChat()
+                            selectedTab = .messages
                         }
                     case .notificationCenter:
                         notifications.showNotifications = true
                     case .myCases:
+                        // Move to the Home tab and append the Cases view to the stack
                         selectedTab = .home
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        navPath.append(AppRoute.myCases)
+                    case .legalCase(let caseId):
+                        if let legalCase = firestore.cases.first(where: { $0.id == caseId }) {
+                            navPath.append(legalCase)
+                        } else {
+                            selectedTab = .home
                             navPath.append(AppRoute.myCases)
                         }
                     case .appointment(let appointmentId):
                         if let appointment = firestore.appointments.first(where: { $0.id == appointmentId }) {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                navPath.append(appointment)
-                            }
+                            navPath.append(appointment)
                         } else {
                             ToastManager.shared.show(title: "Appointment Unavailable", message: "This appointment has been cancelled or deleted.", type: .error)
                         }
                     case .lawyerProfile(let lawyerId):
                         if let user = firestore.lawyers.first(where: { $0.id == lawyerId }) {
-                            // Map User to Lawyer model
                             let lawyer = Lawyer(
                                 id: user.id,
                                 name: user.fullName,
@@ -122,9 +120,7 @@ struct ClientHomeView: View {
                                 image: user.profileImage ?? "",
                                 coordinate: CLLocationCoordinate2D(latitude: user.latitude ?? 0, longitude: user.longitude ?? 0)
                             )
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                navPath.append(lawyer)
-                            }
+                            navPath.append(lawyer)
                         } else {
                             ToastManager.shared.show(title: "Lawyer Unavailable", message: "The lawyer profile you're looking for is no longer available.", type: .error)
                         }
@@ -335,16 +331,19 @@ struct ClientHomeView: View {
     }
 
     private func appointmentCard(_ appointment: FBAppointment) -> some View {
-        NavigationLink(value: appointment) {
+        let isOverdue = appointment.date < Date()
+        let themeColor = isOverdue ? Color.red : Color.green
+        
+        return NavigationLink(value: appointment) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     ZStack {
                         Circle()
-                            .fill(Color.lmPrimary.opacity(0.1))
+                            .fill(themeColor.opacity(0.1))
                             .frame(width: 32, height: 32)
                         Image(systemName: "clock.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(.lmPrimary)
+                            .foregroundColor(themeColor)
                     }
                     
                     Text(appointment.time)
@@ -368,11 +367,11 @@ struct ClientHomeView: View {
                         .foregroundColor(.lmTextSecondary)
                 }
                 
-                if appointment.isOverdue {
+                if isOverdue {
                     HStack {
                         Spacer()
                         Text("Overdue")
-                            .font(.system(size: 9, weight: .black))
+                            .font(.system(size: 8, weight: .black))
                             .foregroundColor(.white)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -383,9 +382,13 @@ struct ClientHomeView: View {
             }
             .padding(18)
             .frame(width: 200)
-            .background(Color.white)
+            .background(themeColor.opacity(0.05))
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(themeColor.opacity(0.1), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 5)
         }
         .buttonStyle(.plain)
     }

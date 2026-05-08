@@ -263,6 +263,12 @@ struct LawyerCaseDetailView: View {
     @State private var selectedPhotosItem: PhotosPickerItem? = nil
     @State private var showAddHearingDateSheet = false
     
+    @State private var selectedCategory = "Other"
+    @State private var targetGroupId: String? = nil
+    @State private var targetVersion: Int = 1
+    
+    private let documentCategories = ["Evidence", "Contract", "Court Order", "Identity", "Other"]
+    
     init(legalCase: FBLegalCase) {
         self.legalCase = legalCase
     }
@@ -487,7 +493,10 @@ struct LawyerCaseDetailView: View {
                     fileType: fileType,
                     fileURL: nil,
                     fileBase64: base64String,
-                    stageIndex: stageIndex
+                    stageIndex: stageIndex,
+                    category: selectedCategory,
+                    version: targetVersion,
+                    groupId: targetGroupId
                 )
                 
                 // Update the stage to indicate a file was uploaded
@@ -495,7 +504,12 @@ struct LawyerCaseDetailView: View {
                 updatedCase.stages[stageIndex].description += " (File attached)"
                 firestore.updateCase(updatedCase)
                 
-                ToastManager.shared.show(title: "Success", message: "File uploaded successfully.", type: .success)
+                ToastManager.shared.show(title: "Success", message: targetVersion > 1 ? "New version uploaded." : "File uploaded successfully.", type: .success)
+                
+                // Reset versioning state
+                selectedCategory = "Other"
+                targetGroupId = nil
+                targetVersion = 1
             } catch {
                 ToastManager.shared.show(title: "Access Error", message: "Could not read file data.", type: .error)
             }
@@ -521,11 +535,19 @@ struct LawyerCaseDetailView: View {
                     fileType: fileType,
                     fileURL: nil,
                     fileBase64: base64String,
-                    stageIndex: selectedStageIndex
+                    stageIndex: selectedStageIndex,
+                    category: selectedCategory,
+                    version: targetVersion,
+                    groupId: targetGroupId
                 )
             }
         }
-        ToastManager.shared.show(title: "Success", message: "Scanned documents uploaded.", type: .success)
+        ToastManager.shared.show(title: "Success", message: targetVersion > 1 ? "New version uploaded." : "Scanned documents uploaded.", type: .success)
+        
+        // Reset versioning state
+        selectedCategory = "Other"
+        targetGroupId = nil
+        targetVersion = 1
     }
     
     private func handleGallerySelection(_ image: UIImage?) {
@@ -729,7 +751,14 @@ struct LawyerCaseDetailView: View {
     }
     
     private var documentsTab: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        let groupedDocs = Dictionary(grouping: firestore.caseDocuments) { $0.groupId ?? $0.id ?? "unknown" }
+        let sortedGroups = groupedDocs.keys.sorted { key1, key2 in
+            let latest1 = groupedDocs[key1]?.map(\.uploadedAt).max() ?? Date.distantPast
+            let latest2 = groupedDocs[key2]?.map(\.uploadedAt).max() ?? Date.distantPast
+            return latest1 > latest2
+        }
+
+        return VStack(alignment: .leading, spacing: 20) {
             HStack {
                 Text("Case Documents")
                     .font(.system(size: 18, weight: .bold))
@@ -737,12 +766,19 @@ struct LawyerCaseDetailView: View {
                 
                 Spacer()
                 
-                Text("\(currentCase.wrappedDocuments.count) Files")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.lmTextSecondary)
+                // Category Picker for new uploads
+                Picker("Category", selection: $selectedCategory) {
+                    ForEach(documentCategories, id: \.self) { cat in
+                        Text(cat).tag(cat)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .tint(.lmPrimary)
+                .scaleEffect(0.9)
             }
             
-            if currentCase.wrappedDocuments.isEmpty {
+            if sortedGroups.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "doc.text.magnifyingglass")
                         .font(.system(size: 40))
@@ -754,8 +790,22 @@ struct LawyerCaseDetailView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
             } else {
-                ForEach(currentCase.wrappedDocuments) { doc in
-                    caseDocumentRow(doc)
+                ForEach(sortedGroups, id: \.self) { groupId in
+                    let docs = (groupedDocs[groupId] ?? []).sorted { $0.version > $1.version }
+                    if let latest = docs.first {
+                        DocumentGroupRow(
+                            latestDoc: latest,
+                            versions: docs,
+                            isLawyer: true,
+                            onSelect: { selectedDocument = $0 },
+                            onAddVersion: {
+                                targetGroupId = groupId
+                                targetVersion = latest.version + 1
+                                selectedCategory = latest.category
+                                showFilePicker = true
+                            }
+                        )
+                    }
                 }
             }
         }

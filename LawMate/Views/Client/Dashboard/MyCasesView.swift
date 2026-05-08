@@ -22,6 +22,29 @@ struct MyCasesView: View {
     @Binding var navPath: NavigationPath
     @Binding var activeConversation: FBConversation?
     
+    // Filter State
+    @State private var searchText = ""
+    @State private var selectedStatus = "All"
+    
+    private let statusFilters = ["All", "Active", "Pending", "Closed"]
+    
+    var filteredCases: [FBLegalCase] {
+        firestore.cases.filter { clientCase in
+            let matchesSearch = searchText.isEmpty || 
+                               clientCase.title.localizedCaseInsensitiveContains(searchText) ||
+                               clientCase.lawyerName.localizedCaseInsensitiveContains(searchText) ||
+                               clientCase.caseNumber.localizedCaseInsensitiveContains(searchText)
+            
+            let matchesStatus = selectedStatus == "All" || 
+                               clientCase.status.lowercased() == selectedStatus.lowercased() ||
+                               (selectedStatus == "Active" && (clientCase.status.lowercased() == "confirmed" || clientCase.status.lowercased() == "in progress")) ||
+                               (selectedStatus == "Pending" && clientCase.status.lowercased() == "pending") ||
+                               (selectedStatus == "Closed" && clientCase.status.lowercased() == "closed")
+            
+            return matchesSearch && matchesStatus
+        }
+    }
+    
     var body: some View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
@@ -42,27 +65,65 @@ struct MyCasesView: View {
                     
                     Spacer()
                     
-                    NotificationButton(action: {
-                        navPath.append(ClientHomeView.AppRoute.notifications)
-                    })
+                    NotificationButton()
+                        .padding(6)
+                        .background(Circle().fill(Color.white.opacity(0.9)))
+                        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 65)
-                .padding(.bottom, 24)
+                .padding(.bottom, 20)
                 .zIndex(10)
+                
+                // MARK: Search & Filters
+                VStack(spacing: 16) {
+                    LawMateSearchBar(text: $searchText, placeholder: "Search by title, lawyer or case #")
+                        .padding(.horizontal, 24)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(statusFilters, id: \.self) { status in
+                                FilterChip(title: status, isSelected: selectedStatus == status) {
+                                    withAnimation(.spring()) {
+                                        selectedStatus = status
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                    }
+                }
+                .padding(.bottom, 20)
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
-                        ForEach(firestore.cases) { clientCase in
-                            NavigationLink(value: clientCase) {
-                                MyCaseCard(clientCase: clientCase, onDelete: {
-                                    firestore.deleteCase(id: clientCase.id ?? "")
-                                }, onEdit: {
-                                    editingCase = clientCase
-                                    showEditSheet = true
-                                })
+                        if filteredCases.isEmpty {
+                            VStack(spacing: 16) {
+                                Image(systemName: "doc.text.magnifyingglass")
+                                    .font(.system(size: 48))
+                                    .foregroundColor(.lmPrimary.opacity(0.2))
+                                Text("No cases found")
+                                    .font(.custom("Outfit-Medium", size: 16))
+                                    .foregroundColor(.lmTextSecondary)
+                                if !searchText.isEmpty {
+                                    Text("Try adjusting your search or filters")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.lmTextSecondary.opacity(0.6))
+                                }
                             }
-                            .buttonStyle(.plain)
+                            .padding(.top, 100)
+                        } else {
+                            ForEach(filteredCases) { clientCase in
+                                NavigationLink(value: clientCase) {
+                                    MyCaseCard(clientCase: clientCase, onDelete: {
+                                        firestore.deleteCase(id: clientCase.id ?? "")
+                                    }, onEdit: {
+                                        editingCase = clientCase
+                                        showEditSheet = true
+                                    })
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
                     .padding(.horizontal, 24)

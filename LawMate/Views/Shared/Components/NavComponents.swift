@@ -159,177 +159,183 @@ struct AppointmentRowView: View {
     }
     
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(alignment: .center, spacing: 16) {
-                // Time (Left)
-                VStack(spacing: 4) {
-                    Text(appointment.time.components(separatedBy: " ").first ?? "")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.lmPrimary)
+        let currentRole = auth.currentUser?.role ?? .client
+        let displayName = currentRole == .lawyer ? appointment.clientName : appointment.lawyerName
+        let displayImage = currentRole == .lawyer ? appointment.clientImage : appointment.lawyerImage
+        
+        VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 14) {
+                // Identity Section (Left)
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.4))
+                        .frame(width: 52, height: 52)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
                     
-                    Rectangle()
-                        .fill(Color.lmPrimary.opacity(0.2))
-                        .frame(width: 2, height: 24)
+                    if let imgStr = displayImage, let imgData = Data(base64Encoded: imgStr.replacingOccurrences(of: "data:image/jpeg;base64,", with: "")), let uiImg = UIImage(data: imgData) {
+                        Image(uiImage: uiImg)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 52, height: 52)
+                            .clipShape(Circle())
+                    } else {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.lmPrimary.opacity(0.5))
+                    }
                 }
-                .frame(width: 50)
+                .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1))
+                .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
                 
-                // Info (Center - Left Aligned)
-                VStack(alignment: .leading, spacing: 4) {
-                    let currentRole = auth.currentUser?.role ?? .client
-                    let displayName = currentRole == .lawyer ? appointment.clientName : appointment.lawyerName
-                    
-                    HStack(spacing: 8) {
+                // Content Section (Right)
+                VStack(alignment: .leading, spacing: 6) {
+                    // Row 1: Name & Actions
+                    HStack {
                         Text(displayName)
                             .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.lmPrimary)
                             .lineLimit(1)
                         
-                        if let specialty = appointment.lawyerSpecialty {
-                            HStack(spacing: 4) {
-                                Image(systemName: appointment.specialtyIcon)
-                                    .font(.system(size: 8))
-                                Text(specialty)
-                                    .font(.system(size: 8, weight: .bold))
-                                    .lineLimit(1)
-                            }
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.lmPrimary.opacity(0.1))
-                            .foregroundColor(.lmPrimary)
-                            .clipShape(Capsule())
-                            .layoutPriority(1)
-                        }
-                    }
-                    
-                    Text(appointment.service)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.lmTextSecondary)
-                        .lineLimit(1)
-                    
-                    Text(appointment.description)
-                        .font(.system(size: 11))
-                        .foregroundColor(.lmTextSecondary.opacity(0.7))
-                        .lineLimit(1)
-                }
-                
-                Spacer(minLength: 8)
-                
-                // Status & Method (Right)
-                VStack(alignment: .trailing, spacing: 6) {
-                    HStack(spacing: 8) {
-                        Button {
-                            showDeleteAlert = true
-                        } label: {
-                            Image(systemName: "trash")
-                                .font(.system(size: 14))
-                                .foregroundColor(.red.opacity(0.6))
-                        }
-                        .buttonStyle(.plain)
+                        Spacer()
                         
-                        Text(appointment.statusTitle)
-                            .font(.system(size: 9, weight: .black))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(appointment.statusColor.opacity(0.12))
-                            .foregroundColor(appointment.statusColor)
-                            .clipShape(Capsule())
-                            .overlay(Capsule().stroke(appointment.statusColor.opacity(0.3), lineWidth: 1))
+                        HStack(spacing: 8) {
+                            Button {
+                                showDeleteAlert = true
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.red.opacity(0.6))
+                            }
+                            .buttonStyle(.plain)
+                            
+                            Text(appointment.statusTitle.uppercased())
+                                .font(.system(size: 8, weight: .black))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(appointment.statusColor.opacity(0.12))
+                                .foregroundColor(appointment.statusColor)
+                                .clipShape(Capsule())
+                        }
                     }
                     
-                    Image(systemName: appointment.method == "Video Call" ? "video.fill" : "building.2.fill")
-                        .font(.system(size: 12))
-                        .foregroundColor(.lmPrimary.opacity(0.4))
+                    // Row 2: Time & Category
+                    HStack(spacing: 8) {
+                        Label(appointment.time.components(separatedBy: " ").first ?? "", systemImage: "clock.fill")
+                        Text("•").opacity(0.3)
+                        Label(appointment.method, systemImage: appointment.method == "Video Call" ? "video.fill" : "mappin.and.ellipse.circle.fill")
+                    }
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.lmTextSecondary)
+                    
+                    // Row 3: Selected Service
+                    Text(appointment.service)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.lmPrimary.opacity(0.8))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.lmPrimary.opacity(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
             
-            // Confirm/Reschedule/Reject Actions (Bidirectional)
+            // Actions Section
             let currentUserId = auth.currentUser?.id ?? ""
             let isPendingOrRescheduled = appointment.status.lowercased() == "pending" || appointment.status.lowercased() == "rescheduled"
             let isRecipient = appointment.lastActionBy != currentUserId
+            let isConfirmedForLawyer = appointment.status.lowercased() == "confirmed" && auth.currentUser?.role == .lawyer
             
-            if isPendingOrRescheduled && isRecipient {
-                HStack(spacing: 8) {
-                    Button {
-                        firestore.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Confirmed") { success in
-                            if success {
-                                let targetUserId = (auth.currentUser?.role == .lawyer) ? appointment.clientId : appointment.lawyerId
-                                let senderName = auth.currentUser?.fullName ?? "Someone"
-                                let notification = FBNotification(
-                                    title: "Appointment Confirmed",
-                                    body: "\(senderName) has confirmed the appointment for \(appointment.time) on \(formatDate(appointment.date)).",
-                                    type: "appointment",
-                                    timestamp: Date(),
-                                    relatedId: appointment.id
-                                )
-                                firestore.addNotification(notification, toUserId: targetUserId)
-                                
-                                EventKitManager.shared.createEvent(
-                                    title: "Confirmed: \(appointment.service) with \((auth.currentUser?.role == .lawyer) ? appointment.clientName : appointment.lawyerName)",
-                                    startDate: appointment.date,
-                                    endDate: appointment.date.addingTimeInterval(3600),
-                                    location: appointment.method,
-                                    notes: appointment.description
-                                ) { _, _ in }
+            if (isPendingOrRescheduled && isRecipient) || isConfirmedForLawyer {
+                Divider()
+                    .padding(.horizontal, 16)
+                    .opacity(0.1)
+                
+                VStack(spacing: 0) {
+                    if isPendingOrRescheduled && isRecipient {
+                        HStack(spacing: 12) {
+                            Button {
+                                firestore.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Confirmed") { success in
+                                    if success {
+                                        let targetUserId = (auth.currentUser?.role == .lawyer) ? appointment.clientId : appointment.lawyerId
+                                        let senderName = auth.currentUser?.fullName ?? "Someone"
+                                        let notification = FBNotification(
+                                            title: "Appointment Confirmed",
+                                            body: "\(senderName) has confirmed the appointment for \(appointment.time) on \(formatDate(appointment.date)).",
+                                            type: "appointment",
+                                            timestamp: Date(),
+                                            relatedId: appointment.id
+                                        )
+                                        firestore.addNotification(notification, toUserId: targetUserId)
+                                        
+                                        EventKitManager.shared.createEvent(
+                                            title: "Confirmed: \(appointment.service) with \((auth.currentUser?.role == .lawyer) ? appointment.clientName : appointment.lawyerName)",
+                                            startDate: appointment.date,
+                                            endDate: appointment.date.addingTimeInterval(3600),
+                                            location: appointment.method,
+                                            notes: appointment.description
+                                        ) { _, _ in }
+                                    }
+                                }
+                            } label: {
+                                Text("Confirm")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.vertical, 10)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.green)
+                                    .clipShape(Capsule())
+                            }
+                            
+                            Button {
+                                showReschedulePicker = true
+                            } label: {
+                                Text("Reschedule")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.vertical, 10)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.blue)
+                                    .clipShape(Capsule())
+                            }
+                            
+                            Button {
+                                showRejectAlert = true
+                            } label: {
+                                Text("Reject")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.vertical, 10)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.red)
+                                    .clipShape(Capsule())
                             }
                         }
-                    } label: {
-                        Text("Confirm")
-                            .font(.system(size: 11, weight: .bold))
+                    } else if isConfirmedForLawyer {
+                        Button {
+                            firestore.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Done") { _ in }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("Mark as Completed")
+                            }
+                            .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.white)
-                            .padding(.vertical, 8)
+                            .padding(.vertical, 10)
                             .frame(maxWidth: .infinity)
-                            .background(Color.green)
+                            .background(Color.lmPrimary)
                             .clipShape(Capsule())
-                    }
-                    
-                    Button {
-                        showReschedulePicker = true
-                    } label: {
-                        Text("Reschedule")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.vertical, 8)
-                            .frame(maxWidth: .infinity)
-                            .background(Color.blue)
-                            .clipShape(Capsule())
-                    }
-                    
-                    Button {
-                        showRejectAlert = true
-                    } label: {
-                        Text("Reject")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.vertical, 8)
-                            .frame(maxWidth: .infinity)
-                            .background(Color.red)
-                            .clipShape(Capsule())
+                        }
                     }
                 }
-                .padding(.top, 4)
-            } else if appointment.status.lowercased() == "confirmed" && auth.currentUser?.role == .lawyer {
-                Button {
-                    firestore.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Done") { _ in }
-                } label: {
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text("Mark as Done")
-                    }
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.lmPrimary)
-                    .clipShape(Capsule())
-                }
-                .padding(.top, 4)
+                .padding(16)
             }
         }
-        .padding(16)
         .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 16)
                 .stroke(Color.white.opacity(0.3), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
@@ -1732,5 +1738,133 @@ struct DataUnavailableView: View {
         }
         .ignoresSafeArea(edges: .top)
         .navigationBarBackButtonHidden(true)
+    }
+}
+
+// MARK: - Document Versioning Components
+
+struct DocumentGroupRow: View {
+    let latestDoc: FBDocument
+    let versions: [FBDocument]
+    let isLawyer: Bool
+    let onSelect: (FBDocument) -> Void
+    let onAddVersion: () -> Void
+    
+    @State private var isExpanded = false
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                // Icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color.lmPrimary.opacity(0.1))
+                        .frame(width: 52, height: 52)
+                    
+                    Image(systemName: latestDoc.fileType.uppercased() == "PDF" ? "doc.fill" : "photo.fill")
+                        .font(.system(size: 22))
+                        .foregroundColor(.lmPrimary)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(latestDoc.fileName)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                            .lineLimit(1)
+                        
+                        DocumentCategoryBadge(category: latestDoc.category)
+                    }
+                    
+                    Text("Version \(latestDoc.version) • \(latestDoc.uploadedAt, style: .date)")
+                        .font(.system(size: 12))
+                        .foregroundColor(.lmTextSecondary)
+                }
+                
+                Spacer()
+                
+                HStack(spacing: 12) {
+                    if versions.count > 1 {
+                        Button {
+                            withAnimation { isExpanded.toggle() }
+                        } label: {
+                            Image(systemName: isExpanded ? "chevron.up.circle.fill" : "clock.arrow.circlepath")
+                                .font(.system(size: 24))
+                                .foregroundColor(.lmPrimary.opacity(0.6))
+                        }
+                    }
+                    
+                    if isLawyer {
+                        Button(action: onAddVersion) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(.green)
+                        }
+                    }
+                    
+                    Button {
+                        onSelect(latestDoc)
+                    } label: {
+                        Image(systemName: "eye.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(.lmPrimary)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(16)
+            
+            if isExpanded {
+                VStack(spacing: 0) {
+                    ForEach(versions.dropFirst()) { doc in
+                        Divider().padding(.horizontal, 16)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Version \(doc.version)")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.lmPrimary)
+                                Text(doc.uploadedAt, style: .date)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.lmTextSecondary)
+                            }
+                            Spacer()
+                            Button("View") { onSelect(doc) }
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.lmPrimary)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                    }
+                }
+                .background(Color.lmPrimary.opacity(0.02))
+            }
+        }
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
+    }
+}
+
+struct DocumentCategoryBadge: View {
+    let category: String
+    
+    var color: Color {
+        switch category {
+        case "Evidence": return .blue
+        case "Contract": return .purple
+        case "Court Order": return .orange
+        case "Identity": return .green
+        default: return .gray
+        }
+    }
+    
+    var body: some View {
+        Text(category)
+            .font(.system(size: 9, weight: .black))
+            .foregroundColor(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.12))
+            .clipShape(Capsule())
     }
 }

@@ -805,18 +805,26 @@ class FirestoreManager: ObservableObject {
     
     // MARK: - Documents
     
-    func addDocument(toCaseId caseId: String, fileName: String, fileType: String, fileURL: String? = nil, fileBase64: String? = nil, stageIndex: Int? = nil) {
-        let newDoc = FBDocument(
+    func addDocument(toCaseId caseId: String, fileName: String, fileType: String, fileURL: String? = nil, fileBase64: String? = nil, stageIndex: Int? = nil, category: String = "Other", version: Int = 1, groupId: String? = nil) {
+        var newDoc = FBDocument(
             legalCaseId: caseId,
             fileName: fileName,
             fileType: fileType,
             fileURL: fileURL,
             stageIndex: stageIndex,
             uploadedAt: Date(),
-            fileBase64: fileBase64
+            fileBase64: fileBase64,
+            version: version,
+            category: category,
+            groupId: groupId
         )
         do {
-            let _ = try db.collection("documents").addDocument(from: newDoc)
+            let docRef = try db.collection("documents").addDocument(from: newDoc)
+            
+            // If it's a new group, set groupId to its own ID
+            if groupId == nil {
+                docRef.updateData(["groupId": docRef.documentID])
+            }
             
             // Notify other party (if case is found)
             if let legalCase = cases.first(where: { $0.id == caseId }) {
@@ -824,8 +832,8 @@ class FirestoreManager: ObservableObject {
                 let recipientId = currentUserId == legalCase.lawyerId ? legalCase.clientId : legalCase.lawyerId
                 
                 let notification = FBNotification(
-                    title: "New Document Added",
-                    body: "A new document '\(fileName)' has been uploaded to case \(legalCase.title).",
+                    title: version > 1 ? "New Document Version" : "New Document Added",
+                    body: version > 1 ? "Version \(version) of '\(fileName)' has been uploaded." : "A new document '\(fileName)' has been uploaded to case \(legalCase.title).",
                     type: "case",
                     timestamp: Date(),
                     relatedId: caseId

@@ -310,7 +310,7 @@ struct LawyerHomeView: View {
         ForEach(todayCaseHearings) { lCase in
             let dateToUse = lCase.hearingDates.first(where: { Calendar.current.startOfDay(for: $0) == Calendar.current.startOfDay(for: Date()) }) ?? lCase.hearingDate ?? Date()
             ScheduleRow(
-                time: formatTime(dateToUse),
+                date: dateToUse,
                 event: "Hearing: \(lCase.title)",
                 category: lCase.clientName
             )
@@ -323,7 +323,7 @@ struct LawyerHomeView: View {
                 }
             } label: {
                 ScheduleRow(
-                    time: formatTime(appointment.date),
+                    date: appointment.date,
                     event: "Appt: \(appointment.clientName)",
                     category: appointment.service,
                     statusTitle: appointment.statusTitle,
@@ -340,7 +340,7 @@ struct LawyerHomeView: View {
                 }
             } label: {
                 ScheduleRow(
-                    time: formatTime(event.startDate),
+                    date: event.startDate,
                     event: event.title,
                     category: event.notes?.replacingOccurrences(of: "Type: ", with: "") ?? "General"
                 )
@@ -392,41 +392,37 @@ struct LawyerHomeView: View {
     private func handleNotificationRoute(_ route: NotificationManager.DeepLinkRoute?) {
         guard let route = route else { return }
         
-        // Reset navigation state for any route that moves the user to a specific detail view
-        // to prevent "stacking" conflicts.
-        switch route {
-        case .chat, .myCases, .appointment, .lawyerProfile:
-            navPath = NavigationPath()
-            activeConversation = nil
-        case .notificationCenter:
-            break
-        }
+        // We no longer reset navPath = NavigationPath() here to avoid losing user work.
+        // Instead, we append the new route to the existing stack.
         
         switch route {
         case .chat(let conversationId):
-            selectedTab = .messages
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            if let conversation = firestore.conversations.first(where: { $0.id == conversationId }) {
+                activeConversation = conversation
+            } else {
                 pendingChatId = conversationId
-                tryNavigateToPendingChat()
+                selectedTab = .messages
             }
         case .notificationCenter:
             notifications.showNotifications = true
         case .myCases:
             selectedTab = .cases
+        case .legalCase(let caseId):
+            if let legalCase = firestore.cases.first(where: { $0.id == caseId }) {
+                navPath.append(legalCase)
+            } else {
+                selectedTab = .cases
+            }
         case .appointment(let appointmentId):
             if let appointment = firestore.appointments.first(where: { $0.id == appointmentId }) {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    navPath.append(appointment)
-                }
+                navPath.append(appointment)
             } else {
                 ToastManager.shared.show(title: "Appointment Unavailable", message: "This appointment has been cancelled or deleted.", type: .error)
             }
         case .lawyerProfile:
             // For lawyers, we can redirect to the referral network or just the notification center
             selectedTab = .profile
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                navPath.append(LawyerRoute.referrals)
-            }
+            navPath.append(LawyerRoute.referrals)
         }
         notifications.pendingRoute = nil
     }
@@ -585,19 +581,34 @@ private struct LawyerActionButton: View {
 }
 
 private struct ScheduleRow: View {
-    let time: String
+    let date: Date?
     let event: String
     let category: String
     var statusTitle: String? = nil
     var statusColor: Color = .lmPrimary
 
+    private var isOverdue: Bool {
+        guard let d = date else { return false }
+        // Only consider it overdue if it's earlier than now
+        return d < Date()
+    }
+
+    private func formatTime(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "hh:mm a"
+        return f.string(from: date)
+    }
+
     var body: some View {
+        let timeStr = date != nil ? formatTime(date!) : ""
+        let themeColor = isOverdue ? Color.red : Color.green
+        
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(time.split(separator: " ").first ?? "")
+                Text(timeStr.split(separator: " ").first ?? "")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.lmPrimary)
-                Text(time.split(separator: " ").last ?? "")
+                Text(timeStr.split(separator: " ").last ?? "")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.lmTextSecondary)
             }
@@ -628,9 +639,9 @@ private struct ScheduleRow: View {
         .padding(16)
         .background(
             ZStack {
-                Color.green.opacity(0.04) // Light green highlight
+                themeColor.opacity(0.04)
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.green.opacity(0.1), lineWidth: 1)
+                    .stroke(themeColor.opacity(0.1), lineWidth: 1)
             }
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))

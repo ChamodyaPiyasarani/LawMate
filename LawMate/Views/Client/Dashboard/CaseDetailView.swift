@@ -27,6 +27,12 @@ struct CaseDetailView: View {
     @State private var newHearingDate = Date()
     @State private var newHearingLocation = ""
     
+    @State private var selectedCategory = "Other"
+    @State private var targetGroupId: String? = nil
+    @State private var targetVersion: Int = 1
+    
+    private let documentCategories = ["Evidence", "Contract", "Court Order", "Identity", "Other"]
+    
     private var isLawyer: Bool {
         AuthService.shared.currentUser?.role == .lawyer
     }
@@ -276,7 +282,11 @@ struct CaseDetailView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         // Upload Buttons (Lawyer only)
                         if isLawyer && (isActive || stage.isCompleted) {
-                            StageUploadButton(selectedItem: $selectedImage) {
+                            StageUploadButton(
+                                selectedItem: $selectedImage,
+                                selectedCategory: $selectedCategory,
+                                categories: documentCategories
+                            ) {
                                 activeStageIndex = index
                                 showFilePicker = true
                             }
@@ -390,46 +400,15 @@ struct CaseDetailView: View {
     
     // MARK: - Documents Section
     private var documentsSection: some View {
-        VStack(spacing: 16) {
-            ForEach(firestore.caseDocuments) { doc in
-                HStack(spacing: 16) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.lmPrimary.opacity(0.1))
-                            .frame(width: 52, height: 52)
-                        
-                        Image(systemName: doc.fileType == "PDF" ? "doc.fill" : "photo.fill")
-                            .font(.system(size: 22))
-                            .foregroundColor(.lmPrimary)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(doc.fileName)
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.lmPrimary)
-                        Text("Step \( (doc.stageIndex ?? 0) + 1 ) • \(doc.uploadedAt, style: .date)")
-                            .font(.system(size: 12))
-                            .foregroundColor(.lmTextSecondary)
-                    }
-                    
-                    Spacer()
-                    
-                    Button {
-                        selectedDocument = doc
-                    } label: {
-                        Image(systemName: "arrow.down.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundColor(.lmPrimary)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(16)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 20))
-                .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
-            }
-            
-            if firestore.caseDocuments.isEmpty {
+        let groupedDocs = Dictionary(grouping: firestore.caseDocuments) { $0.groupId ?? $0.id ?? "unknown" }
+        let sortedGroups = groupedDocs.keys.sorted { key1, key2 in
+            let latest1 = groupedDocs[key1]?.map(\.uploadedAt).max() ?? Date.distantPast
+            let latest2 = groupedDocs[key2]?.map(\.uploadedAt).max() ?? Date.distantPast
+            return latest1 > latest2
+        }
+
+        return VStack(spacing: 16) {
+            if sortedGroups.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "doc.text.magnifyingglass")
                         .font(.system(size: 48))
@@ -439,6 +418,24 @@ struct CaseDetailView: View {
                         .foregroundColor(.lmTextSecondary)
                 }
                 .padding(.top, 80)
+            } else {
+                ForEach(sortedGroups, id: \.self) { groupId in
+                    let docs = (groupedDocs[groupId] ?? []).sorted { $0.version > $1.version }
+                    if let latest = docs.first {
+                        DocumentGroupRow(
+                            latestDoc: latest,
+                            versions: docs,
+                            isLawyer: isLawyer,
+                            onSelect: { selectedDocument = $0 },
+                            onAddVersion: {
+                                targetGroupId = groupId
+                                targetVersion = latest.version + 1
+                                selectedCategory = latest.category
+                                showFilePicker = true
+                            }
+                        )
+                    }
+                }
             }
         }
         .padding(.horizontal, 24)
@@ -530,11 +527,19 @@ struct CaseDetailView: View {
             fileType: type,
             fileURL: nil,
             fileBase64: base64String,
-            stageIndex: activeStageIndex
+            stageIndex: activeStageIndex,
+            category: selectedCategory,
+            version: targetVersion,
+            groupId: targetGroupId
         )
         
-        ToastManager.shared.show(title: "Success", message: "Document uploaded successfully.", type: .success)
+        ToastManager.shared.show(title: "Success", message: targetVersion > 1 ? "New version uploaded." : "Document uploaded successfully.", type: .success)
         isUploading = false
+        
+        // Reset states
+        selectedCategory = "Other"
+        targetGroupId = nil
+        targetVersion = 1
     }
 
     private func deduplicateDatesByDay(_ dates: [Date]) -> [Date] {
@@ -551,35 +556,61 @@ struct CaseDetailView: View {
 // MARK: - Helper Components
 struct StageUploadButton: View {
     @Binding var selectedItem: PhotosPickerItem?
+    @Binding var selectedCategory: String
+    let categories: [String]
     var onFile: () -> Void
     
     var body: some View {
-        HStack(spacing: 12) {
-            PhotosPicker(selection: $selectedItem, matching: .images) {
-                HStack(spacing: 6) {
-                    Image(systemName: "photo.fill")
-                    Text("Add Image")
+        VStack(alignment: .leading, spacing: 12) {
+            // Category Picker
+            HStack {
+                Text("Category:")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.lmTextSecondary)
+                
+                Picker("Category", selection: $selectedCategory) {
+                    ForEach(categories, id: \.self) { cat in
+                        Text(cat).tag(cat)
+                    }
                 }
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Color.lmPrimary)
-                .clipShape(Capsule())
-                .shadow(color: Color.lmPrimary.opacity(0.3), radius: 6, x: 0, y: 3)
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .tint(.lmPrimary)
+                .scaleEffect(0.9)
             }
-            
-            Button(action: onFile) {
-                HStack(spacing: 6) {
-                    Image(systemName: "doc.fill")
-                    Text("Add PDF")
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .background(Color.white)
+            .clipShape(Capsule())
+            .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
+
+            HStack(spacing: 12) {
+                PhotosPicker(selection: $selectedItem, matching: .images) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "photo.fill")
+                        Text("Add Image")
+                    }
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.lmPrimary)
+                    .clipShape(Capsule())
+                    .shadow(color: Color.lmPrimary.opacity(0.3), radius: 6, x: 0, y: 3)
                 }
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.lmPrimary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Color.lmPrimary.opacity(0.1))
-                .clipShape(Capsule())
+                
+                Button(action: onFile) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "doc.fill")
+                        Text("Add PDF")
+                    }
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.lmPrimary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.lmPrimary.opacity(0.1))
+                    .clipShape(Capsule())
+                }
             }
         }
     }
