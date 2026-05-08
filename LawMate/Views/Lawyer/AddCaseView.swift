@@ -149,6 +149,13 @@ struct AddCaseView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 16))
                                     .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 3)
                                 }
+                                
+                                if !clientName.isEmpty && selectedClientId.isEmpty {
+                                    Text("Please select a client from the suggestions")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.red.opacity(0.8))
+                                        .padding(.leading, 4)
+                                }
                             }
                         }
                         
@@ -422,8 +429,8 @@ struct AddCaseView: View {
                             )
                             dismiss()
                         }
-                        .disabled(isUpdating || caseTitle.isEmpty)
-                        .opacity((isUpdating || caseTitle.isEmpty) ? 0.6 : 1.0)
+                        .disabled(isUpdating || caseTitle.isEmpty || selectedClientId.isEmpty)
+                        .opacity((isUpdating || caseTitle.isEmpty || selectedClientId.isEmpty) ? 0.6 : 1.0)
                         .overlay {
                             if isUpdating {
                                 ProgressView()

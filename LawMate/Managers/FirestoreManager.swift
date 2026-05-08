@@ -1401,6 +1401,12 @@ class FirestoreManager: ObservableObject {
     }
     
     func addNotification(_ notification: FBNotification, toUserId userId: String, completion: ((Bool) -> Void)? = nil) {
+        guard !userId.isEmpty else {
+            print("DEBUG: Cannot add notification. userId is empty.")
+            completion?(false)
+            return
+        }
+        
         do {
             try db.collection("users").document(userId).collection("notifications").addDocument(from: notification) { error in
                 completion?(error == nil)
