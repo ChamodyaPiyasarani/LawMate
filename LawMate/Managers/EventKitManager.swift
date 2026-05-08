@@ -106,6 +106,36 @@ class EventKitManager: ObservableObject {
             }
         }
     }
+
+    func hasConflict(startDate: Date, endDate: Date, completion: @escaping (Bool) -> Void) {
+        let status = EKEventStore.authorizationStatus(for: .event)
+        
+        let hasAccess: Bool
+        if #available(iOS 17.0, *) {
+            hasAccess = (status == .fullAccess)
+        } else {
+            hasAccess = (status == .authorized)
+        }
+        
+        guard hasAccess else {
+            completion(false)
+            return
+        }
+        
+        // Find events in the specified range
+        // Subtract/Add 1 second to avoid touching edge-to-edge appointments
+        let predicate = eventStore.predicateForEvents(withStart: startDate.addingTimeInterval(1), 
+                                                     end: endDate.addingTimeInterval(-1), 
+                                                     calendars: nil)
+        let events = eventStore.events(matching: predicate)
+        
+        // Filter out all-day events as they usually don't block specific slots
+        let conflictingEvents = events.filter { !$0.isAllDay }
+        
+        DispatchQueue.main.async {
+            completion(!conflictingEvents.isEmpty)
+        }
+    }
 }
 
 

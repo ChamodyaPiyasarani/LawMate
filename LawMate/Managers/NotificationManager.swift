@@ -52,6 +52,10 @@ class NotificationManager: NSObject, ObservableObject {
         content.body = body
         content.sound = .default
         
+        if #available(iOS 15.0, *) {
+            content.interruptionLevel = .timeSensitive
+        }
+        
         var userInfo: [String: Any] = [:]
         if let relatedId = relatedId { userInfo["relatedId"] = relatedId }
         if let type = type { userInfo["type"] = type }

@@ -288,18 +288,30 @@ struct EventListView: View {
         
         isSaving = true
         
-        let formatter = DateFormatter()
-        formatter.dateFormat = "hh:mm a"
-        let timeString = formatter.string(from: viewModel.selectedDate)
-        
-        // Use Firestore as source of truth — validates limit AND time conflict
-        FirestoreManager.shared.validateAppointmentSlot(lawyerId: lawyer.id, date: viewModel.selectedDate, time: timeString) { canBook, reason in
-            DispatchQueue.main.async {
-                if canBook {
-                    self.saveManualAppointment()
-                } else {
+        // 1. Check for iOS System Calendar Conflicts
+        let endDate = viewModel.selectedDate.addingTimeInterval(3600) // Default 1 hour
+        EventKitManager.shared.hasConflict(startDate: viewModel.selectedDate, endDate: endDate) { hasConflict in
+            if hasConflict {
+                DispatchQueue.main.async {
                     self.isSaving = false
-                    ToastManager.shared.show(title: "Booking Unavailable", message: reason ?? "This slot is not available.", type: .error)
+                    ToastManager.shared.show(title: "Calendar Conflict", message: "You have an existing event in your phone's calendar at this time.", type: .error)
+                }
+                return
+            }
+            
+            // 2. Check for Firestore Conflicts
+            let formatter = DateFormatter()
+            formatter.dateFormat = "hh:mm a"
+            let timeString = formatter.string(from: viewModel.selectedDate)
+            
+            FirestoreManager.shared.validateAppointmentSlot(lawyerId: lawyer.id, date: viewModel.selectedDate, time: timeString) { canBook, reason in
+                DispatchQueue.main.async {
+                    if canBook {
+                        self.saveManualAppointment()
+                    } else {
+                        self.isSaving = false
+                        ToastManager.shared.show(title: "Booking Unavailable", message: reason ?? "This slot is not available.", type: .error)
+                    }
                 }
             }
         }

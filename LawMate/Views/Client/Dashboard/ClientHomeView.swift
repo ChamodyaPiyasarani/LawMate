@@ -346,14 +346,25 @@ struct ClientHomeView: View {
                             .foregroundColor(themeColor)
                     }
                     
-                    Text(appointment.time)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.lmPrimary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        let dayText = appointmentDay(for: appointment.date)
+                        Text(dayText)
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundColor(dayText == "TODAY" ? .white : themeColor)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(dayText == "TODAY" ? themeColor : Color.clear)
+                            .clipShape(Capsule())
+                        
+                        Text(appointment.time)
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                    }
                     
                     Spacer()
                     
                     Image(systemName: appointment.specialtyIcon)
-                        .font(.system(size: 14))
+                        .font(.system(size: 16))
                         .foregroundColor(.lmPrimary.opacity(0.2))
                 }
                 
@@ -391,6 +402,19 @@ struct ClientHomeView: View {
             .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 5)
         }
         .buttonStyle(.plain)
+    }
+    
+    private func appointmentDay(for date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            return "TODAY"
+        } else if calendar.isDateInTomorrow(date) {
+            return "TOMORROW"
+        } else {
+            let f = DateFormatter()
+            f.dateFormat = "EEE, MMM dd"
+            return f.string(from: date).uppercased()
+        }
     }
 }
 

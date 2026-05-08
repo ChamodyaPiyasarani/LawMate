@@ -503,6 +503,8 @@ struct ReferralRequestsView: View {
                     .clipShape(Capsule())
             }
             .buttonStyle(.plain)
+            .disabled(referral.status.lowercased() == "declined")
+            .opacity(referral.status.lowercased() == "declined" ? 0.5 : 1.0)
         }
         .padding(16)
         .background(Color.white.opacity(0.7))
@@ -815,6 +817,56 @@ private struct ReferralIntroductionSheet: View {
                                 .allowsHitTesting(false)
                         }
                     }
+                    .overlay(alignment: .top) {
+                        if showMentions && !filteredClients.isEmpty {
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text("TAG CLIENT")
+                                    .font(.system(size: 10, weight: .black))
+                                    .foregroundColor(.lmTextSecondary)
+                                    .padding(.horizontal, 16)
+                                    .padding(.top, 12)
+                                    .padding(.bottom, 6)
+                                
+                                ScrollView {
+                                    LazyVStack(spacing: 0) {
+                                        ForEach(filteredClients) { client in
+                                            Button {
+                                                insertMention(client: client)
+                                            } label: {
+                                                HStack(spacing: 12) {
+                                                    LawMateAvatar(url: client.profileImage, name: client.fullName, size: 36)
+                                                    VStack(alignment: .leading, spacing: 2) {
+                                                        Text(client.fullName)
+                                                            .font(.system(size: 14, weight: .semibold))
+                                                            .foregroundColor(.lmPrimary)
+                                                        Text(client.email)
+                                                            .font(.system(size: 10))
+                                                            .foregroundColor(.lmTextSecondary)
+                                                    }
+                                                    Spacer()
+                                                    Image(systemName: "at")
+                                                        .font(.caption)
+                                                        .foregroundColor(.lmPrimary.opacity(0.3))
+                                                }
+                                                .padding(.horizontal, 16)
+                                                .padding(.vertical, 10)
+                                                .contentShape(Rectangle())
+                                            }
+                                            Divider().padding(.horizontal, 16).opacity(0.5)
+                                        }
+                                    }
+                                }
+                                .frame(maxHeight: 180)
+                            }
+                            .background(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .fill(Color.white)
+                                    .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
+                            )
+                            .padding(.top, 210) // Positioned just below the TextEditor
+                            .transition(.asymmetric(insertion: .scale(scale: 0.9, anchor: .top).combined(with: .opacity), removal: .opacity))
+                        }
+                    }
                 }
 
                 Spacer()
@@ -851,58 +903,6 @@ private struct ReferralIntroductionSheet: View {
                 .padding(.bottom, 34)
             }
             .padding(.horizontal, 24)
-
-            // Mention List - Placed at root ZStack to ensure it's on top of everything
-            if showMentions && !filteredClients.isEmpty {
-                VStack(spacing: 0) {
-                    Spacer().frame(height: 340) // Positioned below the TextEditor
-                    
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Tag Client")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.lmTextSecondary)
-                            .padding(.horizontal, 16)
-                            .padding(.top, 12)
-                            .padding(.bottom, 4)
-                        
-                        ScrollView {
-                            LazyVStack(spacing: 0) {
-                                ForEach(filteredClients) { client in
-                                    Button {
-                                        insertMention(client: client)
-                                    } label: {
-                                        HStack(spacing: 12) {
-                                            LawMateAvatar(url: client.profileImage, name: client.fullName, size: 36)
-                                            Text(client.fullName)
-                                                .font(.lmBody.weight(.medium))
-                                                .foregroundColor(.lmPrimary)
-                                            Spacer()
-                                            Image(systemName: "at")
-                                                .font(.caption)
-                                                .foregroundColor(.lmPrimary.opacity(0.3))
-                                        }
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 12)
-                                        .contentShape(Rectangle())
-                                    }
-                                    Divider().padding(.horizontal, 16).opacity(0.5)
-                                }
-                            }
-                        }
-                        .frame(maxHeight: 200)
-                    }
-                    .background(
-                        RoundedRectangle(cornerRadius: 24)
-                            .fill(Color.white)
-                            .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
-                    )
-                    .padding(.horizontal, 36) // Slight indent
-                    
-                    Spacer()
-                }
-                .transition(.asymmetric(insertion: .opacity.combined(with: .move(edge: .top)), removal: .opacity))
-                .zIndex(100)
-            }
         }
         .onAppear {
             firestore.listenForClients()

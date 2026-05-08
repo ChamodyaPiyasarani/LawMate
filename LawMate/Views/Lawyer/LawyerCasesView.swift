@@ -262,6 +262,7 @@ struct LawyerCaseDetailView: View {
     @State private var showScanner = false
     @State private var selectedPhotosItem: PhotosPickerItem? = nil
     @State private var showAddHearingDateSheet = false
+    @State private var showBookingSheet = false
     
     @State private var selectedCategory = "Other"
     @State private var targetGroupId: String? = nil
@@ -392,6 +393,9 @@ struct LawyerCaseDetailView: View {
         }
         .sheet(isPresented: $showAddHearingDateSheet) {
             AddHearingDateSheet(legalCase: currentCase)
+        }
+        .sheet(isPresented: $showBookingSheet) {
+            CaseConsultationBookingSheet(legalCase: currentCase)
         }
     }
     
@@ -737,7 +741,9 @@ struct LawyerCaseDetailView: View {
                         },
                         onDateChange: { newDate in
                             updateStageDate(at: index, date: newDate)
-                        }
+                        },
+                        onAction: index == 0 ? { showBookingSheet = true } : nil,
+                        actionLabel: index == 0 ? "Book Appointment" : nil
                     )
                     .padding(.bottom, 24)
                 }
@@ -983,6 +989,151 @@ struct AddHearingDateSheet: View {
         ) { _, _ in }
         
         dismiss()
+    }
+}
+
+// MARK: - Case Consultation Booking Sheet
+struct CaseConsultationBookingSheet: View {
+    let legalCase: FBLegalCase
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var firestore: FirestoreManager
+    @State private var selectedDate = Date().addingTimeInterval(3600)
+    @State private var isSaving = false
+    @State private var method = "In Person"
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 16) {
+                    // Info Summary
+                    VStack(spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Client")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.lmTextSecondary)
+                                    .textCase(.uppercase)
+                                Text(legalCase.clientName)
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.lmPrimary)
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text("Service")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.lmTextSecondary)
+                                    .textCase(.uppercase)
+                                Text("Case Consultation")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.lmPrimary)
+                            }
+                        }
+                        
+                        Divider()
+                        
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Meeting Method")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.lmTextSecondary)
+                                .textCase(.uppercase)
+                            
+                            Picker("Method", selection: $method) {
+                                Text("In Person").tag("In Person")
+                                Text("Video Call").tag("Video Call")
+                            }
+                            .pickerStyle(.segmented)
+                        }
+                    }
+                    .padding(16)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                    
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Select Date & Time")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                        
+                        DatePicker("", selection: $selectedDate, in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                            .datePickerStyle(.graphical)
+                            .tint(.lmPrimary)
+                    }
+                    .padding(12)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 24))
+                    
+                    Button {
+                        book()
+                    } label: {
+                        if isSaving {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text("Send Appointment to Client")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 54)
+                                .background(Color.lmPrimary)
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .disabled(isSaving)
+                }
+                .padding(20)
+                .padding(.top, 8)
+            }
+            .background(Color.lmBackground)
+            .navigationTitle("Schedule Consultation")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+    
+    private func book() {
+        isSaving = true
+        let formatter = DateFormatter()
+        formatter.dateFormat = "hh:mm a"
+        let timeString = formatter.string(from: selectedDate)
+        
+        let appointment = FBAppointment(
+            clientId: legalCase.clientId,
+            clientName: legalCase.clientName,
+            clientImage: legalCase.clientImage,
+            lawyerId: legalCase.lawyerId,
+            lawyerName: legalCase.lawyerName,
+            lawyerImage: legalCase.lawyerImage,
+            lawyerSpecialty: legalCase.type,
+            service: "Case Consultation",
+            date: selectedDate,
+            time: timeString,
+            method: method,
+            description: "Initial consultation for case: \(legalCase.title)",
+            status: "Confirmed",
+            lastActionBy: legalCase.lawyerId
+        )
+        
+        firestore.createAppointmentWithValidation(appointment) { success, reason, apptId in
+            if success {
+                let notification = FBNotification(
+                    title: "New Consultation Scheduled",
+                    body: "Lawyer \(legalCase.lawyerName) has scheduled a Case Consultation for you on \(selectedDate.formatted(date: .abbreviated, time: .omitted)).",
+                    type: "appointment",
+                    timestamp: Date(),
+                    relatedId: apptId ?? appointment.id
+                )
+                firestore.addNotification(notification, toUserId: legalCase.clientId)
+                
+                ToastManager.shared.show(title: "Success", message: "Consultation appointment sent to client.", type: .success)
+                dismiss()
+            } else {
+                ToastManager.shared.show(title: "Booking Error", message: reason ?? "Failed to schedule appointment.", type: .error)
+            }
+            isSaving = false
+        }
     }
 }
 

@@ -111,6 +111,7 @@ struct AppointmentRowView: View {
     @State private var showRejectAlert = false
     @State private var showDeleteAlert = false
     @State private var showReschedulePicker = false
+    @State private var showReviewSheet = false
     
     private func confirmReject() {
         firestore.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Rejected") { success in
@@ -159,178 +160,15 @@ struct AppointmentRowView: View {
     }
     
     var body: some View {
-        let currentRole = auth.currentUser?.role ?? .client
-        let displayName = currentRole == .lawyer ? appointment.clientName : appointment.lawyerName
-        let displayImage = currentRole == .lawyer ? appointment.clientImage : appointment.lawyerImage
-        
         VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 14) {
-                // Identity Section (Left)
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.4))
-                        .frame(width: 52, height: 52)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Circle())
-                    
-                    if let imgStr = displayImage, let imgData = Data(base64Encoded: imgStr.replacingOccurrences(of: "data:image/jpeg;base64,", with: "")), let uiImg = UIImage(data: imgData) {
-                        Image(uiImage: uiImg)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 52, height: 52)
-                            .clipShape(Circle())
-                    } else {
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.lmPrimary.opacity(0.5))
-                    }
-                }
-                .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1))
-                .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
-                
-                // Content Section (Right)
-                VStack(alignment: .leading, spacing: 6) {
-                    // Row 1: Name & Actions
-                    HStack {
-                        Text(displayName)
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.lmPrimary)
-                            .lineLimit(1)
-                        
-                        Spacer()
-                        
-                        HStack(spacing: 8) {
-                            Button {
-                                showDeleteAlert = true
-                            } label: {
-                                Image(systemName: "trash")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.red.opacity(0.6))
-                            }
-                            .buttonStyle(.plain)
-                            
-                            Text(appointment.statusTitle.uppercased())
-                                .font(.system(size: 8, weight: .black))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                                .background(appointment.statusColor.opacity(0.12))
-                                .foregroundColor(appointment.statusColor)
-                                .clipShape(Capsule())
-                        }
-                    }
-                    
-                    // Row 2: Time & Category
-                    HStack(spacing: 8) {
-                        Label(appointment.time.components(separatedBy: " ").first ?? "", systemImage: "clock.fill")
-                        Text("•").opacity(0.3)
-                        Label(appointment.method, systemImage: appointment.method == "Video Call" ? "video.fill" : "mappin.and.ellipse.circle.fill")
-                    }
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.lmTextSecondary)
-                    
-                    // Row 3: Selected Service
-                    Text(appointment.service)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.lmPrimary.opacity(0.8))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.lmPrimary.opacity(0.06))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
+                identitySection
+                contentSection
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
             
-            // Actions Section
-            let currentUserId = auth.currentUser?.id ?? ""
-            let isPendingOrRescheduled = appointment.status.lowercased() == "pending" || appointment.status.lowercased() == "rescheduled"
-            let isRecipient = appointment.lastActionBy != currentUserId
-            let isConfirmedForLawyer = appointment.status.lowercased() == "confirmed" && auth.currentUser?.role == .lawyer
-            
-            if (isPendingOrRescheduled && isRecipient) || isConfirmedForLawyer {
-                Divider()
-                    .padding(.horizontal, 16)
-                    .opacity(0.1)
-                
-                VStack(spacing: 0) {
-                    if isPendingOrRescheduled && isRecipient {
-                        HStack(spacing: 12) {
-                            Button {
-                                firestore.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Confirmed") { success in
-                                    if success {
-                                        let targetUserId = (auth.currentUser?.role == .lawyer) ? appointment.clientId : appointment.lawyerId
-                                        let senderName = auth.currentUser?.fullName ?? "Someone"
-                                        let notification = FBNotification(
-                                            title: "Appointment Confirmed",
-                                            body: "\(senderName) has confirmed the appointment for \(appointment.time) on \(formatDate(appointment.date)).",
-                                            type: "appointment",
-                                            timestamp: Date(),
-                                            relatedId: appointment.id
-                                        )
-                                        firestore.addNotification(notification, toUserId: targetUserId)
-                                        
-                                        EventKitManager.shared.createEvent(
-                                            title: "Confirmed: \(appointment.service) with \((auth.currentUser?.role == .lawyer) ? appointment.clientName : appointment.lawyerName)",
-                                            startDate: appointment.date,
-                                            endDate: appointment.date.addingTimeInterval(3600),
-                                            location: appointment.method,
-                                            notes: appointment.description
-                                        ) { _, _ in }
-                                    }
-                                }
-                            } label: {
-                                Text("Confirm")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .padding(.vertical, 10)
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.green)
-                                    .clipShape(Capsule())
-                            }
-                            
-                            Button {
-                                showReschedulePicker = true
-                            } label: {
-                                Text("Reschedule")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .padding(.vertical, 10)
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.blue)
-                                    .clipShape(Capsule())
-                            }
-                            
-                            Button {
-                                showRejectAlert = true
-                            } label: {
-                                Text("Reject")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .padding(.vertical, 10)
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.red)
-                                    .clipShape(Capsule())
-                            }
-                        }
-                    } else if isConfirmedForLawyer {
-                        Button {
-                            firestore.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Done") { _ in }
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "checkmark.circle.fill")
-                                Text("Mark as Completed")
-                            }
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.vertical, 10)
-                            .frame(maxWidth: .infinity)
-                            .background(Color.lmPrimary)
-                            .clipShape(Capsule())
-                        }
-                    }
-                }
-                .padding(16)
-            }
+            actionButtonsSection
         }
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -358,8 +196,242 @@ struct AppointmentRowView: View {
         .sheet(isPresented: $showReschedulePicker) {
             ReschedulePickerSheet(appointment: appointment)
         }
+        .sheet(isPresented: $showReviewSheet) {
+            ReviewSheet(appointment: appointment)
+        }
     }
-    
+
+    private var identitySection: some View {
+        let currentRole = auth.currentUser?.role ?? .client
+        let displayImage = currentRole == .lawyer ? appointment.clientImage : appointment.lawyerImage
+        
+        return ZStack {
+            Circle()
+                .fill(Color.white.opacity(0.4))
+                .frame(width: 52, height: 52)
+                .background(.ultraThinMaterial)
+                .clipShape(Circle())
+            
+            if let imgStr = displayImage, let imgData = Data(base64Encoded: imgStr.replacingOccurrences(of: "data:image/jpeg;base64,", with: "")), let uiImg = UIImage(data: imgData) {
+                Image(uiImage: uiImg)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 52, height: 52)
+                    .clipShape(Circle())
+            } else {
+                Image(systemName: "person.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.lmPrimary.opacity(0.5))
+            }
+        }
+        .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+    }
+
+    private var contentSection: some View {
+        let currentRole = auth.currentUser?.role ?? .client
+        let displayName = currentRole == .lawyer ? appointment.clientName : appointment.lawyerName
+        
+        return VStack(alignment: .leading, spacing: 6) {
+            // Row 1: Name & Actions
+            HStack {
+                Text(displayName)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.lmPrimary.opacity(0.7))
+                    .lineLimit(1)
+                
+                Spacer()
+                
+                HStack(spacing: 8) {
+                    Button {
+                        showDeleteAlert = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 12))
+                            .foregroundColor(.red.opacity(0.6))
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Text(appointment.statusTitle.uppercased())
+                        .font(.system(size: 8, weight: .black))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(appointment.statusColor.opacity(0.12))
+                        .foregroundColor(appointment.statusColor)
+                        .clipShape(Capsule())
+                }
+            }
+            
+            // Row 2: Time & Category
+            HStack(spacing: 8) {
+                Label(appointment.time.components(separatedBy: " ").first ?? "", systemImage: "clock.fill")
+                Text("•").opacity(0.3)
+                Label(appointment.method, systemImage: appointment.method == "Video Call" ? "video.fill" : "mappin.and.ellipse.circle.fill")
+            }
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundColor(.lmTextSecondary)
+            
+            // Row 3: Selected Service
+            Text(appointment.service)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(.lmPrimary)
+                .padding(.top, 2)
+        }
+    }
+
+    @ViewBuilder
+    private var actionButtonsSection: some View {
+        let currentUserId = auth.currentUser?.id ?? ""
+        let isPendingOrRescheduled = appointment.status.lowercased() == "pending" || appointment.status.lowercased() == "rescheduled"
+        let isRecipient = appointment.lastActionBy != currentUserId
+        let isConfirmed = appointment.status.lowercased() == "confirmed"
+        let isLawyer = auth.currentUser?.role == .lawyer
+        
+        if (isPendingOrRescheduled && isRecipient) || isConfirmed {
+            Divider()
+                .padding(.horizontal, 16)
+                .opacity(0.1)
+            
+            VStack(spacing: 0) {
+                if isPendingOrRescheduled && isRecipient {
+                    HStack(spacing: 12) {
+                        Button {
+                            firestore.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Confirmed") { success in
+                                if success {
+                                    let targetUserId = isLawyer ? appointment.clientId : appointment.lawyerId
+                                    let senderName = auth.currentUser?.fullName ?? "Someone"
+                                    let notification = FBNotification(
+                                        title: "Appointment Confirmed",
+                                        body: "\(senderName) has confirmed the appointment for \(appointment.time) on \(formatDate(appointment.date)).",
+                                        type: "appointment",
+                                        timestamp: Date(),
+                                        relatedId: appointment.id
+                                    )
+                                    firestore.addNotification(notification, toUserId: targetUserId)
+                                    
+                                    EventKitManager.shared.createEvent(
+                                        title: "Confirmed: \(appointment.service) with \(isLawyer ? appointment.clientName : appointment.lawyerName)",
+                                        startDate: appointment.date,
+                                        endDate: appointment.date.addingTimeInterval(3600),
+                                        location: appointment.method,
+                                        notes: appointment.description
+                                    ) { _, _ in }
+                                }
+                            }
+                        } label: {
+                            Text("Confirm")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.vertical, 10)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.green)
+                                .clipShape(Capsule())
+                        }
+                        
+                        Button {
+                            showReschedulePicker = true
+                        } label: {
+                            Text("Reschedule")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.vertical, 10)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.blue)
+                                .clipShape(Capsule())
+                        }
+                        
+                        Button {
+                            showRejectAlert = true
+                        } label: {
+                            Text("Reject")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.vertical, 10)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.red)
+                                .clipShape(Capsule())
+                        }
+                    }
+                } else if isConfirmed {
+                    HStack(spacing: 12) {
+                        // Join/Directions for BOTH Client and Lawyer
+                        Button {
+                            if appointment.method == "Video Call" {
+                                if let url = URL(string: "https://join.lawmate.sh") {
+                                    UIApplication.shared.open(url)
+                                }
+                            } else {
+                                var lat = appointment.locationLat ?? 6.9271
+                                var lng = appointment.locationLng ?? 79.8612
+                                
+                                // Override simulator defaults (SF/Cupertino) to Sri Lanka
+                                if (lat > 37.0 && lat < 38.0) && (lng < -121.0 && lng > -123.0) {
+                                    lat = 6.9271
+                                    lng = 79.8612
+                                }
+                                
+                                let sLat = 6.9064
+                                let sLng = 79.8708
+                                
+                                if let url = URL(string: "http://maps.apple.com/?saddr=\(sLat),\(sLng)&daddr=\(lat),\(lng)&q=\(appointment.lawyerName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Consultation")") {
+                                    UIApplication.shared.open(url)
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: appointment.method == "Video Call" ? "video.fill" : "mappin.and.ellipse")
+                                Text(appointment.method == "Video Call" ? "Join" : "Directions")
+                            }
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.blue)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        
+                        // Complete button ONLY for Lawyer
+                        if isLawyer {
+                            Button {
+                                firestore.updateAppointmentStatus(appointmentId: appointment.id ?? "", status: "Done") { _ in }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                    Text("Complete")
+                                }
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.vertical, 10)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.lmPrimary)
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                } else if appointment.status.lowercased() == "done" && !isLawyer {
+                    // Rate Experience for Client
+                    Button {
+                        showReviewSheet = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "star.fill")
+                            Text("Rate Experience")
+                        }
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.orange)
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(16)
+        }
+    }
 
     private func formatDate(_ date: Date) -> String {
         let f = DateFormatter()
@@ -380,7 +452,8 @@ struct ReschedulePickerSheet: View {
     
     init(appointment: FBAppointment) {
         self.appointment = appointment
-        self._selectedDate = State(initialValue: appointment.date)
+        // Default to 1 hour after the current appointment time
+        self._selectedDate = State(initialValue: appointment.date.addingTimeInterval(3600))
     }
     
     var body: some View {
@@ -986,11 +1059,15 @@ struct TimelineNode: View {
     var onCamera: (() -> Void)? = nil
     var onGallery: ((UIImage?) -> Void)? = nil
     var onDateChange: ((Date) -> Void)? = nil
+    var onAction: (() -> Void)? = nil
+    var actionLabel: String? = nil
     
     @State private var showImagePicker = false
     @State private var selectedUIImage: UIImage? = nil
     
     var body: some View {
+        let isLocked = canEdit && !stage.isCompleted && !isActive
+        
         HStack(alignment: .top, spacing: 16) {
             // Indicator line and circle
             VStack(spacing: 0) {
@@ -999,21 +1076,26 @@ struct TimelineNode: View {
                         Button(action: onToggle) {
                             ZStack {
                                 Circle()
-                                    .fill(stage.isCompleted ? Color.lmPrimary : Color.white)
+                                    .fill(stage.isCompleted ? Color.lmPrimary : (isLocked ? Color.gray.opacity(0.1) : Color.white))
                                     .frame(width: 26, height: 26)
                                     .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                                 
                                 Circle()
-                                    .stroke(stage.isCompleted ? Color.lmPrimary : Color.gray.opacity(0.3), lineWidth: 2)
+                                    .stroke(stage.isCompleted ? Color.lmPrimary : (isLocked ? Color.gray.opacity(0.2) : Color.gray.opacity(0.3)), lineWidth: 2)
                                     .frame(width: 26, height: 26)
                                 
                                 if stage.isCompleted {
                                     Image(systemName: "checkmark")
                                         .font(.system(size: 12, weight: .bold))
                                         .foregroundColor(.white)
+                                } else if isLocked {
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 8))
+                                        .foregroundColor(.gray.opacity(0.5))
                                 }
                             }
                         }
+                        .disabled(isLocked)
                     } else {
                         Circle()
                             .fill(stage.isCompleted ? Color.lmPrimary : Color.gray.opacity(0.1))
@@ -1038,6 +1120,7 @@ struct TimelineNode: View {
                         .frame(minHeight: canEdit ? 70 : 40)
                 }
             }
+            .opacity(isLocked ? 0.6 : 1.0)
             
             VStack(alignment: .leading, spacing: 8) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -1099,18 +1182,13 @@ struct TimelineNode: View {
                 if canEdit {
                     HStack(spacing: 12) {
                         Button(action: onUpload) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "arrow.up.doc.fill")
-                                    .font(.system(size: 12))
-                                Text("Upload Files")
-                                    .font(.system(size: 12, weight: .bold))
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(Color.lmPrimary)
-                            .clipShape(Capsule())
-                            .shadow(color: Color.lmPrimary.opacity(0.3), radius: 6, x: 0, y: 3)
+                            Image(systemName: "arrow.up.doc.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(.white)
+                                .frame(width: 32, height: 32)
+                                .background(Color.lmPrimary)
+                                .clipShape(Circle())
+                                .shadow(color: Color.lmPrimary.opacity(0.3), radius: 6, x: 0, y: 3)
                         }
                         
                         if let onCamera = onCamera {
@@ -1130,6 +1208,17 @@ struct TimelineNode: View {
                                 }
                             } label: {
                                 Image(systemName: "camera.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.lmPrimary)
+                                    .frame(width: 32, height: 32)
+                                    .background(Color.lmPrimary.opacity(0.1))
+                                    .clipShape(Circle())
+                            }
+                        }
+                        
+                        if let onAction = onAction {
+                            Button(action: onAction) {
+                                Image(systemName: "calendar.badge.plus")
                                     .font(.system(size: 14))
                                     .foregroundColor(.lmPrimary)
                                     .frame(width: 32, height: 32)
@@ -1866,5 +1955,126 @@ struct DocumentCategoryBadge: View {
             .padding(.vertical, 4)
             .background(color.opacity(0.12))
             .clipShape(Capsule())
+    }
+}
+
+// MARK: - Review Sheet
+struct ReviewSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var firestore: FirestoreManager
+    @EnvironmentObject var auth: AuthService
+    let appointment: FBAppointment
+    
+    @State private var rating: Int = 5
+    @State private var reviewText: String = ""
+    @State private var isSubmitting = false
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Header
+                    VStack(spacing: 8) {
+                        Text("Rate your Experience")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                        
+                        Text("How was your consultation with \(appointment.lawyerName)?")
+                            .font(.system(size: 16))
+                            .foregroundColor(.lmTextSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                    .padding(.top, 20)
+                    
+                    // Star Rating
+                    HStack(spacing: 12) {
+                        ForEach(1...5, id: \.self) { index in
+                            Image(systemName: index <= rating ? "star.fill" : "star")
+                                .font(.system(size: 32))
+                                .foregroundColor(index <= rating ? .orange : .gray.opacity(0.3))
+                                .onTapGesture {
+                                    withAnimation(.spring()) {
+                                        rating = index
+                                    }
+                                }
+                        }
+                    }
+                    .padding(.vertical, 10)
+                    
+                    // Feedback text
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Your Feedback")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                        
+                        TextEditor(text: $reviewText)
+                            .frame(height: 120)
+                            .padding(12)
+                            .background(Color.black.opacity(0.05))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                            )
+                    }
+                    .padding(.horizontal)
+                    
+                    // Submit Button
+                    Button {
+                        submitReview()
+                    } label: {
+                        if isSubmitting {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Text("Submit Review")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(Color.lmPrimary)
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .disabled(isSubmitting || reviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .padding(.horizontal)
+                    .padding(.top, 20)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+    
+    private func submitReview() {
+        guard let currentUser = auth.currentUser else { return }
+        isSubmitting = true
+        
+        let review = FBReview(
+            lawyerId: appointment.lawyerId,
+            clientId: currentUser.id,
+            clientName: currentUser.fullName,
+            clientImage: currentUser.profileImage,
+            rating: rating,
+            reviewText: reviewText,
+            timestamp: Date()
+        )
+        
+        firestore.addReview(review) { success in
+            isSubmitting = false
+            if success {
+                ToastManager.shared.show(title: "Success", message: "Thank you for your feedback!", type: .success)
+                dismiss()
+            } else {
+                ToastManager.shared.show(title: "Error", message: "Failed to submit review. Please try again.", type: .error)
+            }
+        }
     }
 }

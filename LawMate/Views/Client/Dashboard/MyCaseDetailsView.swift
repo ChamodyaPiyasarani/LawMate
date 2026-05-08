@@ -16,16 +16,23 @@ struct MyCaseDetailsView: View {
     @State private var showCancelSheet = false
     @State private var route: MKRoute?
     
-    // User and lawyer locations
+    // User and lawyer locations (Hardcoded for Sri Lanka context)
     var userLocation: CLLocationCoordinate2D {
-        let lat = AuthService.shared.currentUser?.latitude ?? 6.9271
-        let lng = AuthService.shared.currentUser?.longitude ?? 79.8612
+        // NIBM COLOMBO 07
+        let lat = 6.9064
+        let lng = 79.8708
         return CLLocationCoordinate2D(latitude: lat, longitude: lng)
     }
     
     var lawyerLocation: CLLocationCoordinate2D {
-        let lat = appointment.locationLat ?? 6.9355
-        let lng = appointment.locationLng ?? 79.8485
+        let lat = appointment.locationLat ?? 6.9271
+        let lng = appointment.locationLng ?? 79.8612
+        
+        // Ensure no SF defaults leak through
+        if (lat > 37.0 && lat < 38.0) {
+            return CLLocationCoordinate2D(latitude: 6.9355, longitude: 79.8485)
+        }
+        
         return CLLocationCoordinate2D(latitude: lat, longitude: lng)
     }
     
@@ -98,11 +105,15 @@ struct MyCaseDetailsView: View {
                         // MARK: Appointment Details Card
                         appointmentCard
                         
-                        // MARK: Video/Map Placeholder Area
+                        // MARK: Map for In-Person Meetings
                         if appointment.method == "In Person" {
-                            Map(initialPosition: .automatic) {
+                            Map(initialPosition: .region(MKCoordinateRegion(
+                                center: lawyerLocation,
+                                span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+                            ))) {
                                 Marker("You", coordinate: userLocation)
-                                Marker("Lawyer", coordinate: lawyerLocation)
+                                    .tint(.blue)
+                                Marker(appointment.lawyerName, coordinate: lawyerLocation)
                                     .tint(Color.lmPrimary)
                                 
                                 if let currentRoute = route {
@@ -116,20 +127,31 @@ struct MyCaseDetailsView: View {
                             .onAppear {
                                 fetchRoute()
                             }
-                        } else {
-                            RoundedRectangle(cornerRadius: 30)
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(height: 250)
-                                .overlay(
-                                    Image(systemName: "video.fill")
-                                        .font(.system(size: 40))
-                                        .foregroundColor(.gray.opacity(0.5))
-                                )
                         }
                         
                         // MARK: Primary CTA (Join/Directions)
                         Button {
-                            // Action
+                            if appointment.method == "Video Call" {
+                                if let url = URL(string: "https://join.lawmate.sh") {
+                                    UIApplication.shared.open(url)
+                                }
+                            } else {
+                                var lat = appointment.locationLat ?? 6.9271
+                                var lng = appointment.locationLng ?? 79.8612
+                                
+                                // Override simulator defaults (SF/Cupertino) to Sri Lanka
+                                if (lat > 37.0 && lat < 38.0) && (lng < -121.0 && lng > -123.0) {
+                                    lat = 6.9271
+                                    lng = 79.8612
+                                }
+                                
+                                let sLat = 6.9064
+                                let sLng = 79.8708
+                                
+                                if let url = URL(string: "http://maps.apple.com/?saddr=\(sLat),\(sLng)&daddr=\(lat),\(lng)&q=\(appointment.lawyerName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Consultation")") {
+                                    UIApplication.shared.open(url)
+                                }
+                            }
                         } label: {
                             HStack {
                                 Spacer()
@@ -145,19 +167,10 @@ struct MyCaseDetailsView: View {
                         .buttonStyle(.plain)
                         .padding(.top, 10)
                         
-                        // MARK: Cancel Button
-                        Button {
-                            showCancelSheet = true
-                        } label: {
-                            Text("Cancel Appointment")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(.red)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                        }
-                        .padding(.bottom, 120)
+                        Spacer().frame(height: 120) // Bottom spacing for TabBar
+                    }
+                    .padding(.horizontal, 24)
                 }
-            }
         }
     }
 }

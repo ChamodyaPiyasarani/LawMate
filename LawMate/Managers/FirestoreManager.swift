@@ -806,7 +806,7 @@ class FirestoreManager: ObservableObject {
     // MARK: - Documents
     
     func addDocument(toCaseId caseId: String, fileName: String, fileType: String, fileURL: String? = nil, fileBase64: String? = nil, stageIndex: Int? = nil, category: String = "Other", version: Int = 1, groupId: String? = nil) {
-        var newDoc = FBDocument(
+        let newDoc = FBDocument(
             legalCaseId: caseId,
             fileName: fileName,
             fileType: fileType,
@@ -1309,16 +1309,25 @@ class FirestoreManager: ObservableObject {
                     return
                 }
                 
+                // Begin a background task to ensure we can finish processing even if user locks phone
+                var backgroundTask: UIBackgroundTaskIdentifier = .invalid
+                backgroundTask = UIApplication.shared.beginBackgroundTask {
+                    UIApplication.shared.endBackgroundTask(backgroundTask)
+                    backgroundTask = .invalid
+                }
+                
                 let fetched = documents.compactMap { doc -> FBNotification? in
                     var n = try? doc.data(as: FBNotification.self)
                     if n?.id == nil { n?.id = doc.documentID }
                     return n
                 }
+                
                 DispatchQueue.main.async {
                     // Trigger local notifications for new unread notifications
                     if let lastDate = self?.lastKnownNotificationDate {
                         for notification in fetched {
                             if !notification.isRead && notification.timestamp > lastDate {
+                                // This triggers the SYSTEM level notification that shows on Lock Screen
                                 NotificationManager.shared.scheduleNotification(
                                     title: notification.title,
                                     body: notification.body,
@@ -1330,11 +1339,16 @@ class FirestoreManager: ObservableObject {
                     }
                     
                     self?.notifications = fetched
-                    // EXCLUDE chat messages from the Notification UI count (they have their own tab badge)
                     let unreadCount = fetched.filter { !$0.isRead && $0.type != "message" }.count
                     self?.unreadNotificationsCount = unreadCount
                     self?.updateTotalUnreadCount()
                     self?.lastKnownNotificationDate = fetched.first?.timestamp ?? Date()
+                    
+                    // End background task
+                    if backgroundTask != .invalid {
+                        UIApplication.shared.endBackgroundTask(backgroundTask)
+                        backgroundTask = .invalid
+                    }
                 }
             }
     }
@@ -1983,6 +1997,43 @@ class FirestoreManager: ObservableObject {
                 let busyDates = counts.filter { $0.value >= 3 }.map { $0.key }
                 completion(busyDates)
             }
+    }
+
+    func addReview(_ review: FBReview, completion: @escaping (Bool) -> Void) {
+        do {
+            _ = try db.collection("users").document(review.lawyerId).collection("reviews").addDocument(from: review) { error in
+                if let error = error {
+                    print("Error adding review: \(error)")
+                    completion(false)
+                } else {
+                    // Update lawyer's aggregate rating
+                    self.updateLawyerAggregateRating(lawyerId: review.lawyerId)
+                    completion(true)
+                }
+            }
+        } catch {
+            print("Error encoding review: \(error)")
+            completion(false)
+        }
+    }
+    
+    private func updateLawyerAggregateRating(lawyerId: String) {
+        db.collection("users").document(lawyerId).collection("reviews").getDocuments { snapshot, error in
+            guard let documents = snapshot?.documents, !documents.isEmpty else { return }
+            
+            let ratings = documents.compactMap { doc -> Int? in
+                let data = doc.data()
+                return data["rating"] as? Int
+            }
+            
+            let count = ratings.count
+            let average = Double(ratings.reduce(0, +)) / Double(count)
+            
+            self.db.collection("users").document(lawyerId).updateData([
+                "rating": average,
+                "reviewCount": count
+            ])
+        }
     }
 }
 

@@ -174,9 +174,10 @@ struct MyCaseCard: View {
                 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .top) {
-                        Text(clientCase.lawyerName.isEmpty ? "Assigned Lawyer" : clientCase.lawyerName)
-                            .font(.system(size: 16, weight: .bold))
+                        Text(clientCase.title)
+                            .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.lmPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
                         
                         Spacer()
                         
@@ -190,11 +191,10 @@ struct MyCaseCard: View {
                             .clipShape(Capsule())
                     }
                     
-                    Text(clientCase.title)
+                    Text(clientCase.lawyerName.isEmpty ? "Assigned Lawyer" : clientCase.lawyerName)
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.lmPrimary.opacity(0.8))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .lineSpacing(4)
+                        .foregroundColor(.lmPrimary.opacity(0.6))
+                        .lineLimit(1)
                 }
             }
             

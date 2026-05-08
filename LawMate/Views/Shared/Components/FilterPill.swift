@@ -10,20 +10,23 @@ struct LawMateFilterPill: View {
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 10))
+                    .font(.system(size: 11, weight: .semibold))
                 Text(title)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .lineLimit(1)
             }
             .frame(maxWidth: maxWidth)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(isActive ? Color.lmPrimary : Color.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(isActive ? Color.lmPrimary : Color.lmPrimary.opacity(0.05))
             .foregroundColor(isActive ? Color.white : .lmPrimary)
             .clipShape(Capsule())
-            .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
+            .overlay(
+                Capsule()
+                    .stroke(isActive ? Color.clear : Color.lmPrimary.opacity(0.1), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
     }

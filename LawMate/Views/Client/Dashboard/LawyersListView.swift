@@ -203,70 +203,67 @@ struct LawyersListView: View {
                 .padding(.top, 10)
                 .zIndex(100) // Ensure suggestions are above EVERYTHING
                 
-                // MARK: Filters (Fixed on one line - Full Width)
-                HStack(spacing: 8) {
-                    // Category Dropdown
-                    Menu {
-                        Button("All Categories") { selectedSpecialty = nil }
-                        ForEach(allSpecialties, id: \.self) { specialty in
-                            Button(specialty) { selectedSpecialty = specialty }
+                // MARK: Filters (Horizontal Scrollable)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        // Category Dropdown
+                        Menu {
+                            Button("All Categories") { selectedSpecialty = nil }
+                            ForEach(allSpecialties, id: \.self) { specialty in
+                                Button(specialty) { selectedSpecialty = specialty }
+                            }
+                        } label: {
+                            LawMateFilterPill(icon: "line.3.horizontal.decrease", 
+                                      title: selectedSpecialty ?? "Category", 
+                                      isActive: selectedSpecialty != nil) {}
                         }
-                    } label: {
-                        LawMateFilterPill(icon: "line.3.horizontal.decrease", 
-                                  title: selectedSpecialty ?? "Category", 
-                                  isActive: selectedSpecialty != nil,
-                                  maxWidth: .infinity) {}
-                    }
-                    
-                    LawMateFilterPill(icon: "star.fill", 
-                              title: minRating > 0 ? "\(String(format: "%.1f", minRating))+" : "Rate", 
-                              isActive: minRating > 0,
-                              maxWidth: .infinity) {
-                        minRating = minRating == 0 ? 4.6 : 0
-                    }
-                    
-                    // Location Dropdown
-                    Menu {
-                        Button("All Locations") { 
-                            selectedLocation = nil 
-                            updateMapForLocation(nil)
+                        
+                        LawMateFilterPill(icon: "star.fill", 
+                                  title: minRating > 0 ? "\(String(format: "%.1f", minRating))+" : "Rate", 
+                                  isActive: minRating > 0) {
+                            minRating = minRating == 0 ? 4.6 : 0
                         }
-                        ForEach(allLocations, id: \.self) { location in
-                            Button(location) { 
-                                selectedLocation = location 
-                                updateMapForLocation(location)
+                        
+                        // Location Dropdown
+                        Menu {
+                            Button("All Locations") { 
+                                selectedLocation = nil 
+                                updateMapForLocation(nil)
+                            }
+                            ForEach(allLocations, id: \.self) { location in
+                                Button(location) { 
+                                    selectedLocation = location 
+                                    updateMapForLocation(location)
+                                }
+                            }
+                        } label: {
+                            LawMateFilterPill(icon: "scope", 
+                                      title: selectedLocation ?? "Location", 
+                                      isActive: selectedLocation != nil) {}
+                        }
+                        
+                        // Sorting Dropdown
+                        Menu {
+                            ForEach(SortingOption.allCases, id: \.self) { option in
+                                Button(option.rawValue) { sortOption = option }
+                            }
+                        } label: {
+                            LawMateFilterPill(icon: "arrow.up.arrow.down", 
+                                      title: sortOption.rawValue, 
+                                      isActive: sortOption != .alphabetical) {}
+                        }
+                        
+                        LawMateFilterPill(icon: "mappin.and.ellipse", 
+                                   title: "Map", 
+                                   isActive: isMapViewActive) {
+                            withAnimation(.spring()) {
+                                isMapViewActive.toggle()
                             }
                         }
-                    } label: {
-                        LawMateFilterPill(icon: "scope", 
-                                  title: selectedLocation ?? "Location", 
-                                  isActive: selectedLocation != nil,
-                                  maxWidth: .infinity) {}
                     }
-                    
-                    // Sorting Dropdown
-                    Menu {
-                        ForEach(SortingOption.allCases, id: \.self) { option in
-                            Button(option.rawValue) { sortOption = option }
-                        }
-                    } label: {
-                        LawMateFilterPill(icon: "arrow.up.arrow.down", 
-                                  title: sortOption.rawValue, 
-                                  isActive: sortOption != .alphabetical,
-                                  maxWidth: .infinity) {}
-                    }
-                    
-                    LawMateFilterPill(icon: "mappin.and.ellipse", 
-                               title: "Map", 
-                               isActive: isMapViewActive,
-                               maxWidth: .infinity) {
-                        withAnimation(.spring()) {
-                            isMapViewActive.toggle()
-                        }
-                    }
+                    .padding(.horizontal, 24)
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 20)
+                .padding(.top, 16)
                 .padding(.bottom, 12)
                 .zIndex(1)
                 
@@ -452,73 +449,86 @@ struct LawyerRow: View {
     let lawyer: Lawyer
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 16) {
-                LawMateAvatar(url: lawyer.image, name: lawyer.name, size: 64)
+                // Left: High-end Avatar
+                LawMateAvatar(url: lawyer.image, name: lawyer.name, size: 60)
+                    .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1.5))
+                    .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
                 
+                // Right: Primary Info
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .center) {
                         Text(lawyer.name)
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 17, weight: .bold))
                             .foregroundColor(.lmPrimary)
                             .lineLimit(1)
                         
-                        Spacer(minLength: 8)
+                        Spacer()
                         
+                        // Specialty Badge
                         HStack(spacing: 4) {
-                            let spec = lawyer.specialty.lowercased()
-                            let icon = spec.contains("family") ? "house.fill" : 
-                                      spec.contains("criminal") ? "building.columns.fill" : 
-                                      spec.contains("civil") ? "person.2.fill" : "briefcase.fill"
-                            
-                            Image(systemName: icon)
-                                .font(.system(size: 10))
+                            Image(systemName: lawyer.specialtyIcon)
+                                .font(.system(size: 8))
                             Text(lawyer.specialty)
-                                .font(.system(size: 10, weight: .bold))
-                                .lineLimit(1)
+                                .font(.system(size: 9, weight: .bold))
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.lmPrimary.opacity(0.1))
+                        .background(Color.lmPrimary.opacity(0.06))
                         .foregroundColor(.lmPrimary)
                         .clipShape(Capsule())
-                        .layoutPriority(1)
                     }
                     
                     Text(lawyer.bio)
                         .font(.system(size: 13))
-                        .foregroundColor(.lmTextSecondary)
-                        .lineLimit(1)
-                        .multilineTextAlignment(.leading)
+                        .foregroundColor(.lmTextSecondary.opacity(0.8))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .padding(16)
             
-            HStack(alignment: .center) {
+            Divider()
+                .padding(.horizontal, 16)
+                .opacity(0.05)
+            
+            // Bottom Metadata Bar
+            HStack(spacing: 20) {
+                // Ratings
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
+                        .font(.system(size: 11))
                         .foregroundColor(.orange)
-                        .font(.system(size: 12))
                     Text(String(format: "%.1f", lawyer.rating))
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.lmPrimary)
-                    Text("(\(lawyer.reviewCount) Reviews)")
+                    Text("(\(lawyer.reviewCount))")
                         .font(.system(size: 10))
-                        .foregroundColor(.lmTextSecondary.opacity(0.7))
-                        .lineLimit(1)
+                        .foregroundColor(.lmTextSecondary.opacity(0.5))
                 }
                 
-                Spacer(minLength: 8)
+                Spacer()
                 
-                Label(lawyer.location, systemImage: "mappin.circle.fill")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.lmPrimary.opacity(0.6))
-                    .lineLimit(1)
+                // Location
+                HStack(spacing: 4) {
+                    Image(systemName: "mappin.and.ellipse")
+                        .font(.system(size: 10))
+                    Text(lawyer.location.components(separatedBy: ",").first ?? lawyer.location)
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundColor(.lmTextSecondary.opacity(0.6))
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
-        .padding(20)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 4)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.white.opacity(0.5), lineWidth: 1)
+        )
     }
 }
 

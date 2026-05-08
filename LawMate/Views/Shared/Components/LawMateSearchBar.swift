@@ -8,11 +8,11 @@ struct LawMateSearchBar: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.lmPrimary)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(.lmPrimary.opacity(0.4))
             
             TextField(placeholder, text: $text)
-                .font(.lmField)
+                .font(.system(size: 15, weight: .medium))
                 .foregroundColor(.lmTextPrimary)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
@@ -25,20 +25,21 @@ struct LawMateSearchBar: View {
                     text = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.lmTextSecondary.opacity(0.4))
+                        .font(.system(size: 16))
+                        .foregroundColor(.lmTextSecondary.opacity(0.3))
                 }
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color.white.opacity(0.6))
+        .padding(.vertical, 14)
+        .background(Color.white.opacity(0.8))
         .background(.ultraThinMaterial)
-        .clipShape(Capsule())
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            Capsule()
-                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.4), lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 5)
     }
 }
 
