@@ -136,7 +136,17 @@ struct LawyerHomeView: View {
             if activeConversation == nil {
                 VStack {
                     Spacer()
-                    TabBarView(selectedTab: $selectedTab, role: .lawyer)
+                    TabBarView(selectedTab: Binding(
+                        get: { selectedTab },
+                        set: { newValue in
+                            if newValue == selectedTab {
+                                // Pop to root if re-selecting current tab
+                                navPath = NavigationPath()
+                                activeConversation = nil
+                            }
+                            selectedTab = newValue
+                        }
+                    ), role: .lawyer)
                 }
                 .ignoresSafeArea(edges: .bottom)
                 .transition(.move(edge: .bottom).combined(with: .opacity))

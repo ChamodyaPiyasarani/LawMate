@@ -364,9 +364,6 @@ struct LawyersListView: View {
         .onAppear {
             firestore.listenForLawyers()
         }
-        .onChange(of: isMapViewActive) { _, newValue in
-            isTabBarHidden = newValue
-        }
     }
     
     private func fetchRoute(to lawyer: Lawyer) {

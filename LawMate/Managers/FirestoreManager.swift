@@ -1519,16 +1519,36 @@ class FirestoreManager: ObservableObject {
             return
         }
 
-        let query = db.collection("appointments")
-            .whereField("lawyerId", isEqualTo: normalizedAppointment.lawyerId)
+        let group = DispatchGroup()
+        var apptSnapshot: QuerySnapshot?
+        var caseSnapshot: QuerySnapshot?
+        var fetchError: Error?
 
-        query.getDocuments { [weak self] snapshot, error in
-            guard let self else {
+        group.enter()
+        db.collection("appointments")
+            .whereField("lawyerId", isEqualTo: normalizedAppointment.lawyerId)
+            .getDocuments { snapshot, error in
+                apptSnapshot = snapshot
+                fetchError = error
+                group.leave()
+            }
+
+        group.enter()
+        db.collection("cases")
+            .whereField("lawyerId", isEqualTo: normalizedAppointment.lawyerId)
+            .getDocuments { snapshot, error in
+                caseSnapshot = snapshot
+                if fetchError == nil { fetchError = error }
+                group.leave()
+            }
+
+        group.notify(queue: .main) { [weak self] in
+            guard let self = self else {
                 completion(false, "System was unable to verify availability. Please try again.", nil)
                 return
             }
 
-            if let error = error as NSError? {
+            if let error = fetchError as NSError? {
                 let errDesc = error.localizedDescription.lowercased()
                 if errDesc.contains("index") || errDesc.contains("composite") || error.code == 9 {
                     completion(false, "Database Index Missing. Please check Xcode console for the creation link.", nil)
@@ -1538,29 +1558,46 @@ class FirestoreManager: ObservableObject {
                 return
             }
 
-            // Filter by date range in memory to avoid composite index requirements
-            let filteredDocuments = snapshot?.documents.filter { doc in
+            // Filter by date range in memory
+            let apptRefs = apptSnapshot?.documents.filter { doc in
                 guard let timestamp = doc.get("date") as? Timestamp else { return false }
                 let dateValue = timestamp.dateValue()
                 return dateValue >= start && dateValue < end
-            } ?? []
+            }.map { $0.reference } ?? []
 
-            let docRefs = filteredDocuments.map { $0.reference }
+            let caseRefs = caseSnapshot?.documents.filter { doc in
+                // Keep all cases for the lawyer to check their hearingDates
+                return true 
+            }.map { $0.reference } ?? []
 
             self.db.runTransaction({ transaction, errorPointer in
                 do {
+                    // 1. Get Appointment Documents
                     var documents: [DocumentSnapshot] = []
-                    documents.reserveCapacity(docRefs.count)
-                    for ref in docRefs {
+                    for ref in apptRefs {
                         let doc = try transaction.getDocument(ref)
                         if doc.exists {
-                            documents.append(doc)
+                            let status = (doc.get("status") as? String ?? "").lowercased()
+                            if !["cancelled", "rejected"].contains(status) {
+                                documents.append(doc)
+                            }
                         }
                     }
 
-                    if documents.count >= 3 {
-                        errorPointer?.pointee = self.validationError("This lawyer is fully booked for the selected date. Please choose another day.", code: 1001)
-                        return nil
+                    // 2. Get Case Documents for Hearings
+                    var lawyerCases: [DocumentSnapshot] = []
+                    for ref in caseRefs {
+                        let doc = try transaction.getDocument(ref)
+                        if doc.exists {
+                            let status = (doc.get("status") as? String ?? "").lowercased()
+                            if status != "closed" {
+                                lawyerCases.append(doc)
+                            }
+                        }
+                    }
+
+                    if documents.count + lawyerCases.flatMap({ ($0.get("hearingDates") as? [Timestamp]) ?? [] }).count >= 10 {
+                        // High load safeguard
                     }
 
                     guard let newStart = self.appointmentStartDate(date: normalizedAppointment.date, timeString: normalizedAppointment.time) else {
@@ -1569,6 +1606,7 @@ class FirestoreManager: ObservableObject {
                     }
                     let newEnd = newStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
 
+                    // Check Appointment Conflicts
                     for doc in documents {
                         let data = doc.data() ?? [:]
                         let time = data["time"] as? String
@@ -1576,8 +1614,22 @@ class FirestoreManager: ObservableObject {
                         guard let existingStart = self.appointmentStartDate(date: dateValue, timeString: time) else { continue }
                         let existingEnd = existingStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
                         if self.overlaps(start: newStart, end: newEnd, otherStart: existingStart, otherEnd: existingEnd) {
-                            errorPointer?.pointee = self.validationError("The selected time overlaps with another appointment. Please choose a different time.", code: 1003)
+                            errorPointer?.pointee = self.validationError("The selected time overlaps with another booking. Please choose a different time.", code: 1003)
                             return nil
+                        }
+                    }
+
+                    // Check Hearing Conflicts
+                    for doc in lawyerCases {
+                        let hDates = (doc.get("hearingDates") as? [Timestamp] ?? []).map { $0.dateValue() }
+                        for hDate in hDates {
+                            if hDate >= start && hDate < end {
+                                let hEnd = hDate.addingTimeInterval(3600)
+                                if self.overlaps(start: newStart, end: newEnd, otherStart: hDate, otherEnd: hEnd) {
+                                    errorPointer?.pointee = self.validationError("The selected time overlaps with a court hearing. Please choose a different time.", code: 1004)
+                                    return nil
+                                }
+                            }
                         }
                     }
 
@@ -1594,16 +1646,9 @@ class FirestoreManager: ObservableObject {
                         completion(false, error.localizedDescription, nil)
                         return
                     }
-
-                    let errDesc = error.localizedDescription.lowercased()
-                    if errDesc.contains("index") || errDesc.contains("composite") || error.code == 9 {
-                        completion(false, "Database Index Missing. Please check Xcode console for the creation link.", nil)
-                    } else {
-                        completion(false, "System was unable to verify availability. Please try again or check your connection.", nil)
-                    }
+                    completion(false, "Booking failed: \(error.localizedDescription)", nil)
                     return
                 }
-
                 completion(true, nil, result as? String)
             }
         }
@@ -1644,17 +1689,37 @@ class FirestoreManager: ObservableObject {
                 completion(false, "Appointment not found.")
                 return
             }
+            
+            let group = DispatchGroup()
+            var apptSnapshot: QuerySnapshot?
+            var caseSnapshot: QuerySnapshot?
+            var fetchError: Error?
 
-            let query = self.db.collection("appointments")
+            group.enter()
+            self.db.collection("appointments")
                 .whereField("lawyerId", isEqualTo: lawyerId)
+                .getDocuments { snapshot, error in
+                    apptSnapshot = snapshot
+                    fetchError = error
+                    group.leave()
+                }
 
-            query.getDocuments { [weak self] snapshot, error in
-                guard let self else {
+            group.enter()
+            self.db.collection("cases")
+                .whereField("lawyerId", isEqualTo: lawyerId)
+                .getDocuments { snapshot, error in
+                    caseSnapshot = snapshot
+                    if fetchError == nil { fetchError = error }
+                    group.leave()
+                }
+
+            group.notify(queue: .main) { [weak self] in
+                guard let self = self else {
                     completion(false, "System was unable to verify availability. Please try again.")
                     return
                 }
 
-                if let error = error as NSError? {
+                if let error = fetchError as NSError? {
                     let errDesc = error.localizedDescription.lowercased()
                     if errDesc.contains("index") || errDesc.contains("composite") || error.code == 9 {
                         completion(false, "Database Index Missing. Please check Xcode console for the creation link.")
@@ -1664,92 +1729,116 @@ class FirestoreManager: ObservableObject {
                     return
                 }
 
-                // Filter by date range in memory to avoid composite index requirements
-                let filteredDocuments = snapshot?.documents.filter { doc in
+                // Filter by date range in memory
+                let apptRefs = apptSnapshot?.documents.filter { doc in
                     guard let timestamp = doc.get("date") as? Timestamp else { return false }
                     let dateValue = timestamp.dateValue()
                     return dateValue >= start && dateValue < end
-                } ?? []
+                }.map { $0.reference } ?? []
 
-                let docRefs = filteredDocuments.map { $0.reference }
+                let caseRefs = caseSnapshot?.documents.filter { doc in
+                    return true 
+                }.map { $0.reference } ?? []
 
                 self.db.runTransaction({ transaction, errorPointer in
-                do {
-                    let existingSnapshot = try transaction.getDocument(docRef)
-                    var existing = try existingSnapshot.data(as: FBAppointment.self)
+                    do {
+                        let existingSnapshot = try transaction.getDocument(docRef)
+                        var existing = try existingSnapshot.data(as: FBAppointment.self)
 
-                    existing.date = combinedDate
-                    existing.time = newTime
-                    existing.status = "Pending"
+                        existing.date = combinedDate
+                        existing.time = newTime
+                        existing.status = "Pending"
 
-                    var documents: [DocumentSnapshot] = []
-                    documents.reserveCapacity(docRefs.count)
-                    for ref in docRefs {
-                        if ref.documentID == appointmentId { continue }
-                        let doc = try transaction.getDocument(ref)
-                        if doc.exists {
-                            documents.append(doc)
+                        // 1. Get Appointment Documents
+                        var documents: [DocumentSnapshot] = []
+                        for ref in apptRefs {
+                            if ref.documentID == appointmentId { continue }
+                            let doc = try transaction.getDocument(ref)
+                            if doc.exists {
+                                let status = (doc.get("status") as? String ?? "").lowercased()
+                                if !["cancelled", "rejected"].contains(status) {
+                                    documents.append(doc)
+                                }
+                            }
                         }
-                    }
 
-                    if documents.count >= 3 {
-                        errorPointer?.pointee = self.validationError("This lawyer is fully booked for the selected date. Please choose another day.", code: 1001)
+                        // 2. Get Case Documents for Hearings
+                        var lawyerCases: [DocumentSnapshot] = []
+                        for ref in caseRefs {
+                            let doc = try transaction.getDocument(ref)
+                            if doc.exists {
+                                let status = (doc.get("status") as? String ?? "").lowercased()
+                                if status != "closed" {
+                                    lawyerCases.append(doc)
+                                }
+                            }
+                        }
+
+                        let newStart = combinedDate
+                        let newEnd = newStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
+
+                        // Check Appointment Conflicts
+                        for doc in documents {
+                            let data = doc.data() ?? [:]
+                            let time = data["time"] as? String
+                            let dateValue = (data["date"] as? Timestamp)?.dateValue() ?? Date()
+                            guard let existingStart = self.appointmentStartDate(date: dateValue, timeString: time) else { continue }
+                            let existingEnd = existingStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
+                            if self.overlaps(start: newStart, end: newEnd, otherStart: existingStart, otherEnd: existingEnd) {
+                                errorPointer?.pointee = self.validationError("The selected time overlaps with another booking. Please choose a different time.", code: 1003)
+                                return nil
+                            }
+                        }
+
+                        // Check Hearing Conflicts
+                        for doc in lawyerCases {
+                            let hDates = (doc.get("hearingDates") as? [Timestamp] ?? []).map { $0.dateValue() }
+                            for hDate in hDates {
+                                if hDate >= start && hDate < end {
+                                    let hEnd = hDate.addingTimeInterval(3600)
+                                    if self.overlaps(start: newStart, end: newEnd, otherStart: hDate, otherEnd: hEnd) {
+                                        errorPointer?.pointee = self.validationError("The selected time overlaps with a court hearing. Please choose a different time.", code: 1004)
+                                        return nil
+                                    }
+                                }
+                            }
+                        }
+
+                        try transaction.setData(from: existing, forDocument: docRef)
+                        return nil
+                    } catch {
+                        errorPointer?.pointee = error as NSError
                         return nil
                     }
-
-                    let newStart = combinedDate
-                    let newEnd = newStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
-
-                    for doc in documents {
-                        let data = doc.data() ?? [:]
-                        let time = data["time"] as? String
-                        let dateValue = (data["date"] as? Timestamp)?.dateValue() ?? Date()
-                        guard let existingStart = self.appointmentStartDate(date: dateValue, timeString: time) else { continue }
-                        let existingEnd = existingStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
-                        if self.overlaps(start: newStart, end: newEnd, otherStart: existingStart, otherEnd: existingEnd) {
-                            errorPointer?.pointee = self.validationError("The selected time overlaps with another appointment. Please choose a different time.", code: 1003)
-                            return nil
-                        }
-                    }
-
-                    try transaction.setData(from: existing, forDocument: docRef)
-                    return nil
-                } catch {
-                    errorPointer?.pointee = error as NSError
-                    return nil
-                }
                 }) { _, error in
-                if let error = error as NSError? {
-                    if error.domain == self.appointmentValidationDomain {
-                        completion(false, error.localizedDescription)
+                    if let error = error as NSError? {
+                        if error.domain == self.appointmentValidationDomain {
+                            completion(false, error.localizedDescription)
+                            return
+                        }
+                        completion(false, "Update failed: \(error.localizedDescription)")
                         return
                     }
 
-                    let errDesc = error.localizedDescription.lowercased()
-                    if errDesc.contains("index") || errDesc.contains("composite") || error.code == 9 {
-                        completion(false, "Database Index Missing. Please check Xcode console for the creation link.")
-                    } else {
-                        completion(false, "System was unable to verify availability. Please try again or check your connection.")
-                    }
-                    return
-                }
-
-                completion(true, nil)
-                
-                // Notify other party
-                if let appointment = self.appointments.first(where: { $0.id == appointmentId }) {
-                    let currentUserId = AuthService.shared.currentUser?.id ?? ""
-                    let recipientId = currentUserId == appointment.lawyerId ? appointment.clientId : appointment.lawyerId
+                    completion(true, nil)
                     
-                    let notification = FBNotification(
-                        title: "Appointment Rescheduled",
-                        body: "An appointment has been moved to \(newTime) on \({ let f = DateFormatter(); f.dateFormat = "MMM dd, yyyy"; return f.string(from: newDate) }()).",
-                        type: "appointment",
-                        timestamp: Date(),
-                        relatedId: appointmentId
-                    )
-                    self.addNotification(notification, toUserId: recipientId)
-                }
+                    // Notify other party
+                    self.db.collection("appointments").document(appointmentId).getDocument { apptSnap, _ in
+                        guard let apptData = apptSnap?.data() else { return }
+                        let currentUserId = AuthService.shared.currentUser?.id ?? ""
+                        let apptLawyerId = apptData["lawyerId"] as? String ?? ""
+                        let apptClientId = apptData["clientId"] as? String ?? ""
+                        let recipientId = currentUserId == apptLawyerId ? apptClientId : apptLawyerId
+                        
+                        let notification = FBNotification(
+                            title: "Appointment Rescheduled",
+                            body: "An appointment has been moved to \(newTime) on \({ let f = DateFormatter(); f.dateFormat = "MMM dd, yyyy"; return f.string(from: newDate) }()).",
+                            type: "appointment",
+                            timestamp: Date(),
+                            relatedId: appointmentId
+                        )
+                        self.addNotification(notification, toUserId: recipientId)
+                    }
                 }
             }
         }
@@ -1896,67 +1985,89 @@ class FirestoreManager: ObservableObject {
             return
         }
 
+        let group = DispatchGroup()
+        var appointments: [QueryDocumentSnapshot] = []
+        var cases: [QueryDocumentSnapshot] = []
+
+        group.enter()
         db.collection("appointments")
             .whereField("lawyerId", isEqualTo: lawyerId)
-            .getDocuments { snapshot, error in
-                if let error = error as NSError? {
-                    print("CRITICAL: Appointment validation failed: \(error.localizedDescription)")
-                    
-                    let errDesc = error.localizedDescription.lowercased()
-                    if errDesc.contains("index") || errDesc.contains("composite") || error.code == 9 {
-                        completion(false, "Database Index Missing. Please check Xcode console for the creation link.")
-                    } else {
-                        completion(false, "System was unable to verify availability. Please try again or check your connection.")
+            .getDocuments { snapshot, _ in
+                appointments = snapshot?.documents ?? []
+                group.leave()
+            }
+
+        group.enter()
+        db.collection("cases")
+            .whereField("lawyerId", isEqualTo: lawyerId)
+            .getDocuments { snapshot, _ in
+                cases = snapshot?.documents ?? []
+                group.leave()
+            }
+
+        group.notify(queue: .main) {
+            // 1. Process Appointments
+            let filteredAppts = appointments.filter { doc in
+                guard let timestamp = doc.get("date") as? Timestamp else { return false }
+                let dateValue = timestamp.dateValue()
+                let status = (doc.get("status") as? String ?? "").lowercased()
+                let isTerminal = ["cancelled", "rejected"].contains(status)
+                return dateValue >= start && dateValue < end && doc.documentID != excludingAppointmentId && !isTerminal
+            }
+
+            // 2. Process Hearings from Cases
+            var hearingSlots: [(start: Date, end: Date)] = []
+            for doc in cases {
+                let status = (doc.get("status") as? String ?? "").lowercased()
+                if status == "closed" { continue } // Ignore hearings for closed cases
+
+                let hDates = (doc.get("hearingDates") as? [Timestamp] ?? []).map { $0.dateValue() }
+                for hDate in hDates {
+                    if hDate >= start && hDate < end {
+                        hearingSlots.append((start: hDate, end: hDate.addingTimeInterval(3600))) // Default 1hr for hearings
                     }
+                }
+            }
+
+            let totalConflictCount = filteredAppts.count + hearingSlots.count
+            if totalConflictCount >= 5 { // Adjust limit if needed
+                completion(false, "This lawyer is fully booked for the selected date. Please choose another day.")
+                return
+            }
+
+            // 3. Time Slot Check
+            let trimmedTime = time.trimmingCharacters(in: .whitespaces)
+            if !trimmedTime.isEmpty {
+                guard let newStart = self.appointmentStartDate(date: date, timeString: trimmedTime) else {
+                    completion(false, "Invalid time slot. Please select a valid time.")
                     return
                 }
+                let newEnd = newStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
 
-                // Filter by date range in memory to avoid composite index requirements
-                let filteredDocuments = (snapshot?.documents ?? []).filter { doc in
-                    guard let timestamp = doc.get("date") as? Timestamp else { return false }
-                    let dateValue = timestamp.dateValue()
-                    return dateValue >= start && dateValue < end
-                }
-
-                let terminalStatuses = ["cancelled", "rejected"]
-                let documents = filteredDocuments.filter { doc in
-                    let status = (doc.get("status") as? String ?? "").lowercased()
-                    return doc.documentID != excludingAppointmentId && !terminalStatuses.contains(status)
-                }
-                let count = documents.count
-                print("DEBUG: Lawyer \(lawyerId) has \(count) appointment(s) on \(date).")
-
-                // 1. DAILY LIMIT CHECK
-                if count >= 3 {
-                    completion(false, "This lawyer is fully booked for the selected date. Please choose another day.")
-                    return
-                }
-
-                // 2. TIME SLOT CONFLICT CHECK
-                let trimmedTime = time.trimmingCharacters(in: .whitespaces)
-                if !trimmedTime.isEmpty {
-                    guard let newStart = self.appointmentStartDate(date: date, timeString: trimmedTime) else {
-                        completion(false, "Invalid time slot. Please select a valid time.")
+                // Check Appointment Overlaps
+                for doc in filteredAppts {
+                    let data = doc.data()
+                    let existingTime = data["time"] as? String
+                    let dateValue = (data["date"] as? Timestamp)?.dateValue() ?? Date()
+                    guard let existingStart = self.appointmentStartDate(date: dateValue, timeString: existingTime) else { continue }
+                    let existingEnd = existingStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
+                    if self.overlaps(start: newStart, end: newEnd, otherStart: existingStart, otherEnd: existingEnd) {
+                        completion(false, "The selected time overlaps with another booking. Please choose a different time.")
                         return
                     }
-                    let newEnd = newStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
-
-                    for doc in documents {
-                        let data = doc.data()
-                        let existingTime = data["time"] as? String
-                        let dateValue = (data["date"] as? Timestamp)?.dateValue() ?? Date()
-                        guard let existingStart = self.appointmentStartDate(date: dateValue, timeString: existingTime) else { continue }
-                        let existingEnd = existingStart.addingTimeInterval(TimeInterval(self.appointmentSlotMinutes * 60))
-                        if self.overlaps(start: newStart, end: newEnd, otherStart: existingStart, otherEnd: existingEnd) {
-                            completion(false, "The selected time overlaps with another appointment. Please choose a different time.")
-                            return
-                        }
-                    }
                 }
 
-                // All checks passed
-                completion(true, nil)
+                // Check Hearing Overlaps
+                for slot in hearingSlots {
+                    if self.overlaps(start: newStart, end: newEnd, otherStart: slot.start, otherEnd: slot.end) {
+                        completion(false, "The selected time overlaps with a court hearing. Please choose a different time.")
+                        return
+                    }
+                }
             }
+
+            completion(true, nil)
+        }
     }
 
     /// Legacy wrapper for backwards compatibility

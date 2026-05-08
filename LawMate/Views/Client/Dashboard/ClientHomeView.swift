@@ -134,7 +134,17 @@ struct ClientHomeView: View {
             if activeConversation == nil && !isTabBarHidden {
                 VStack {
                     Spacer()
-                    TabBarView(selectedTab: $selectedTab, role: .client)
+                    TabBarView(selectedTab: Binding(
+                        get: { selectedTab },
+                        set: { newValue in
+                            if newValue == selectedTab {
+                                // Pop to root if re-selecting current tab
+                                navPath = NavigationPath()
+                                activeConversation = nil
+                            }
+                            selectedTab = newValue
+                        }
+                    ), role: .client)
                 }
                 .ignoresSafeArea(edges: .bottom)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -297,7 +307,7 @@ struct ClientHomeView: View {
         let upcoming = firestore.appointments.filter {
             let s = $0.status.lowercased()
             let isUpcoming = calendar.startOfDay(for: $0.date) >= today
-            return isUpcoming && (s == "confirmed" || s == "pending" || s == "in progress")
+            return isUpcoming && (s == "confirmed" || s == "pending" || s == "in progress") && !$0.isOverdue
         }.prefix(5)
         
         if !upcoming.isEmpty {
@@ -444,7 +454,7 @@ private struct ClientHomeNavigationDestinations: ViewModifier {
                 case .booking(let lawyer):
                     BookingView(lawyer: lawyer)
                 case .allAppointments:
-                    ClientAllAppointmentsListView()
+                    BookingDetailsView(navPath: $navPath)
                 case .referrals:
                     ReferralNetworkView(navPath: $navPath, activeConversation: $activeConversation)
                 }
@@ -635,7 +645,7 @@ public struct ClientAllAppointmentsListView: View {
         return firestore.appointments.filter {
             let s = $0.status.lowercased()
             let isUpcoming = calendar.startOfDay(for: $0.date) >= today
-            return isUpcoming && (s == "confirmed" || s == "pending" || s == "in progress")
+            return isUpcoming && (s == "confirmed" || s == "pending" || s == "in progress") && !$0.isOverdue
         }.sorted { $0.date > $1.date }
     }
     

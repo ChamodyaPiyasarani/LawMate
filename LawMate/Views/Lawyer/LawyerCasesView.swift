@@ -961,18 +961,26 @@ struct AddHearingDateSheet: View {
     }
     
     private func saveDate() {
-        isSaving = true
-        var updatedCase = legalCase
-        updatedCase.hearingDates.append(selectedDate)
-        updatedCase.hearingDates.sort()
-        updatedCase.hearingDate = updatedCase.hearingDates.filter { $0 >= Date() }.first ?? updatedCase.hearingDates.last // Update legacy field
-        
-        firestore.updateCase(updatedCase)
-        
-        // Notify Client
-        let notification = FBNotification(
-            title: "Hearing Date Added",
-            body: "A new hearing date has been scheduled for your case: \(updatedCase.title)",
+        // Validate against all bookings (appointments and other hearings)
+        firestore.validateAppointmentSlot(lawyerId: legalCase.lawyerId, date: selectedDate, time: "") { canBook, reason in
+            if !canBook {
+                isSaving = false
+                ToastManager.shared.show(title: "Conflict", message: reason ?? "This slot is already booked.", type: .error)
+                return
+            }
+            
+            isSaving = true
+            var updatedCase = legalCase
+            updatedCase.hearingDates.append(selectedDate)
+            updatedCase.hearingDates.sort()
+            updatedCase.hearingDate = updatedCase.hearingDates.filter { $0 >= Date() }.first ?? updatedCase.hearingDates.last // Update legacy field
+            
+            firestore.updateCase(updatedCase)
+            
+            // Notify Client
+            let notification = FBNotification(
+                title: "Hearing Date Added",
+                body: "A new hearing date has been scheduled for your case: \(updatedCase.title)",
             type: "case",
             timestamp: Date(),
             relatedId: updatedCase.id
@@ -990,6 +998,7 @@ struct AddHearingDateSheet: View {
         
         dismiss()
     }
+}
 }
 
 // MARK: - Case Consultation Booking Sheet
