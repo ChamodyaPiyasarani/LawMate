@@ -23,7 +23,44 @@ struct ChatDetailView: View {
         conversation.partnerInfo(for: auth.currentUser?.id ?? "")
     }
     
+    private var isChatAvailable: Bool {
+        validConversationId != nil && firestore.conversations.contains(where: { $0.id == conversation.id })
+    }
+
     var body: some View {
+        Group {
+            if isChatAvailable {
+                mainContent
+            } else {
+                Color.lmBackground
+                    .onAppear {
+                        ToastManager.shared.show(
+                            title: "Chat Unavailable",
+                            message: "This conversation is no longer available.",
+                            type: .error
+                        )
+                        dismiss()
+                    }
+            }
+        }
+        .ignoresSafeArea(edges: .top)
+        .navigationBarBackButtonHidden(true)
+        .onAppear {
+            if let convId = validConversationId {
+                firestore.listenForMessages(conversationId: convId)
+                
+                // Clear unread count for this conversation when entering
+                if let currentUserId = auth.currentUser?.id {
+                    firestore.markConversationAsRead(id: convId, userId: currentUserId)
+                }
+            }
+        }
+        .onDisappear {
+            firestore.stopListeningForMessages()
+        }
+    }
+
+    private var mainContent: some View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
             
@@ -43,9 +80,7 @@ struct ChatDetailView: View {
                 ScrollViewReader { proxy in
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 16) {
-                            if validConversationId == nil {
-                                invalidState
-                            } else if firestore.messages.isEmpty {
+                            if firestore.messages.isEmpty {
                                 emptyState
                             } else {
                                 ForEach(firestore.messages) { message in
@@ -98,38 +133,21 @@ struct ChatDetailView: View {
                             .frame(width: 44, height: 44)
                             .overlay(
                                 Image(systemName: "arrow.up")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.system(size: 18, weight: .bold))
                                     .foregroundColor(.white)
                             )
                     }
                     .disabled(messageText.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .padding(.trailing, 8)
+                    .buttonStyle(.plain)
                 }
-                .background(Color.white.opacity(0.95))
+                .padding(8)
+                .background(Color.white.opacity(0.6))
                 .background(.ultraThinMaterial)
                 .clipShape(Capsule())
-                .overlay(
-                    Capsule()
-                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: -4)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
+                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 20)
             }
-            .ignoresSafeArea(.keyboard, edges: .bottom)
-        }
-        .ignoresSafeArea(edges: .top)
-        .navigationBarBackButtonHidden(true)
-        .onAppear {
-            if let conversationId = validConversationId {
-                firestore.listenForMessages(conversationId: conversationId)
-                if let userId = auth.currentUser?.id {
-                    firestore.markConversationAsRead(id: conversationId, userId: userId)
-                }
-            }
-        }
-        .onDisappear {
-            firestore.stopListeningForMessages()
         }
     }
     

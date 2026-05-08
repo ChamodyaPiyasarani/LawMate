@@ -416,7 +416,7 @@ struct LawyerHomeView: View {
                     navPath.append(appointment)
                 }
             } else {
-                selectedTab = .home
+                ToastManager.shared.show(title: "Appointment Unavailable", message: "This appointment has been cancelled or deleted.", type: .error)
             }
         case .lawyerProfile:
             // For lawyers, we can redirect to the referral network or just the notification center

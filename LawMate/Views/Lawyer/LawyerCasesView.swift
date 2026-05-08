@@ -267,7 +267,43 @@ struct LawyerCaseDetailView: View {
         self.legalCase = legalCase
     }
     
+    private var isCaseAvailable: Bool {
+        firestore.cases.contains(where: { $0.id == legalCase.id })
+    }
+    
+    private var isClientAvailable: Bool {
+        firestore.clients.contains(where: { $0.id == legalCase.clientId })
+    }
+
     var body: some View {
+        Group {
+            if !isCaseAvailable {
+                Color.lmBackground
+                    .onAppear {
+                        ToastManager.shared.show(
+                            title: "Case Unavailable",
+                            message: "This case has been deleted or is no longer accessible.",
+                            type: .error
+                        )
+                        dismiss()
+                    }
+            } else if !isClientAvailable {
+                Color.lmBackground
+                    .onAppear {
+                        ToastManager.shared.show(
+                            title: "Client Unavailable",
+                            message: "The client for this case has been deleted or is no longer available.",
+                            type: .error
+                        )
+                        dismiss()
+                    }
+            } else {
+                mainContent
+            }
+        }
+    }
+
+    private var mainContent: some View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
             

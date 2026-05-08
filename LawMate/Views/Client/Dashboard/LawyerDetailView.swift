@@ -31,7 +31,29 @@ struct LawyerDetailView: View {
         }
     }
 
+    private var isLawyerAvailable: Bool {
+        firestore.lawyers.contains(where: { $0.id == lawyer.id })
+    }
+
     var body: some View {
+        Group {
+            if isLawyerAvailable {
+                mainContent
+            } else {
+                Color.lmBackground
+                    .onAppear {
+                        ToastManager.shared.show(
+                            title: "Lawyer Unavailable",
+                            message: "This lawyer profile has been deleted or is no longer available.",
+                            type: .error
+                        )
+                        dismiss()
+                    }
+            }
+        }
+    }
+
+    private var mainContent: some View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
             

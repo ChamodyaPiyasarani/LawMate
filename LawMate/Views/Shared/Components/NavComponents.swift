@@ -1668,3 +1668,69 @@ struct TimeSlotCard: View {
         return .lmPrimary
     }
 }
+
+// MARK: - Data Unavailable View
+struct DataUnavailableView: View {
+    let title: String
+    let message: String
+    let image: String
+    var onBack: () -> Void = {}
+    
+    var body: some View {
+        ZStack {
+            Color.lmBackground.ignoresSafeArea()
+            
+            // Background blob for aesthetic consistency
+            GreenBlobBackground(style: .client)
+                .frame(height: 300)
+                .offset(y: -50)
+            
+            VStack(spacing: 24) {
+                // MARK: Navigation header (minimal)
+                HStack {
+                    LawMateBackButton(action: onBack)
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 65)
+                
+                Spacer()
+                
+                VStack(spacing: 20) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.white.opacity(0.8))
+                            .frame(width: 120, height: 120)
+                            .shadow(color: Color.black.opacity(0.05), radius: 15, x: 0, y: 10)
+                        
+                        Image(systemName: image)
+                            .font(.system(size: 50))
+                            .foregroundColor(.lmPrimary.opacity(0.6))
+                    }
+                    
+                    VStack(spacing: 8) {
+                        Text(title)
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                        
+                        Text(message)
+                            .font(.system(size: 15))
+                            .foregroundColor(.lmTextSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                    }
+                }
+                
+                Spacer()
+                
+                LawMatePrimaryButton(title: "Go Back") {
+                    onBack()
+                }
+                .padding(.horizontal, 40)
+                .padding(.bottom, 60)
+            }
+        }
+        .ignoresSafeArea(edges: .top)
+        .navigationBarBackButtonHidden(true)
+    }
+}

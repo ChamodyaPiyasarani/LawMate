@@ -29,7 +29,51 @@ struct MyCaseDetailsView: View {
         return CLLocationCoordinate2D(latitude: lat, longitude: lng)
     }
     
+    private var isAppointmentAvailable: Bool {
+        firestore.appointments.contains(where: { $0.id == initialAppointment.id })
+    }
+    
+    private var isLawyerAvailable: Bool {
+        firestore.lawyers.contains(where: { $0.id == appointment.lawyerId })
+    }
+
     var body: some View {
+        Group {
+            if !isAppointmentAvailable {
+                Color.lmBackground
+                    .onAppear {
+                        ToastManager.shared.show(
+                            title: "Appointment Unavailable",
+                            message: "This appointment has been cancelled or is no longer available.",
+                            type: .error
+                        )
+                        dismiss()
+                    }
+            } else if !isLawyerAvailable {
+                Color.lmBackground
+                    .onAppear {
+                        ToastManager.shared.show(
+                            title: "Lawyer Unavailable",
+                            message: "The lawyer for this appointment has been deleted or is no longer available.",
+                            type: .error
+                        )
+                        dismiss()
+                    }
+            } else {
+                mainContent
+            }
+        }
+        .ignoresSafeArea(edges: .top)
+        .navigationBarBackButtonHidden(true)
+        .sheet(isPresented: $showRescheduleSheet) {
+            RescheduleBookingView(appointment: appointment)
+        }
+        .sheet(isPresented: $showCancelSheet) {
+            CancelBookingView(appointment: appointment)
+        }
+    }
+
+    private var mainContent: some View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
             
@@ -101,24 +145,22 @@ struct MyCaseDetailsView: View {
                         .buttonStyle(.plain)
                         .padding(.top, 10)
                         
-                        // Bottom Padding for Tab Bar equivalent area
-                        Color.clear.frame(height: 140)
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 30)
+                        // MARK: Cancel Button
+                        Button {
+                            showCancelSheet = true
+                        } label: {
+                            Text("Cancel Appointment")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.red)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        }
+                        .padding(.bottom, 120)
                 }
             }
-            
-        }
-        .ignoresSafeArea(edges: .top)
-        .navigationBarBackButtonHidden(true)
-        .sheet(isPresented: $showRescheduleSheet) {
-            RescheduleBookingView(appointment: appointment)
-        }
-        .sheet(isPresented: $showCancelSheet) {
-            CancelBookingView(appointment: appointment)
         }
     }
+}
     
     private func fetchRoute() {
         let request = MKDirections.Request()
@@ -248,6 +290,7 @@ struct MyCaseDetailsView: View {
         )
         .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 5)
     }
+    
     private func formatDate(_ date: Date) -> String {
         let f = DateFormatter()
         f.dateFormat = "MMM dd, yyyy"

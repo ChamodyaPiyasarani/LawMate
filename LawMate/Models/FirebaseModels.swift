@@ -400,25 +400,31 @@ struct FBAppointment: Identifiable, Codable, Hashable {
     }
     
     enum AppointmentCategory: String, CaseIterable {
-        case upcoming = "Upcoming"
-        case done = "Done"
+        case confirmed = "Confirmed"
+        case pending = "Pending"
+        case rescheduled = "Rescheduled"
         case overdue = "Overdue"
+        case done = "Done"
         case cancelled = "Cancelled"
         
         var icon: String {
             switch self {
-            case .upcoming: return "calendar"
-            case .done: return "checkmark.circle.fill"
+            case .confirmed: return "checkmark.circle.fill"
+            case .pending: return "clock.fill"
+            case .rescheduled: return "calendar.badge.clock"
             case .overdue: return "exclamationmark.triangle.fill"
+            case .done: return "checkmark.seal.fill"
             case .cancelled: return "xmark.circle.fill"
             }
         }
         
         var color: Color {
             switch self {
-            case .upcoming: return .blue
-            case .done: return .green
+            case .confirmed: return .green
+            case .pending: return .orange
+            case .rescheduled: return .blue
             case .overdue: return .red
+            case .done: return .gray
             case .cancelled: return .gray
             }
         }
@@ -426,6 +432,7 @@ struct FBAppointment: Identifiable, Codable, Hashable {
     
     var category: AppointmentCategory {
         let statusLower = status.lowercased()
+        
         if statusLower == "cancelled" || statusLower == "rejected" {
             return .cancelled
         }
@@ -435,7 +442,12 @@ struct FBAppointment: Identifiable, Codable, Hashable {
         if isOverdue {
             return .overdue
         }
-        return .upcoming
+        
+        switch statusLower {
+        case "confirmed": return .confirmed
+        case "rescheduled": return .rescheduled
+        default: return .pending
+        }
     }
     
     var startTime: Date? {

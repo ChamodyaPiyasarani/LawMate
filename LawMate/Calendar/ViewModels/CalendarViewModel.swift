@@ -15,7 +15,10 @@ class CalendarViewModel: ObservableObject {
     
     // Computed categorizations using standardized FBAppointment.category
     var upcomingAppointments: [FBAppointment] {
-        appointmentsForSelectedDate.filter { $0.category == .upcoming }
+        appointmentsForSelectedDate.filter { 
+            let cat = $0.category
+            return cat == .confirmed || cat == .pending || cat == .rescheduled
+        }
     }
     
     var overdueAppointments: [FBAppointment] {

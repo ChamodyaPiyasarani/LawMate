@@ -31,7 +31,69 @@ struct CaseDetailView: View {
         AuthService.shared.currentUser?.role == .lawyer
     }
     
+    private var isCaseAvailable: Bool {
+        firestore.cases.contains(where: { $0.id == clientCase.id })
+    }
+
     var body: some View {
+        Group {
+            if isCaseAvailable {
+                mainContent
+            } else {
+                Color.lmBackground
+                    .onAppear {
+                        ToastManager.shared.show(
+                            title: "Case Unavailable",
+                            message: "This case has been deleted or is no longer available.",
+                            type: .error
+                        )
+                        dismiss()
+                    }
+            }
+        }
+        .ignoresSafeArea(edges: .top)
+        .navigationBarBackButtonHidden(true)
+        .onAppear {
+            if let caseId = clientCase.id {
+                FirestoreManager.shared.listenForDocuments(forCaseId: caseId)
+            }
+        }
+        .sheet(item: $selectedDocument) { doc in
+            let dummyDoc = FBAdvisoryDocument(
+                id: doc.id ?? UUID().uuidString,
+                title: doc.fileName,
+                description: "",
+                category: "Case Document",
+                tags: [],
+                lawyerName: "",
+                date: ISO8601DateFormatter().string(from: doc.uploadedAt),
+                fileType: doc.fileType,
+                fileURL: doc.fileURL,
+                lawyerId: "",
+                visibility: "Private",
+                fileBase64: doc.fileBase64
+            )
+            PDFKitViewerSheet(document: dummyDoc)
+        }
+        .onChange(of: selectedImage) { _, _ in
+            handleImageUpload()
+        }
+        .sheet(isPresented: $showScanner) {
+            DocumentScannerView(isPresented: $showScanner) { urls in
+                handleScannedDocuments(urls)
+            } onError: { error in
+                ToastManager.shared.show(title: "Scanning Error", message: error.localizedDescription, type: .error)
+            }
+        }
+        .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.pdf, .png, .jpeg]) { result in
+            handleFileURLUpload(result: result)
+        }
+        .sheet(isPresented: $showAddHearingSheet) {
+            addHearingSheet
+        }
+    }
+
+    private var mainContent: some View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
             
@@ -86,8 +148,6 @@ struct CaseDetailView: View {
                         .padding(.top, 12)
                 }
                 
-                // Redundant hearing list removed — now shown in timeline below nodes
-                // .padding(.horizontal, 24) and .padding(.top, 12) removed as they were attached to the deleted list
                 
                 // MARK: Segmented Control
                 HStack(spacing: 0) {
@@ -132,46 +192,6 @@ struct CaseDetailView: View {
                     }
                 }
             }
-        }
-        .ignoresSafeArea(edges: .top)
-        .navigationBarBackButtonHidden(true)
-        .onAppear {
-            if let caseId = clientCase.id {
-                FirestoreManager.shared.listenForDocuments(forCaseId: caseId)
-            }
-        }
-        .sheet(item: $selectedDocument) { doc in
-            let dummyDoc = FBAdvisoryDocument(
-                id: doc.id ?? UUID().uuidString,
-                title: doc.fileName,
-                description: "",
-                category: "Case Document",
-                tags: [],
-                lawyerName: "",
-                date: ISO8601DateFormatter().string(from: doc.uploadedAt),
-                fileType: doc.fileType,
-                fileURL: doc.fileURL,
-                lawyerId: "",
-                visibility: "Private",
-                fileBase64: doc.fileBase64
-            )
-            PDFKitViewerSheet(document: dummyDoc)
-        }
-        .onChange(of: selectedImage) { _, _ in
-            handleImageUpload()
-        }
-        .sheet(isPresented: $showScanner) {
-            DocumentScannerView(isPresented: $showScanner) { urls in
-                handleScannedDocuments(urls)
-            } onError: { error in
-                ToastManager.shared.show(title: "Scanning Error", message: error.localizedDescription, type: .error)
-            }
-        }
-        .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.pdf, .png, .jpeg]) { result in
-            handleFileURLUpload(result: result)
-        }
-        .sheet(isPresented: $showAddHearingSheet) {
-            addHearingSheet
         }
     }
     

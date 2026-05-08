@@ -126,37 +126,39 @@ struct NotificationsView: View {
         
         // Wait for dismissal then navigate
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            let isLawyer = auth.currentUser?.role == .lawyer
+            
             switch type {
             case "message":
                 if let rId = relatedId, let conv = firestore.conversations.first(where: { $0.id == rId }) {
                     activeConversation = conv
                 } else {
-                    ToastManager.shared.show(title: "Not Found", message: "Conversation not available.", type: .error)
+                    ToastManager.shared.show(title: "Chat Unavailable", message: "This conversation is no longer available.", type: .error)
                 }
 
             case "case":
                 if let rId = relatedId, let clientCase = firestore.cases.first(where: { $0.id == rId }) {
                     navPath.append(clientCase)
                 } else {
-                    navPath.append(ClientHomeView.AppRoute.myCases)
+                    ToastManager.shared.show(title: "Case Unavailable", message: "This case has been deleted or archived.", type: .error)
                 }
 
             case "document":
                 if let rId = relatedId, let doc = firestore.advisoryDocuments.first(where: { $0.id == rId }) {
                     navPath.append(doc)
                 } else {
-                    navPath.append(ClientHomeView.AppRoute.documents)
+                    ToastManager.shared.show(title: "Document Unavailable", message: "This document is no longer available.", type: .error)
                 }
                 
             case "booking", "appointment":
                 if let rId = relatedId, let appointment = firestore.appointments.first(where: { $0.id == rId }) {
                     navPath.append(appointment)
                 } else {
-                    navPath.append(ClientHomeView.AppRoute.allAppointments)
+                    ToastManager.shared.show(title: "Appointment Unavailable", message: "This appointment has been cancelled or deleted.", type: .error)
                 }
 
             case "referral":
-                if auth.currentUser?.role == .lawyer {
+                if isLawyer {
                     navPath.append(LawyerRoute.referrals)
                 } else {
                     navPath.append(ClientHomeView.AppRoute.referrals)

@@ -98,7 +98,7 @@ struct ClientHomeView: View {
                                 navPath.append(appointment)
                             }
                         } else {
-                            selectedTab = .home
+                            ToastManager.shared.show(title: "Appointment Unavailable", message: "This appointment has been cancelled or deleted.", type: .error)
                         }
                     case .lawyerProfile(let lawyerId):
                         if let user = firestore.lawyers.first(where: { $0.id == lawyerId }) {
@@ -119,12 +119,11 @@ struct ClientHomeView: View {
                                 image: user.profileImage ?? "",
                                 coordinate: CLLocationCoordinate2D(latitude: user.latitude ?? 0, longitude: user.longitude ?? 0)
                             )
-                            selectedTab = .home
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                 navPath.append(lawyer)
                             }
                         } else {
-                            selectedTab = .home
+                            ToastManager.shared.show(title: "Lawyer Unavailable", message: "The lawyer profile you're looking for is no longer available.", type: .error)
                         }
                     }
                     notifications.pendingRoute = nil

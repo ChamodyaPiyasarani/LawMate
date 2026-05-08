@@ -5,7 +5,31 @@ struct DocumentDetailView: View {
     @State private var showPDFViewer = false
     let document: FBAdvisoryDocument
     
+    private var isDocumentAvailable: Bool {
+        firestore.advisoryDocuments.contains(where: { $0.id == document.id })
+    }
+
+    @EnvironmentObject var firestore: FirestoreManager
+
     var body: some View {
+        Group {
+            if isDocumentAvailable {
+                mainContent
+            } else {
+                Color.lmBackground
+                    .onAppear {
+                        ToastManager.shared.show(
+                            title: "Document Unavailable",
+                            message: "This document is no longer available.",
+                            type: .error
+                        )
+                        dismiss()
+                    }
+            }
+        }
+    }
+
+    private var mainContent: some View {
         ZStack(alignment: .top) {
             Color.lmBackground.ignoresSafeArea()
             
