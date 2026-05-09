@@ -3,15 +3,12 @@ import MapKit
 
 struct LawyerDetailView: View {
     let lawyer: Lawyer
-    var referringLawyerName: String? = nil
     @Environment(\.dismiss) private var dismiss
     @Binding var navPath: NavigationPath
     @Binding var activeConversation: FBConversation?
     @EnvironmentObject var firestore: FirestoreManager
     @EnvironmentObject var auth: AuthService
     @State private var showRatingSheet = false
-    @State private var showReferralAlert = false
-    @State private var referralNote = ""
     
     private func startChat() {
         guard let currentUser = auth.currentUser else { return }
@@ -107,19 +104,6 @@ struct LawyerDetailView: View {
                                     .foregroundColor(.lmTextSecondary)
                             }
                             
-                            if let referringLawyerName {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "arrowshape.turn.up.right.fill")
-                                        .font(.system(size: 10))
-                                    Text("Referred by \(referringLawyerName)")
-                                }
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.lmPrimary)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.lmPrimary.opacity(0.08))
-                                .clipShape(Capsule())
-                            }
                         }
                         .padding(.top, 20)
 
@@ -131,10 +115,6 @@ struct LawyerDetailView: View {
                             
                             ActionButton(icon: "calendar", title: "Book", color: .lmPrimary, textColor: .white) {
                                 navPath.append(ClientHomeView.AppRoute.booking(lawyer))
-                            }
-                            
-                            ActionButton(icon: "person.2.fill", title: "Refer", color: .lmPrimary.opacity(0.05), textColor: .lmPrimary) {
-                                showReferralAlert = true
                             }
                         }
                         .padding(.vertical, 10)
@@ -207,23 +187,6 @@ struct LawyerDetailView: View {
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showRatingSheet) {
             RatingView(lawyerName: lawyer.name, lawyerId: lawyer.id)
-        }
-        .alert("Request a Referral", isPresented: $showReferralAlert) {
-            TextField("Optional note", text: $referralNote)
-            Button("Send") {
-                firestore.createReferralRequest(
-                    targetLawyerId: lawyer.id,
-                    targetLawyerName: lawyer.name,
-                    note: referralNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : referralNote
-                )
-                referralNote = ""
-                ToastManager.shared.show(title: "Request Sent", message: "Your referral request was sent.", type: .success)
-            }
-            Button("Cancel", role: .cancel) {
-                referralNote = ""
-            }
-        } message: {
-            Text("Ask this lawyer to recommend another lawyer for your case.")
         }
         .onAppear {
             firestore.listenForReviews(forLawyerId: lawyer.id)

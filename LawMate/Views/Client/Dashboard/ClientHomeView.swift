@@ -438,7 +438,7 @@ private struct ClientHomeNavigationDestinations: ViewModifier {
                 LawyerDetailView(lawyer: lawyer, navPath: $navPath, activeConversation: $activeConversation)
             }
             .navigationDestination(for: ReferralLawyerContext.self) { context in
-                LawyerDetailView(lawyer: context.lawyer, referringLawyerName: context.referringLawyerName, navPath: $navPath, activeConversation: $activeConversation)
+                LawyerDetailView(lawyer: context.lawyer, navPath: $navPath, activeConversation: $activeConversation)
             }
             .navigationDestination(for: FBAppointment.self) { appointment in
                 MyCaseDetailsView(initialAppointment: appointment, navPath: $navPath, activeConversation: $activeConversation)
