@@ -302,7 +302,7 @@ struct AddCaseView: View {
                                         .clipShape(RoundedRectangle(cornerRadius: 16))
                                         
                                         if let coord = location {
-                                            Map(position: .constant(.region(MKCoordinateRegion(center: coord, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))))) {
+                                            Map(position: .constant(.region(MKCoordinateRegion(center: coord, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)))), bounds: MapCameraBounds(maximumDistance: 1500000)) {
                                                 Marker("Case Location", coordinate: coord)
                                             }
                                             .frame(height: 150)

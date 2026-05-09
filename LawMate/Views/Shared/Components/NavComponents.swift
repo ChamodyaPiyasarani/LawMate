@@ -713,13 +713,18 @@ struct LocationPickerView: View {
         span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
     )
     
-    @State private var mapCameraPosition: MapCameraPosition = .automatic
+    @State private var mapCameraPosition: MapCameraPosition = .region(
+        MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 6.9271, longitude: 79.8612),
+            span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+        )
+    )
     var onConfirm: (CLLocationCoordinate2D) -> Void
     
     var body: some View {
         NavigationStack {
             ZStack {
-                Map(position: $mapCameraPosition) {}
+                Map(position: $mapCameraPosition, bounds: MapCameraBounds(maximumDistance: 1500000)) {}
                 .onMapCameraChange(frequency: .continuous) { context in
                     region = context.region
                 }
@@ -787,9 +792,6 @@ struct LocationPickerView: View {
             }
             .onAppear {
                 locationManager.requestPermission()
-                if let userLoc = locationManager.userLocation {
-                    mapCameraPosition = .region(MKCoordinateRegion(center: userLoc, span: region.span))
-                }
             }
         }
     }

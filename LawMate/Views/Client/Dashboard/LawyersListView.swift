@@ -72,6 +72,11 @@ struct LawyersListView: View {
     // Mock user location for routing
     private let userLocation = CLLocationCoordinate2D(latitude: 6.9147, longitude: 79.8773)
     
+    private let sriLankaRegion = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 7.8731, longitude: 80.7718),
+        span: MKCoordinateSpan(latitudeDelta: 4.5, longitudeDelta: 4.5)
+    )
+    
     @State private var cameraPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 7.8731, longitude: 80.7718),
@@ -81,8 +86,17 @@ struct LawyersListView: View {
     
     @Environment(\.dismiss) private var dismiss
     
-    private let allSpecialties = ["Family Law", "Criminal Law", "Civil Law", "Business Law"]
-    private let allLocations = ["Colombo", "Gampaha", "Kandy", "Negombo", "Galle"]
+    private var allSpecialties: [String] {
+        let specs = firestore.lawyers.compactMap { $0.specialty }
+        return Array(Set(specs)).sorted()
+    }
+    
+    private var allLocations: [String] {
+        let locs = firestore.lawyers.compactMap { user in
+            user.address?.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespaces)
+        }
+        return Array(Set(locs)).sorted()
+    }
 
     var lawyers: [Lawyer] {
         firestore.lawyers.map { user in
@@ -218,10 +232,15 @@ struct LawyersListView: View {
                                       isActive: selectedSpecialty != nil) {}
                         }
                         
-                        LawMateFilterPill(icon: "star.fill", 
-                                  title: minRating > 0 ? "\(String(format: "%.1f", minRating))+" : "Rate", 
-                                  isActive: minRating > 0) {
-                            minRating = minRating == 0 ? 4.6 : 0
+                        Menu {
+                            Button("All Ratings") { minRating = 0 }
+                            Button("4.5+ ★") { minRating = 4.5 }
+                            Button("4.0+ ★") { minRating = 4.0 }
+                            Button("3.0+ ★") { minRating = 3.0 }
+                        } label: {
+                            LawMateFilterPill(icon: "star.fill", 
+                                      title: minRating > 0 ? "\(String(format: "%.1f", minRating))+" : "Rate", 
+                                      isActive: minRating > 0) {}
                         }
                         
                         // Location Dropdown
@@ -270,7 +289,7 @@ struct LawyersListView: View {
                 // MARK: Lawyers List OR Map
                 ZStack {
                     if isMapViewActive {
-                        Map(position: $cameraPosition, selection: $selectedLawyerId) {
+                        Map(position: $cameraPosition, bounds: MapCameraBounds(maximumDistance: 1500000), selection: $selectedLawyerId) {
                             // User Location Marker
                             Marker("You", systemImage: "person.circle.fill", coordinate: userLocation)
                                 .tint(.blue)
@@ -390,19 +409,23 @@ struct LawyersListView: View {
     }
     
     private func updateMapForLocation(_ location: String?) {
-        let coordinates: [String: CLLocationCoordinate2D] = [
-            "Colombo": CLLocationCoordinate2D(latitude: 6.9271, longitude: 79.8612),
-            "Gampaha": CLLocationCoordinate2D(latitude: 7.0873, longitude: 79.9925),
-            "Kandy": CLLocationCoordinate2D(latitude: 7.2906, longitude: 80.6337),
-            "Negombo": CLLocationCoordinate2D(latitude: 7.2089, longitude: 79.8354),
-            "Galle": CLLocationCoordinate2D(latitude: 6.0535, longitude: 80.2210)
-        ]
-        
         withAnimation(.easeInOut) {
-            if let city = location, let coord = coordinates[city] {
-                cameraPosition = .region(MKCoordinateRegion(center: coord, span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)))
+            if let city = location {
+                // Find all lawyers in this city
+                let lawyersInCity = lawyers.filter { $0.location.contains(city) }
+                if let first = lawyersInCity.first {
+                    // Center on the first lawyer's coordinate
+                    cameraPosition = .region(MKCoordinateRegion(
+                        center: first.coordinate,
+                        span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+                    ))
+                }
             } else {
-                cameraPosition = .region(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 7.8731, longitude: 80.7718), span: MKCoordinateSpan(latitudeDelta: 4.0, longitudeDelta: 4.0)))
+                // Reset to show entire country or current results
+                cameraPosition = .region(MKCoordinateRegion(
+                    center: CLLocationCoordinate2D(latitude: 7.8731, longitude: 80.7718),
+                    span: MKCoordinateSpan(latitudeDelta: 4.0, longitudeDelta: 4.0)
+                ))
             }
         }
     }

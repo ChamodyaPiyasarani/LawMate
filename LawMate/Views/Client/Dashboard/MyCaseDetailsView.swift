@@ -110,7 +110,7 @@ struct MyCaseDetailsView: View {
                             Map(initialPosition: .region(MKCoordinateRegion(
                                 center: lawyerLocation,
                                 span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
-                            ))) {
+                            )), bounds: MapCameraBounds(maximumDistance: 1500000)) {
                                 Marker("You", coordinate: userLocation)
                                     .tint(.blue)
                                 Marker(appointment.lawyerName, coordinate: lawyerLocation)
