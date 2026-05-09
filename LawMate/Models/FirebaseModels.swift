@@ -26,12 +26,24 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
     var stages: [FBCaseStage] = []
     var documents: [FBDocument]? = nil
     
+    // MARK: Referral & Transfer
+    var transferStatus: String? = nil // pending_lawyer, pending_acceptance, completed, rejected
+    var targetLawyerId: String? = nil
+    var targetLawyerName: String? = nil
+    var targetLawyerImage: String? = nil
+    var transferRequestedBy: String? = nil
+    var previousLawyerId: String? = nil
+    var recommendedLawyerId: String? = nil
+    var recommendedLawyerName: String? = nil
+    var recommendedLawyerImage: String? = nil
+    
     enum CodingKeys: String, CodingKey {
         case id
         case caseNumber, title, clientName, clientId, clientImage, lawyerName, lawyerId, lawyerImage, type, status, priority, description, hearingDate, hearingDates, hearings, locationLat, locationLng, address, createdDate, stages, documents
+        case transferStatus, targetLawyerId, targetLawyerName, targetLawyerImage, transferRequestedBy, previousLawyerId, recommendedLawyerId, recommendedLawyerName, recommendedLawyerImage
     }
     
-    init(id: String? = nil, caseNumber: String, title: String, clientName: String, clientId: String, clientImage: String? = nil, lawyerName: String, lawyerId: String, lawyerImage: String? = nil, type: String, status: String, priority: String, description: String? = nil, hearingDate: Date? = nil, hearingDates: [Date] = [], hearings: [FBHearingDate] = [], locationLat: Double? = nil, locationLng: Double? = nil, address: String? = nil, createdDate: Date? = nil, stages: [FBCaseStage] = [], documents: [FBDocument]? = nil) {
+    init(id: String? = nil, caseNumber: String, title: String, clientName: String, clientId: String, clientImage: String? = nil, lawyerName: String, lawyerId: String, lawyerImage: String? = nil, type: String, status: String, priority: String, description: String? = nil, hearingDate: Date? = nil, hearingDates: [Date] = [], hearings: [FBHearingDate] = [], locationLat: Double? = nil, locationLng: Double? = nil, address: String? = nil, createdDate: Date? = nil, stages: [FBCaseStage] = [], documents: [FBDocument]? = nil, transferStatus: String? = nil, targetLawyerId: String? = nil, targetLawyerName: String? = nil, targetLawyerImage: String? = nil, transferRequestedBy: String? = nil, previousLawyerId: String? = nil, recommendedLawyerId: String? = nil, recommendedLawyerName: String? = nil, recommendedLawyerImage: String? = nil) {
         self._id = DocumentID(wrappedValue: id)
         self.caseNumber = caseNumber
         self.title = title
@@ -54,6 +66,15 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
         self.createdDate = createdDate
         self.stages = stages
         self.documents = documents
+        self.transferStatus = transferStatus
+        self.targetLawyerId = targetLawyerId
+        self.targetLawyerName = targetLawyerName
+        self.targetLawyerImage = targetLawyerImage
+        self.transferRequestedBy = transferRequestedBy
+        self.previousLawyerId = previousLawyerId
+        self.recommendedLawyerId = recommendedLawyerId
+        self.recommendedLawyerName = recommendedLawyerName
+        self.recommendedLawyerImage = recommendedLawyerImage
     }
     
     init(from decoder: Decoder) throws {
@@ -83,6 +104,16 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
         createdDate = try? container.decode(Date.self, forKey: .createdDate)
         stages = (try? container.decode([FBCaseStage].self, forKey: .stages)) ?? []
         documents = try? container.decode([FBDocument].self, forKey: .documents)
+        
+        transferStatus = try? container.decode(String.self, forKey: .transferStatus)
+        targetLawyerId = try? container.decode(String.self, forKey: .targetLawyerId)
+        targetLawyerName = try? container.decode(String.self, forKey: .targetLawyerName)
+        targetLawyerImage = try? container.decode(String.self, forKey: .targetLawyerImage)
+        transferRequestedBy = try? container.decode(String.self, forKey: .transferRequestedBy)
+        previousLawyerId = try? container.decode(String.self, forKey: .previousLawyerId)
+        recommendedLawyerId = try? container.decode(String.self, forKey: .recommendedLawyerId)
+        recommendedLawyerName = try? container.decode(String.self, forKey: .recommendedLawyerName)
+        recommendedLawyerImage = try? container.decode(String.self, forKey: .recommendedLawyerImage)
         
         // Flexible decoding for clientImage (String or Map)
         if let direct = try? container.decode(String.self, forKey: .clientImage) {
@@ -533,10 +564,11 @@ struct FBReferral: Identifiable, Codable, Hashable {
     var note: String?
     var recommendedLawyerId: String?
     var recommendedLawyerName: String?
+    var caseId: String? // Added to link with FBLegalCase
     var timestamp: Date
 
     enum CodingKeys: String, CodingKey {
-        case requesterId, requesterName, targetLawyerId, targetLawyerName, status, note, recommendedLawyerId, recommendedLawyerName, timestamp
+        case requesterId, requesterName, targetLawyerId, targetLawyerName, status, note, recommendedLawyerId, recommendedLawyerName, caseId, timestamp
     }
 }
 

@@ -2078,3 +2078,125 @@ struct ReviewSheet: View {
         }
     }
 }
+
+
+// MARK: - Lawyer Referral Picker
+struct LawyerReferralPickerView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var firestore: FirestoreManager
+    var onSelect: (User) -> Void
+    
+    @State private var searchText = ""
+    @State private var showSuggestions = false
+    
+    var filteredLawyers: [User] {
+        let currentUserId = AuthService.shared.currentUser?.id ?? ""
+        return firestore.lawyers.filter { lawyer in
+            if lawyer.id == currentUserId { return false }
+            
+            let nameMatch = lawyer.fullName.lowercased().contains(searchText.lowercased())
+            let specialtyMatch = lawyer.specialty?.lowercased().contains(searchText.lowercased()) ?? false
+            return nameMatch || specialtyMatch
+        }
+    }
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.lmBackground.ignoresSafeArea()
+                
+                VStack(spacing: 0) {
+                    // Search Bar
+                    LawMateTextField(icon: "magnifyingglass", placeholder: "Search by name or specialty...", text: $searchText)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+                        .onChange(of: searchText) { _, newValue in
+                            showSuggestions = !newValue.isEmpty
+                        }
+                    
+                    if showSuggestions {
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                if filteredLawyers.isEmpty {
+                                    VStack(spacing: 12) {
+                                        Image(systemName: "person.fill.questionmark")
+                                            .font(.system(size: 40))
+                                            .foregroundColor(.lmPrimary.opacity(0.2))
+                                        Text("No colleagues found")
+                                            .font(.lmBody)
+                                            .foregroundColor(.lmTextSecondary)
+                                    }
+                                    .padding(.top, 40)
+                                } else {
+                                    ForEach(filteredLawyers) { lawyer in
+                                        Button {
+                                            onSelect(lawyer)
+                                            dismiss()
+                                        } label: {
+                                            LawyerReferralRow(lawyer: lawyer)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                            .padding(20)
+                        }
+                    } else {
+                        // Empty state when not searching
+                        VStack(spacing: 16) {
+                            Image(systemName: "person.2.fill")
+                                .font(.system(size: 60))
+                                .foregroundColor(.lmPrimary.opacity(0.1))
+                            Text("Type a name to find a colleague")
+                                .font(.lmBody)
+                                .foregroundColor(.lmTextSecondary)
+                        }
+                        .frame(maxHeight: .infinity)
+                    }
+                }
+            }
+            .navigationTitle("Select Colleague")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .onAppear {
+            firestore.listenForLawyers()
+        }
+    }
+}
+
+struct LawyerReferralRow: View {
+    let lawyer: User
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            LawMateAvatar(url: lawyer.profileImage, name: lawyer.fullName, size: 50)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(lawyer.fullName)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.lmPrimary)
+                
+                if let specialty = lawyer.specialty {
+                    Text(specialty)
+                        .font(.system(size: 12))
+                        .foregroundColor(.lmTextSecondary)
+                }
+            }
+            
+            Spacer()
+            
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.lmPrimary.opacity(0.3))
+        }
+        .padding()
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
+    }
+}

@@ -31,6 +31,11 @@ struct CaseDetailView: View {
     @State private var targetGroupId: String? = nil
     @State private var targetVersion: Int = 1
     
+    @State private var showReferralPicker = false
+    @State private var showReferralOptions = false
+    @State private var showReferralAlert = false
+    @State private var selectedReferralLawyer: User? = nil
+    
     private let documentCategories = ["Evidence", "Contract", "Court Order", "Identity", "Other"]
     
     private var isLawyer: Bool {
@@ -97,6 +102,42 @@ struct CaseDetailView: View {
         .sheet(isPresented: $showAddHearingSheet) {
             addHearingSheet
         }
+        .confirmationDialog("Case Referral", isPresented: $showReferralOptions, titleVisibility: .visible) {
+            Button("Ask Current Lawyer for Recommendation") {
+                if let caseId = currentCase.id {
+                    firestore.requestCaseTransfer(caseId: caseId)
+                }
+            }
+            Button("I Have a Specific Lawyer in Mind") {
+                showReferralPicker = true
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("How would you like to proceed with the referral?")
+        }
+        .sheet(isPresented: $showReferralPicker) {
+            LawyerReferralPickerView { lawyer in
+                selectedReferralLawyer = lawyer
+                showReferralAlert = true
+            }
+        }
+        .alert("Request Referral?", isPresented: $showReferralAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Request") {
+                if let lawyer = selectedReferralLawyer, let caseId = currentCase.id {
+                    firestore.requestCaseTransfer(
+                        caseId: caseId,
+                        targetLawyerId: lawyer.id,
+                        targetLawyerName: lawyer.fullName,
+                        targetLawyerImage: lawyer.profileImage
+                    )
+                }
+            }
+        } message: {
+            if let lawyer = selectedReferralLawyer {
+                Text("Do you want to request a referral to \(lawyer.fullName)? Your current lawyer must approve this first.")
+            }
+        }
     }
 
     private var mainContent: some View {
@@ -115,10 +156,62 @@ struct CaseDetailView: View {
                     showNotification: !isLawyer,
                     showCamera: isLawyer,
                     onBack: { dismiss() },
-                    onCamera: { showScanner = true }
+                    onCamera: { showScanner = true },
+                    trailingView: AnyView(
+                        Group {
+                            if !isLawyer && currentCase.transferStatus == nil {
+                                Button {
+                                    showReferralOptions = true
+                                } label: {
+                                    ZStack {
+                                        Circle()
+                                            .fill(.ultraThinMaterial)
+                                            .frame(width: 44, height: 44)
+                                        Image(systemName: "person.2.badge.key.fill")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.lmPrimary)
+                                    }
+                                }
+                            } else if !isLawyer {
+                                NotificationButton()
+                            }
+                        }
+                    )
                 )
                 .padding(.top, 65)
                 .zIndex(10)
+                
+                // MARK: Transfer Status Banner
+                if let status = currentCase.transferStatus {
+                    HStack {
+                        Image(systemName: status == "completed" ? "checkmark.circle.fill" : "arrow.left.and.right.circle.fill")
+                            .foregroundColor(.white)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(status == "completed" ? "Transfer Successful" : "Case Transfer in Progress")
+                                .font(.system(size: 12, weight: .bold))
+                            Text(transferStatusMessage)
+                                .font(.system(size: 10))
+                        }
+                        .foregroundColor(.white)
+                        Spacer()
+                        
+                        if status == "completed" {
+                            Button {
+                                firestore.clearTransferStatus(caseId: currentCase.id ?? "")
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.white.opacity(0.6))
+                                    .padding(8)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(status == "completed" ? Color.green : Color.lmPrimary.opacity(0.8))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal, 24)
+                    .padding(.top, 10)
+                }
                 
                 // MARK: Case Header Summary
                 HStack(spacing: 16) {
@@ -551,6 +644,22 @@ struct CaseDetailView: View {
         }
         return uniqueDates
     }
+    
+    private var transferStatusMessage: String {
+        switch currentCase.transferStatus {
+        case "pending_lawyer":
+            return "Waiting for current lawyer's approval."
+        case "pending_acceptance":
+            let name = currentCase.recommendedLawyerName ?? currentCase.targetLawyerName ?? "the new lawyer"
+            return "Waiting for \(name) to accept."
+        case "completed":
+            return "Your case is now assigned to \(currentCase.lawyerName)."
+        case "rejected":
+            return "Transfer request was declined."
+        default:
+            return ""
+        }
+    }
 }
 
 // MARK: - Helper Components
@@ -615,3 +724,4 @@ struct StageUploadButton: View {
         }
     }
 }
+

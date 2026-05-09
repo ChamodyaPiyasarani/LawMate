@@ -232,7 +232,12 @@ class FirestoreManager: ObservableObject {
         
         switch role {
         case .lawyer:
-            query = query.whereField("lawyerId", isEqualTo: userId)
+            // Query cases where lawyer is primary OR target of referral
+            query = db.collection("cases").whereFilter(Filter.orFilter([
+                Filter.whereField("lawyerId", isEqualTo: userId),
+                Filter.whereField("recommendedLawyerId", isEqualTo: userId),
+                Filter.whereField("previousLawyerId", isEqualTo: userId)
+            ]))
         case .client:
             query = query.whereField("clientId", isEqualTo: userId)
         default:
@@ -561,68 +566,104 @@ class FirestoreManager: ObservableObject {
     }
 
     func acceptReferral(referralId: String, completion: ((Bool) -> Void)? = nil) {
-        db.collection("referrals").document(referralId).updateData([
-            "status": "Accepted"
-        ]) { [weak self] error in
-            if let error = error {
-                print("Error accepting referral: \(error)")
+        db.collection("referrals").document(referralId).getDocument { [weak self] snapshot, _ in
+            guard let referral = try? snapshot?.data(as: FBReferral.self) else {
                 completion?(false)
                 return
             }
+            
+            self?.db.collection("referrals").document(referralId).updateData([
+                "status": "Accepted"
+            ]) { error in
+                if let error = error {
+                    print("Error accepting referral: \(error)")
+                    completion?(false)
+                    return
+                }
 
-            if let referral = self?.referrals.first(where: { $0.id == referralId }) {
-                let clientNotification = FBNotification(
-                    title: "Referral Accepted",
-                    body: "Your referral was accepted by \(referral.recommendedLawyerName ?? "the lawyer").",
-                    type: "referral",
-                    timestamp: Date(),
-                    relatedId: referralId
-                )
-                self?.addNotification(clientNotification, toUserId: referral.requesterId)
+                if let referralObj = self?.referrals.first(where: { $0.id == referralId }) {
+                    let clientNotification = FBNotification(
+                        title: "Referral Accepted",
+                        body: "Your referral was accepted by \(referralObj.recommendedLawyerName ?? "the lawyer").",
+                        type: "referral",
+                        timestamp: Date(),
+                        relatedId: referralId
+                    )
+                    self?.addNotification(clientNotification, toUserId: referralObj.requesterId)
 
-                let referringNotification = FBNotification(
-                    title: "Referral Accepted",
-                    body: "Your referral was accepted.",
-                    type: "referral",
-                    timestamp: Date(),
-                    relatedId: referralId
-                )
-                self?.addNotification(referringNotification, toUserId: referral.targetLawyerId)
+                    let referringNotification = FBNotification(
+                        title: "Referral Accepted",
+                        body: "Your referral was accepted.",
+                        type: "referral",
+                        timestamp: Date(),
+                        relatedId: referralId
+                    )
+                    self?.addNotification(referringNotification, toUserId: referralObj.targetLawyerId)
+                }
+                
+                // If there's a linked case, execute the handover
+                if let caseId = referral.caseId {
+                    self?.executeCaseHandover(caseId: caseId, approved: true, isCurrentLawyer: false) { success in
+                        completion?(success)
+                    }
+                } else {
+                    completion?(true)
+                }
             }
-            completion?(true)
         }
+    }
+    
+    /// Internal helper to execute full case handover and notify parties
+    func executeCaseHandover(caseId: String, approved: Bool, isCurrentLawyer: Bool, completion: ((Bool) -> Void)? = nil) {
+        self.respondToTransferRequest(caseId: caseId, approved: approved, isCurrentLawyer: isCurrentLawyer)
+        completion?(true)
     }
 
     func rejectReferral(referralId: String, completion: ((Bool) -> Void)? = nil) {
-        db.collection("referrals").document(referralId).updateData([
-            "status": "Rejected"
-        ]) { [weak self] error in
-            if let error = error {
-                print("Error rejecting referral: \(error)")
+        db.collection("referrals").document(referralId).getDocument { [weak self] snapshot, _ in
+            guard let referral = try? snapshot?.data(as: FBReferral.self) else {
                 completion?(false)
                 return
             }
+            
+            self?.db.collection("referrals").document(referralId).updateData([
+                "status": "Rejected"
+            ]) { error in
+                if let error = error {
+                    print("Error rejecting referral: \(error)")
+                    completion?(false)
+                    return
+                }
 
-            if let referral = self?.referrals.first(where: { $0.id == referralId }) {
-                let clientNotification = FBNotification(
-                    title: "Referral Update",
-                    body: "The recommended lawyer declined your referral.",
-                    type: "referral",
-                    timestamp: Date(),
-                    relatedId: referralId
-                )
-                self?.addNotification(clientNotification, toUserId: referral.requesterId)
+                if let referralObj = self?.referrals.first(where: { $0.id == referralId }) {
+                    let clientNotification = FBNotification(
+                        title: "Referral Update",
+                        body: "The recommended lawyer declined your referral.",
+                        type: "referral",
+                        timestamp: Date(),
+                        relatedId: referralId
+                    )
+                    self?.addNotification(clientNotification, toUserId: referralObj.requesterId)
 
-                let referringNotification = FBNotification(
-                    title: "Referral Update",
-                    body: "The recommended lawyer declined the referral.",
-                    type: "referral",
-                    timestamp: Date(),
-                    relatedId: referralId
-                )
-                self?.addNotification(referringNotification, toUserId: referral.targetLawyerId)
+                    let referringNotification = FBNotification(
+                        title: "Referral Update",
+                        body: "The recommended lawyer declined the referral.",
+                        type: "referral",
+                        timestamp: Date(),
+                        relatedId: referralId
+                    )
+                    self?.addNotification(referringNotification, toUserId: referralObj.targetLawyerId)
+                }
+                
+                // If there's a linked case, sync the rejection
+                if let caseId = referral.caseId {
+                    self?.executeCaseHandover(caseId: caseId, approved: false, isCurrentLawyer: false) { success in
+                        completion?(success)
+                    }
+                } else {
+                    completion?(true)
+                }
             }
-            completion?(true)
         }
     }
 
@@ -719,26 +760,41 @@ class FirestoreManager: ObservableObject {
     }
 
     func declineReferral(referralId: String, completion: ((Bool) -> Void)? = nil) {
-        db.collection("referrals").document(referralId).updateData([
-            "status": "Declined"
-        ]) { [weak self] error in
-            if let error = error {
-                print("Error declining referral: \(error)")
+        db.collection("referrals").document(referralId).getDocument { [weak self] snapshot, _ in
+            guard let referral = try? snapshot?.data(as: FBReferral.self) else {
                 completion?(false)
                 return
             }
+            
+            self?.db.collection("referrals").document(referralId).updateData([
+                "status": "Declined"
+            ]) { error in
+                if let error = error {
+                    print("Error declining referral: \(error)")
+                    completion?(false)
+                    return
+                }
 
-            if let referral = self?.referrals.first(where: { $0.id == referralId }) {
-                let notification = FBNotification(
-                    title: "Referral Update",
-                    body: "Your referral request was declined.",
-                    type: "referral",
-                    timestamp: Date(),
-                    relatedId: referralId
-                )
-                self?.addNotification(notification, toUserId: referral.requesterId)
+                if let referralObj = self?.referrals.first(where: { $0.id == referralId }) {
+                    let notification = FBNotification(
+                        title: "Referral Update",
+                        body: "Your referral request was declined.",
+                        type: "referral",
+                        timestamp: Date(),
+                        relatedId: referralId
+                    )
+                    self?.addNotification(notification, toUserId: referralObj.requesterId)
+                }
+                
+                // If there's a linked case, the current lawyer is declining the client's request
+                if let caseId = referral.caseId {
+                    self?.executeCaseHandover(caseId: caseId, approved: false, isCurrentLawyer: true) { success in
+                        completion?(success)
+                    }
+                } else {
+                    completion?(true)
+                }
             }
-            completion?(true)
         }
     }
     
@@ -799,6 +855,216 @@ class FirestoreManager: ObservableObject {
                     relatedId: caseId
                 )
                 self?.addNotification(notification, toUserId: legalCase.clientId)
+            }
+        }
+    }
+    
+    // MARK: - Case Transfers & Referrals
+    
+    func requestCaseTransfer(caseId: String, targetLawyerId: String? = nil, targetLawyerName: String? = nil, targetLawyerImage: String? = nil) {
+        let currentUserId = AuthService.shared.currentUser?.id ?? ""
+        var updateData: [String: Any] = [
+            "transferStatus": "pending_lawyer",
+            "transferRequestedBy": currentUserId
+        ]
+        
+        // In the case of a client request, the 'targetLawyerId' is the person the client *wants*
+        if let tid = targetLawyerId { updateData["recommendedLawyerId"] = tid }
+        if let tname = targetLawyerName { updateData["recommendedLawyerName"] = tname }
+        if let timg = targetLawyerImage { updateData["recommendedLawyerImage"] = timg }
+        
+        db.collection("cases").document(caseId).updateData(updateData)
+        
+        // Notify the current lawyer
+        if let legalCase = cases.first(where: { $0.id == caseId }) {
+            let body = targetLawyerName != nil ? "Client \(legalCase.clientName) requested a case transfer to \(targetLawyerName!)." : "Client \(legalCase.clientName) requested a case referral."
+            let notification = FBNotification(
+                title: "Transfer Requested",
+                body: body,
+                type: "case",
+                timestamp: Date(),
+                relatedId: caseId
+            )
+            addNotification(notification, toUserId: legalCase.lawyerId)
+            
+            // Create a referral record
+                let referral = FBReferral(
+                    requesterId: currentUserId,
+                    requesterName: legalCase.clientName,
+                    targetLawyerId: legalCase.lawyerId, // The person who must recommend/approve
+                    targetLawyerName: legalCase.lawyerName,
+                    status: "Pending",
+                    note: "Transfer request for case: \(legalCase.title)",
+                    recommendedLawyerId: targetLawyerId,
+                    recommendedLawyerName: targetLawyerName,
+                    caseId: caseId,
+                    timestamp: Date()
+                )
+            _ = try? db.collection("referrals").addDocument(from: referral)
+        }
+    }
+    
+    func recommendTransfer(caseId: String, targetLawyer: User) {
+        db.collection("cases").document(caseId).updateData([
+            "transferStatus": "pending_acceptance",
+            "recommendedLawyerId": targetLawyer.id,
+            "recommendedLawyerName": targetLawyer.fullName,
+            "recommendedLawyerImage": targetLawyer.profileImage ?? ""
+        ]) { [weak self] error in
+            if let error = error {
+                print("Error recommending transfer: \(error)")
+                return
+            }
+            
+            // Update the referral document if it exists, or create one
+            self?.db.collection("cases").document(caseId).getDocument { snapshot, _ in
+                guard let legalCase = try? snapshot?.data(as: FBLegalCase.self) else { return }
+                
+                let referral = FBReferral(
+                    requesterId: legalCase.clientId,
+                    requesterName: legalCase.clientName,
+                    targetLawyerId: legalCase.lawyerId,
+                    targetLawyerName: legalCase.lawyerName,
+                    status: "Recommended",
+                    note: "Lawyer recommendation for '\(legalCase.title)'",
+                    recommendedLawyerId: targetLawyer.id,
+                    recommendedLawyerName: targetLawyer.fullName,
+                    caseId: caseId,
+                    timestamp: Date()
+                )
+                _ = try? self?.db.collection("referrals").addDocument(from: referral)
+                
+                // Notify the NEW lawyer
+                let notification = FBNotification(
+                    title: "New Case Referral",
+                    body: "Lawyer \(legalCase.lawyerName) has recommended you for a case.",
+                    type: "case",
+                    timestamp: Date(),
+                    relatedId: caseId
+                )
+                self?.addNotification(notification, toUserId: targetLawyer.id)
+            }
+        }
+    }
+    
+    func respondToTransferRequest(caseId: String, approved: Bool, isCurrentLawyer: Bool) {
+        db.collection("cases").document(caseId).getDocument { [weak self] snapshot, error in
+            guard let legalCase = try? snapshot?.data(as: FBLegalCase.self) else { return }
+            
+            if isCurrentLawyer {
+                if approved {
+                    // Current lawyer approves. Case goes to 'pending_acceptance' for the recommended lawyer.
+                    self?.db.collection("cases").document(caseId).updateData([
+                        "transferStatus": "pending_acceptance"
+                    ]) { error in
+                        if let error = error {
+                            print("Error approving transfer: \(error)")
+                            return
+                        }
+                        
+                        // Notify the recommended lawyer
+                        if let recommendedId = legalCase.recommendedLawyerId {
+                            let notification = FBNotification(
+                                title: "New Case Referral",
+                                body: "A case has been referred to you for review.",
+                                type: "case",
+                                timestamp: Date(),
+                                relatedId: caseId
+                            )
+                            self?.addNotification(notification, toUserId: recommendedId)
+                        }
+                    }
+                } else {
+                    // Current lawyer declined
+                    self?.db.collection("cases").document(caseId).updateData([
+                        "transferStatus": FieldValue.delete(),
+                        "recommendedLawyerId": FieldValue.delete(),
+                        "recommendedLawyerName": FieldValue.delete(),
+                        "recommendedLawyerImage": FieldValue.delete()
+                    ]) { error in
+                        if let error = error {
+                            print("Error declining transfer: \(error)")
+                            return
+                        }
+                        
+                        // Notify client
+                        let notification = FBNotification(
+                            title: "Transfer Declined",
+                            body: "Your request to transfer '\(legalCase.title)' was declined by the current lawyer.",
+                            type: "case",
+                            timestamp: Date(),
+                            relatedId: caseId
+                        )
+                        self?.addNotification(notification, toUserId: legalCase.clientId)
+                    }
+                }
+            } else {
+                // Response from the RECOMMENDED lawyer
+                if approved {
+                    let newLawyerId = legalCase.recommendedLawyerId ?? ""
+                    let newLawyerName = legalCase.recommendedLawyerName ?? ""
+                    let newLawyerImage = legalCase.recommendedLawyerImage
+                    let oldLawyerId = legalCase.lawyerId
+                    
+                    self?.db.collection("cases").document(caseId).updateData([
+                        "lawyerId": newLawyerId,
+                        "lawyerName": newLawyerName,
+                        "lawyerImage": newLawyerImage as Any,
+                        "transferStatus": "completed",
+                        "previousLawyerId": oldLawyerId,
+                        "recommendedLawyerId": FieldValue.delete(),
+                        "recommendedLawyerName": FieldValue.delete(),
+                        "recommendedLawyerImage": FieldValue.delete()
+                    ]) { error in
+                        if let error = error {
+                            print("Error completing transfer: \(error)")
+                            return
+                        }
+                        
+                        // Notify client
+                        let notification = FBNotification(
+                            title: "Transfer Completed",
+                            body: "Your case '\(legalCase.title)' has been successfully transferred to \(newLawyerName).",
+                            type: "case",
+                            timestamp: Date(),
+                            relatedId: caseId
+                        )
+                        self?.addNotification(notification, toUserId: legalCase.clientId)
+                        
+                        // Notify old lawyer
+                        let oldNotification = FBNotification(
+                            title: "Case Transferred",
+                            body: "Case '\(legalCase.title)' was accepted by \(newLawyerName).",
+                            type: "case",
+                            timestamp: Date(),
+                            relatedId: caseId
+                        )
+                        self?.addNotification(oldNotification, toUserId: oldLawyerId)
+                    }
+                } else {
+                    // Recommended lawyer declined
+                    self?.db.collection("cases").document(caseId).updateData([
+                        "transferStatus": "pending_lawyer",
+                        "recommendedLawyerId": FieldValue.delete(),
+                        "recommendedLawyerName": FieldValue.delete(),
+                        "recommendedLawyerImage": FieldValue.delete()
+                    ]) { error in
+                        if let error = error {
+                            print("Error declining referral: \(error)")
+                            return
+                        }
+                        
+                        // Notify current lawyer
+                        let notification = FBNotification(
+                            title: "Referral Declined",
+                            body: "The lawyer you recommended for '\(legalCase.title)' has declined.",
+                            type: "case",
+                            timestamp: Date(),
+                            relatedId: caseId
+                        )
+                        self?.addNotification(notification, toUserId: legalCase.lawyerId)
+                    }
+                }
             }
         }
     }
@@ -2151,6 +2417,19 @@ class FirestoreManager: ObservableObject {
                 "reviewCount": count
             ])
         }
+    }
+    
+    func clearTransferStatus(caseId: String) {
+        db.collection("cases").document(caseId).updateData([
+            "transferStatus": FieldValue.delete(),
+            "targetLawyerId": FieldValue.delete(),
+            "targetLawyerName": FieldValue.delete(),
+            "targetLawyerImage": FieldValue.delete(),
+            "recommendedLawyerId": FieldValue.delete(),
+            "recommendedLawyerName": FieldValue.delete(),
+            "recommendedLawyerImage": FieldValue.delete(),
+            "transferRequestedBy": FieldValue.delete()
+        ])
     }
 }
 

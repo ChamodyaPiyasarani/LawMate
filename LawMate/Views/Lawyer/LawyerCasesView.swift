@@ -13,16 +13,40 @@ struct LawyerCasesView: View {
     
     var filteredCases: [FBLegalCase] {
         firestore.cases.filter { c in
+            // Exclude incoming referrals that haven't been accepted yet from the main list
+            if c.targetLawyerId == AuthService.shared.currentUser?.id && c.transferStatus == "pending_acceptance" {
+                return false
+            }
+            
             let title = c.title 
             let client = c.clientName 
             let matchesSearch = searchText.isEmpty || client.lowercased().contains(searchText.lowercased()) || title.lowercased().contains(searchText.lowercased())
             let matchesStatus = selectedStatus == nil || c.status == selectedStatus
-            return matchesSearch && matchesStatus
+            let notRecommended = c.previousLawyerId != AuthService.shared.currentUser?.id
+            return matchesSearch && matchesStatus && notRecommended
         }
+    }
+    
+    var recommendedCases: [FBLegalCase] {
+        let uid = AuthService.shared.currentUser?.id ?? ""
+        return firestore.cases.filter { $0.previousLawyerId == uid }
+    }
+    
+    var incomingReferrals: [FBLegalCase] {
+        let uid = AuthService.shared.currentUser?.id ?? ""
+        return firestore.cases.filter { $0.recommendedLawyerId == uid && $0.transferStatus == "pending_acceptance" }
+    }
+    
+    var outgoingRequests: [FBLegalCase] {
+        let uid = AuthService.shared.currentUser?.id ?? ""
+        return firestore.cases.filter { $0.lawyerId == uid && $0.transferStatus == "pending_lawyer" }
     }
     
     @State private var editingCase: FBLegalCase? = nil
     @State private var showEditSheet = false
+    
+    @State private var showRecommendPicker = false
+    @State private var caseToRecommend: FBLegalCase? = nil
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -83,6 +107,29 @@ struct LawyerCasesView: View {
                     // MARK: Case List
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 20) {
+                            // Incoming Referrals (Action Required)
+                            if !incomingReferrals.isEmpty {
+                                referralSection(title: "Incoming Referrals", cases: incomingReferrals, icon: "arrow.right.circle.fill", color: .lmPrimary, isIncoming: true)
+                            }
+                            
+                            // Outgoing Requests (Action Required)
+                            if !outgoingRequests.isEmpty {
+                                referralSection(title: "Requested Referrals", cases: outgoingRequests, icon: "arrow.left.circle.fill", color: .orange, isIncoming: false)
+                            }
+                            
+                            if !incomingReferrals.isEmpty || !outgoingRequests.isEmpty {
+                                Divider()
+                                    .padding(.vertical, 10)
+                            }
+                            
+                            // Recommended Cases
+                            if !recommendedCases.isEmpty {
+                                referralSection(title: "Recommended Cases", cases: recommendedCases, icon: "hand.thumbsup.fill", color: .blue, isIncoming: false, hideActions: true)
+                                
+                                Divider()
+                                    .padding(.vertical, 10)
+                            }
+                            
                             ForEach(filteredCases) { lawyerCase in
                                 NavigationLink(value: lawyerCase) {
                                     LawyerCaseCard(lawyerCase: lawyerCase, onDelete: {
@@ -113,6 +160,13 @@ struct LawyerCasesView: View {
                     firestore.listenForCases(role: currentUser.role, userId: currentUser.id)
                 }
             }
+            .sheet(isPresented: $showRecommendPicker) {
+                LawyerReferralPickerView { lawyer in
+                    if let c = caseToRecommend, let caseId = c.id {
+                        firestore.recommendTransfer(caseId: caseId, targetLawyer: lawyer)
+                    }
+                }
+            }
 
         }
     }
@@ -123,6 +177,95 @@ struct LawyerCasesView: View {
         case "Pending":  return "hourglass"
         case "Closed":   return "checkmark.circle.fill"
         default: return "doc.text"
+        }
+    }
+    
+    private func referralSection(title: String, cases: [FBLegalCase], icon: String, color: Color, isIncoming: Bool, hideActions: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: icon)
+                Text(title)
+                    .font(.system(size: 14, weight: .bold))
+                Spacer()
+                if !hideActions {
+                    Text("\(cases.count) Pending")
+                        .font(.system(size: 10, weight: .bold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(color.opacity(0.1))
+                        .clipShape(Capsule())
+                }
+            }
+            .foregroundColor(color)
+            
+            ForEach(cases) { c in
+                VStack(spacing: 12) {
+                    HStack {
+                        LawMateAvatar(url: c.clientImage, name: c.clientName, size: 40)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(c.title)
+                                .font(.system(size: 14, weight: .bold))
+                            Text("Client: \(c.clientName)")
+                                .font(.system(size: 12))
+                                .foregroundColor(.lmTextSecondary)
+                            if let recName = c.recommendedLawyerName {
+                                Text("To: \(recName)")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.lmPrimary)
+                            }
+                        }
+                        Spacer()
+                        
+                        if hideActions {
+                            Text("Referred")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.blue)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue.opacity(0.1))
+                                .clipShape(Capsule())
+                        }
+                    }
+                    
+                    if !hideActions {
+                        HStack(spacing: 12) {
+                            Button {
+                                firestore.respondToTransferRequest(caseId: c.id ?? "", approved: false, isCurrentLawyer: !isIncoming)
+                            } label: {
+                                Text(isIncoming ? "Decline" : "Cancel")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.red)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(Color.red.opacity(0.1))
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
+                            
+                            Button {
+                                if isIncoming {
+                                    firestore.respondToTransferRequest(caseId: c.id ?? "", approved: true, isCurrentLawyer: false)
+                                } else {
+                                    // Lawyer recommending
+                                    caseToRecommend = c
+                                    showRecommendPicker = true
+                                }
+                            } label: {
+                                Text(isIncoming ? "Accept Case" : "Recommend Lawyer")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(color)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
+                        }
+                    }
+                }
+                .padding(16)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
+            }
         }
     }
 }
@@ -331,6 +474,10 @@ struct LawyerCaseDetailView: View {
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
+                        // Transfer Banners
+                        transferApprovalBanner
+                        acceptanceBanner
+                        
                         // MARK: Case Profile Header Card
                         caseProfileHeader
                         
@@ -566,6 +713,110 @@ struct LawyerCaseDetailView: View {
     }
     
     // MARK: - Subviews
+    
+    private var transferApprovalBanner: some View {
+        Group {
+            if currentCase.transferStatus == "pending_lawyer" && currentCase.lawyerId == auth.currentUser?.id {
+                VStack(spacing: 12) {
+                    HStack {
+                        Image(systemName: "arrow.left.arrow.right.circle.fill")
+                            .foregroundColor(.white)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Transfer Approval Required")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("The client has requested to transfer this case. Do you approve?")
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.9))
+                        }
+                        Spacer()
+                    }
+                    
+                    HStack(spacing: 12) {
+                        Button {
+                            firestore.respondToTransferRequest(caseId: currentCase.id ?? "", approved: true, isCurrentLawyer: true)
+                        } label: {
+                            Text("Approve")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.lmPrimary)
+                                .padding(.vertical, 8)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.white)
+                                .clipShape(Capsule())
+                        }
+                        
+                        Button {
+                            firestore.respondToTransferRequest(caseId: currentCase.id ?? "", approved: false, isCurrentLawyer: true)
+                        } label: {
+                            Text("Decline")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.vertical, 8)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.red.opacity(0.3))
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+                .padding(16)
+                .background(Color.lmPrimary)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: Color.lmPrimary.opacity(0.3), radius: 10, x: 0, y: 5)
+            }
+        }
+    }
+    
+    private var acceptanceBanner: some View {
+        Group {
+            if currentCase.transferStatus == "pending_acceptance" && currentCase.recommendedLawyerId == auth.currentUser?.id {
+                VStack(spacing: 12) {
+                    HStack {
+                        Image(systemName: "person.badge.plus.fill")
+                            .foregroundColor(.white)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Incoming Referral")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("This case has been referred to you. Would you like to accept it?")
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.9))
+                        }
+                        Spacer()
+                    }
+                    
+                    HStack(spacing: 12) {
+                        Button {
+                            firestore.respondToTransferRequest(caseId: currentCase.id ?? "", approved: true, isCurrentLawyer: false)
+                        } label: {
+                            Text("Accept Case")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.green)
+                                .padding(.vertical, 8)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.white)
+                                .clipShape(Capsule())
+                        }
+                        
+                        Button {
+                            firestore.respondToTransferRequest(caseId: currentCase.id ?? "", approved: false, isCurrentLawyer: false)
+                        } label: {
+                            Text("Decline")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.vertical, 8)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.red.opacity(0.3))
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+                .padding(16)
+                .background(Color.green)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: Color.green.opacity(0.3), radius: 10, x: 0, y: 5)
+            }
+        }
+    }
     
     private var caseProfileHeader: some View {
         VStack(spacing: 20) {

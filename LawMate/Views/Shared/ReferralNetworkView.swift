@@ -1032,6 +1032,27 @@ struct ReferralConfirmationView: View {
                         
                         // Actions
                         VStack(spacing: 16) {
+                            if let caseId = referral.caseId {
+                                Button {
+                                    firestore.executeCaseHandover(caseId: caseId, approved: true, isCurrentLawyer: true) { _ in
+                                        navPath.removeLast()
+                                    }
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "arrow.left.arrow.right.circle.fill")
+                                        Text("Confirm Case Transfer")
+                                    }
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.vertical, 16)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.orange)
+                                    .clipShape(Capsule())
+                                    .shadow(color: Color.orange.opacity(0.3), radius: 10, x: 0, y: 5)
+                                }
+                                .buttonStyle(.plain)
+                            }
+
                             Button {
                                 startChat()
                             } label: {
