@@ -80,14 +80,15 @@ struct LoginView: View {
                                         DispatchQueue.main.async {
                                             switch result {
                                             case .success:
+                                                // 1. Always update stored credentials on success
+                                                KeychainManager.shared.saveCredentials(email: email, password: password)
+                                                
+                                                // 2. Show success message
+                                                ToastManager.shared.show(title: "Welcome Back!", message: "Successfully logged in.", type: .success)
+                                                
+                                                // 3. Trigger biometric opt-in logic if not enabled
                                                 if !biometricsEnabled {
-                                                    // Save for potential opt-in on the Home screen
-                                                    KeychainManager.shared.saveCredentials(email: email, password: password)
                                                     UserDefaults.standard.set(true, forKey: "shouldShowBiometricPrompt")
-                                                } else {
-                                                    // Update stored credentials
-                                                    KeychainManager.shared.saveCredentials(email: email, password: password)
-                                                    ToastManager.shared.show(title: "Welcome Back!", message: "Successfully logged in.", type: .success)
                                                 }
                                             case .failure(let error):
                                                 ToastManager.shared.show(title: "Login Failed", message: error.localizedDescription, type: .error)

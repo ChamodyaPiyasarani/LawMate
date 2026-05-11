@@ -245,59 +245,79 @@ struct ClientHomeView: View {
     @ViewBuilder
     private var caseProgressSection: some View {
         let activeCases = firestore.cases.filter { $0.status.lowercased() != "closed" }
-        if let latestCase = activeCases.sorted(by: { ($0.createdDate ?? Date.distantPast) > ($1.createdDate ?? Date.distantPast) }).first {
-            VStack(alignment: .leading, spacing: 12) {
+            .sorted(by: { ($0.createdDate ?? Date.distantPast) > ($1.createdDate ?? Date.distantPast) })
+        
+        if !activeCases.isEmpty {
+            VStack(alignment: .leading, spacing: 16) {
                 Text("Active Case Progress")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.lmPrimary)
                     .padding(.horizontal, 24)
                 
-                Button {
-                    navPath.append(latestCase)
-                } label: {
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(latestCase.title)
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.lmPrimary)
-                                Text("Status: \(latestCase.status)")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.lmTextSecondary)
+                if activeCases.count == 1 {
+                    caseProgressCard(activeCases[0])
+                        .padding(.horizontal, 24)
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 16) {
+                            ForEach(activeCases) { legalCase in
+                                caseProgressCard(legalCase)
+                                    .frame(width: 300)
                             }
-                            Spacer()
-                            Image(systemName: "chart.bar.fill")
-                                .foregroundColor(.green.opacity(0.3))
                         }
-                        
-                        let progress = latestCase.stages.isEmpty ? 0.0 : Double(latestCase.stages.filter({ $0.isCompleted }).count) / Double(latestCase.stages.count)
-                        
-                        VStack(spacing: 8) {
-                            HStack {
-                                Text("\(Int(progress * 100))%")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.lmPrimary)
-                                Spacer()
-                                Text("\(latestCase.stages.filter({ $0.isCompleted }).count) / \(latestCase.stages.count) Stages")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.lmTextSecondary)
-                            }
-                            
-                            ProgressView(value: progress)
-                                .accentColor(.green)
-                                .scaleEffect(x: 1, y: 1.5, anchor: .center)
-                                .clipShape(Capsule())
-                        }
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 2)
                     }
-                    .padding(20)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                    .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 5)
                 }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 24)
             }
         }
+    }
+
+    private func caseProgressCard(_ legalCase: FBLegalCase) -> some View {
+        Button {
+            navPath.append(legalCase)
+        } label: {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(legalCase.title)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                            .lineLimit(1)
+                        Text("Status: \(legalCase.status)")
+                            .font(.system(size: 12))
+                            .foregroundColor(.lmTextSecondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chart.bar.fill")
+                        .foregroundColor(.green.opacity(0.3))
+                }
+                
+                let progress = legalCase.stages.isEmpty ? 0.0 : Double(legalCase.stages.filter({ $0.isCompleted }).count) / Double(legalCase.stages.count)
+                
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("\(Int(progress * 100))%")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.lmPrimary)
+                        Spacer()
+                        Text("\(legalCase.stages.filter({ $0.isCompleted }).count) / \(legalCase.stages.count) Stages")
+                            .font(.system(size: 10))
+                            .foregroundColor(.lmTextSecondary)
+                    }
+                    
+                    ProgressView(value: progress)
+                        .accentColor(.green)
+                        .scaleEffect(x: 1, y: 1.5, anchor: .center)
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(20)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 5)
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -356,13 +376,13 @@ struct ClientHomeView: View {
                             .foregroundColor(themeColor)
                     }
                     
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 6) {
                         let dayText = appointmentDay(for: appointment.date)
                         Text(dayText)
                             .font(.system(size: 10, weight: .black))
                             .foregroundColor(dayText == "TODAY" ? .white : themeColor)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
                             .background(dayText == "TODAY" ? themeColor : Color.clear)
                             .clipShape(Capsule())
                         
@@ -459,9 +479,7 @@ private struct ClientHomeNavigationDestinations: ViewModifier {
                     ReferralNetworkView(navPath: $navPath, activeConversation: $activeConversation)
                 }
             }
-            .navigationDestination(for: FBAdvisoryDocument.self) { doc in
-                DocumentDetailView(document: doc)
-            }
+            // Document details are now handled via sheets in AdvisoryListView for a more modern "drawer" experience
             .navigationDestination(for: FBLegalCase.self) { clientCase in
                 CaseDetailView(clientCase: clientCase, navPath: $navPath, activeConversation: $activeConversation)
             }

@@ -5,23 +5,35 @@ struct LawyerCasesView: View {
     @State private var selectedStatus: String? = nil
     
     // Statuses for filtering
-    let statuses = ["Active", "Pending", "Closed"]
+    let statuses = ["Active", "Pending", "Closed", "Referred"]
     
     @EnvironmentObject var firestore: FirestoreManager
     @Binding var navPath: NavigationPath
     @Binding var activeConversation: FBConversation?
+    @EnvironmentObject var notifications: NotificationManager
     
     var filteredCases: [FBLegalCase] {
         firestore.cases.filter { c in
-            // Exclude incoming referrals that haven't been accepted yet from the main list
-            if c.targetLawyerId == AuthService.shared.currentUser?.id && c.transferStatus == "pending_acceptance" {
+            // Exclude incoming referrals that haven't been accepted yet
+            if c.recommendedLawyerId == AuthService.shared.currentUser?.id && c.transferStatus == "pending_acceptance" && c.lawyerAcceptedTransfer != true {
                 return false
             }
             
             let title = c.title 
             let client = c.clientName 
             let matchesSearch = searchText.isEmpty || client.lowercased().contains(searchText.lowercased()) || title.lowercased().contains(searchText.lowercased())
-            let matchesStatus = selectedStatus == nil || c.status == selectedStatus
+            
+            let matchesStatus: Bool
+            if let selectedStatus = selectedStatus {
+                if selectedStatus == "Referred" {
+                    matchesStatus = c.transferStatus != nil && c.transferStatus != "completed"
+                } else {
+                    matchesStatus = c.status == selectedStatus
+                }
+            } else {
+                matchesStatus = true
+            }
+            
             let notRecommended = c.previousLawyerId != AuthService.shared.currentUser?.id
             return matchesSearch && matchesStatus && notRecommended
         }
@@ -34,7 +46,7 @@ struct LawyerCasesView: View {
     
     var incomingReferrals: [FBLegalCase] {
         let uid = AuthService.shared.currentUser?.id ?? ""
-        return firestore.cases.filter { $0.recommendedLawyerId == uid && $0.transferStatus == "pending_acceptance" }
+        return firestore.cases.filter { $0.recommendedLawyerId == uid && $0.transferStatus == "pending_acceptance" && $0.lawyerAcceptedTransfer != true }
     }
     
     var outgoingRequests: [FBLegalCase] {
@@ -67,7 +79,7 @@ struct LawyerCasesView: View {
                         Spacer()
                         
                         NotificationButton(action: {
-                            navPath.append(LawyerRoute.notifications)
+                            notifications.showNotifications = true
                         })
                     }
                     .padding(.horizontal, 24)
@@ -230,7 +242,11 @@ struct LawyerCasesView: View {
                     if !hideActions {
                         HStack(spacing: 12) {
                             Button {
-                                firestore.respondToTransferRequest(caseId: c.id ?? "", approved: false, isCurrentLawyer: !isIncoming)
+                                firestore.respondToTransferRequest(caseId: c.id ?? "", approved: false, role: .lawyer, userId: AuthService.shared.currentUser?.id ?? "") { success in
+                                    if success {
+                                        ToastManager.shared.show(title: "Referral Declined", message: "Declined successfully.", type: .success)
+                                    }
+                                }
                             } label: {
                                 Text(isIncoming ? "Decline" : "Cancel")
                                     .font(.system(size: 12, weight: .bold))
@@ -243,7 +259,11 @@ struct LawyerCasesView: View {
                             
                             Button {
                                 if isIncoming {
-                                    firestore.respondToTransferRequest(caseId: c.id ?? "", approved: true, isCurrentLawyer: false)
+                                    firestore.respondToTransferRequest(caseId: c.id ?? "", approved: true, role: .lawyer, userId: AuthService.shared.currentUser?.id ?? "") { success in
+                                        if success {
+                                            ToastManager.shared.show(title: "Referral Accepted", message: "Case moved to your active list.", type: .success)
+                                        }
+                                    }
                                 } else {
                                     // Lawyer recommending
                                     caseToRecommend = c
@@ -550,7 +570,7 @@ struct LawyerCaseDetailView: View {
     
     private func toggleStageCompletion(at index: Int) {
         // Ensure only lawyers can toggle
-        guard auth.currentUser?.role == .lawyer else { return }
+        guard AuthService.shared.currentUser?.role == .lawyer else { return }
         
         let stage = currentCase.stages[index]
         let isNext = !stage.isCompleted && (index == 0 || currentCase.stages[index-1].isCompleted)
@@ -716,7 +736,7 @@ struct LawyerCaseDetailView: View {
     
     private var transferApprovalBanner: some View {
         Group {
-            if currentCase.transferStatus == "pending_lawyer" && currentCase.lawyerId == auth.currentUser?.id {
+            if currentCase.transferStatus == "pending_lawyer" && currentCase.lawyerId == AuthService.shared.currentUser?.id {
                 VStack(spacing: 12) {
                     HStack {
                         Image(systemName: "arrow.left.arrow.right.circle.fill")
@@ -734,7 +754,11 @@ struct LawyerCaseDetailView: View {
                     
                     HStack(spacing: 12) {
                         Button {
-                            firestore.respondToTransferRequest(caseId: currentCase.id ?? "", approved: true, isCurrentLawyer: true)
+                            firestore.respondToTransferRequest(caseId: currentCase.id ?? "", approved: true, role: .lawyer, userId: AuthService.shared.currentUser?.id ?? "") { success in
+                                if success {
+                                    ToastManager.shared.show(title: "Transfer Approved", message: "Case moved to next stage.", type: .success)
+                                }
+                            }
                         } label: {
                             Text("Approve")
                                 .font(.system(size: 13, weight: .bold))
@@ -746,7 +770,11 @@ struct LawyerCaseDetailView: View {
                         }
                         
                         Button {
-                            firestore.respondToTransferRequest(caseId: currentCase.id ?? "", approved: false, isCurrentLawyer: true)
+                            firestore.respondToTransferRequest(caseId: currentCase.id ?? "", approved: false, role: .lawyer, userId: AuthService.shared.currentUser?.id ?? "") { success in
+                                if success {
+                                    ToastManager.shared.show(title: "Transfer Declined", message: "Declined successfully.", type: .success)
+                                }
+                            }
                         } label: {
                             Text("Decline")
                                 .font(.system(size: 13, weight: .bold))
@@ -768,7 +796,7 @@ struct LawyerCaseDetailView: View {
     
     private var acceptanceBanner: some View {
         Group {
-            if currentCase.transferStatus == "pending_acceptance" && currentCase.recommendedLawyerId == auth.currentUser?.id {
+            if currentCase.transferStatus == "pending_acceptance" && currentCase.recommendedLawyerId == AuthService.shared.currentUser?.id {
                 VStack(spacing: 12) {
                     HStack {
                         Image(systemName: "person.badge.plus.fill")
@@ -786,7 +814,11 @@ struct LawyerCaseDetailView: View {
                     
                     HStack(spacing: 12) {
                         Button {
-                            firestore.respondToTransferRequest(caseId: currentCase.id ?? "", approved: true, isCurrentLawyer: false)
+                            firestore.respondToTransferRequest(caseId: currentCase.id ?? "", approved: true, role: .lawyer, userId: AuthService.shared.currentUser?.id ?? "") { success in
+                                if success {
+                                    ToastManager.shared.show(title: "Referral Accepted", message: "Case added to your list.", type: .success)
+                                }
+                            }
                         } label: {
                             Text("Accept Case")
                                 .font(.system(size: 13, weight: .bold))
@@ -798,7 +830,11 @@ struct LawyerCaseDetailView: View {
                         }
                         
                         Button {
-                            firestore.respondToTransferRequest(caseId: currentCase.id ?? "", approved: false, isCurrentLawyer: false)
+                            firestore.respondToTransferRequest(caseId: currentCase.id ?? "", approved: false, role: .lawyer, userId: AuthService.shared.currentUser?.id ?? "") { success in
+                                if success {
+                                    ToastManager.shared.show(title: "Referral Declined", message: "Declined successfully.", type: .success)
+                                }
+                            }
                         } label: {
                             Text("Decline")
                                 .font(.system(size: 13, weight: .bold))
@@ -976,7 +1012,7 @@ struct LawyerCaseDetailView: View {
                         stage: stage,
                         isLast: index == currentCase.stages.count - 1,
                         isActive: isActive,
-                        canEdit: auth.currentUser?.role == .lawyer,
+                        canEdit: AuthService.shared.currentUser?.role == .lawyer,
                         onToggle: { toggleStageCompletion(at: index) },
                         onUpload: {
                             selectedStageIndex = index

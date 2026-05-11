@@ -10,6 +10,11 @@ struct LawyerDetailView: View {
     @EnvironmentObject var auth: AuthService
     @State private var showRatingSheet = false
     
+    private func requestReferral() {
+        firestore.createReferralRequest(targetLawyerId: lawyer.id, targetLawyerName: lawyer.name, note: nil)
+        ToastManager.shared.show(title: "Request Sent", message: "Referral request sent to \(lawyer.name).", type: .success)
+    }
+
     private func startChat() {
         guard let currentUser = auth.currentUser else { return }
         let partnerInfo = (name: lawyer.name, image: (lawyer.image.count > 15 ? lawyer.image : nil))
@@ -108,13 +113,17 @@ struct LawyerDetailView: View {
                         .padding(.top, 20)
 
                         // MARK: Primary Actions Row (Modern & Compact)
-                        HStack(spacing: 32) {
+                        HStack(spacing: 24) {
                             ActionButton(icon: "bubble.left.fill", title: "Message", color: .white, textColor: .lmPrimary, borderColor: .lmPrimary.opacity(0.1)) {
                                 startChat()
                             }
                             
                             ActionButton(icon: "calendar", title: "Book", color: .lmPrimary, textColor: .white) {
                                 navPath.append(ClientHomeView.AppRoute.booking(lawyer))
+                            }
+
+                            ActionButton(icon: "arrow.left.arrow.right", title: "Refer", color: .white, textColor: .orange, borderColor: .orange.opacity(0.1)) {
+                                requestReferral()
                             }
                         }
                         .padding(.vertical, 10)

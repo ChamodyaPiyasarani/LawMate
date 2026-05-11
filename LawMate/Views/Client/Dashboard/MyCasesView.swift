@@ -160,7 +160,7 @@ struct MyCaseCard: View {
     
     var statusColor: Color {
         switch clientCase.status {
-        case "Active", "Confirmed": return .green
+        case "Active", "Confirmed": return Color(red: 0.13, green: 0.65, blue: 0.35) // Deep green
         case "Pending", "In Progress": return .orange
         case "Closed": return .gray
         default: return .gray
@@ -168,56 +168,85 @@ struct MyCaseCard: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header Section
             HStack(alignment: .top, spacing: 16) {
-                LawMateAvatar(url: clientCase.lawyerImage, name: clientCase.lawyerName, size: 56)
+                // Initial/Avatar Box
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.lmPrimary.opacity(0.05))
+                        .frame(width: 56, height: 56)
+                    
+                    if let imageUrl = clientCase.lawyerImage, !imageUrl.isEmpty {
+                        LawMateAvatar(url: imageUrl, name: clientCase.lawyerName, size: 56)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                    } else {
+                        Text(String(clientCase.title.prefix(2)).uppercased())
+                            .font(.system(size: 16, weight: .black))
+                            .foregroundColor(.lmPrimary)
+                    }
+                }
                 
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .top) {
                         Text(clientCase.title)
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.lmPrimary)
-                            .fixedSize(horizontal: false, vertical: true)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(Color(red: 0.05, green: 0.25, blue: 0.22)) // Dark greenish
+                            .lineLimit(1)
                         
                         Spacer()
                         
                         // Status Badge
                         Text(clientCase.status)
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 11, weight: .black))
                             .foregroundColor(statusColor)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
                             .background(statusColor.opacity(0.1))
                             .clipShape(Capsule())
                     }
                     
                     Text(clientCase.lawyerName.isEmpty ? "Assigned Lawyer" : clientCase.lawyerName)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.lmPrimary.opacity(0.6))
-                        .lineLimit(1)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.lmTextSecondary)
                 }
             }
+            .padding(.bottom, 20)
             
+            Divider()
+                .background(Color.lmPrimary.opacity(0.05))
+                .padding(.bottom, 16)
+            
+            // Footer Section
             HStack {
-                Text(clientCase.type)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.lmPrimary.opacity(0.7))
+                HStack(spacing: 8) {
+                    Image(systemName: "briefcase.fill")
+                        .font(.system(size: 12))
+                    Text(clientCase.type)
+                        .font(.system(size: 14, weight: .bold))
+                }
+                .foregroundColor(Color(red: 0.35, green: 0.45, blue: 0.42))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.lmPrimary.opacity(0.04))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
                 
                 Spacer()
                 
                 Text(clientCase.caseNumber)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.lmPrimary.opacity(0.7))
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.lmTextSecondary.opacity(0.8))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.lmTextSecondary.opacity(0.2), lineWidth: 1)
+                    )
             }
         }
         .padding(20)
-        .background(Color.white.opacity(0.6))
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-        .overlay(
-            RoundedRectangle(cornerRadius: 24)
-                .stroke(Color.white.opacity(0.5), lineWidth: 1)
-        )
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 32))
         .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 5)
         .contextMenu {
             Button(action: onEdit) {

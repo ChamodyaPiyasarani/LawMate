@@ -138,7 +138,6 @@ class FirestoreManager: ObservableObject {
         reviewsListener?.remove()
         reviewsListener = db.collection("reviews")
             .whereField("lawyerId", isEqualTo: lawyerId)
-            .order(by: "timestamp", descending: true)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let documents = snapshot?.documents else {
                     print("Error fetching reviews: \(error?.localizedDescription ?? "Unknown")")
@@ -150,8 +149,10 @@ class FirestoreManager: ObservableObject {
                     if r?.id == nil { r?.id = doc.documentID }
                     return r
                 }
+                
                 DispatchQueue.main.async {
-                    self?.lawyerReviews = fetched
+                    // Sort in-memory to avoid composite index requirements
+                    self?.lawyerReviews = fetched.sorted { $0.timestamp > $1.timestamp }
                 }
             }
     }
@@ -543,6 +544,15 @@ class FirestoreManager: ObservableObject {
             }
 
             if let referral = self?.referrals.first(where: { $0.id == referralId }) {
+                // SYNC: Update the linked case if it exists
+                if let caseId = referral.caseId {
+                    self?.db.collection("cases").document(caseId).updateData([
+                        "transferStatus": "pending_acceptance",
+                        "recommendedLawyerId": recommendedLawyerId,
+                        "recommendedLawyerName": recommendedLawyerName
+                    ])
+                }
+
                 let notification = FBNotification(
                     title: "Referral Recommendation",
                     body: "A lawyer was recommended for your request.",
@@ -603,7 +613,7 @@ class FirestoreManager: ObservableObject {
                 
                 // If there's a linked case, execute the handover
                 if let caseId = referral.caseId {
-                    self?.executeCaseHandover(caseId: caseId, approved: true, isCurrentLawyer: false) { success in
+                    self?.executeCaseHandover(caseId: caseId, approved: true, role: .lawyer, userId: referral.recommendedLawyerId ?? "") { success in
                         completion?(success)
                     }
                 } else {
@@ -614,9 +624,10 @@ class FirestoreManager: ObservableObject {
     }
     
     /// Internal helper to execute full case handover and notify parties
-    func executeCaseHandover(caseId: String, approved: Bool, isCurrentLawyer: Bool, completion: ((Bool) -> Void)? = nil) {
-        self.respondToTransferRequest(caseId: caseId, approved: approved, isCurrentLawyer: isCurrentLawyer)
-        completion?(true)
+    func executeCaseHandover(caseId: String, approved: Bool, role: UserRole, userId: String, completion: ((Bool) -> Void)? = nil) {
+        self.respondToTransferRequest(caseId: caseId, approved: approved, role: role, userId: userId) { success in
+            completion?(success)
+        }
     }
 
     func rejectReferral(referralId: String, completion: ((Bool) -> Void)? = nil) {
@@ -657,7 +668,7 @@ class FirestoreManager: ObservableObject {
                 
                 // If there's a linked case, sync the rejection
                 if let caseId = referral.caseId {
-                    self?.executeCaseHandover(caseId: caseId, approved: false, isCurrentLawyer: false) { success in
+                    self?.executeCaseHandover(caseId: caseId, approved: false, role: .lawyer, userId: referral.recommendedLawyerId ?? "") { success in
                         completion?(success)
                     }
                 } else {
@@ -788,7 +799,7 @@ class FirestoreManager: ObservableObject {
                 
                 // If there's a linked case, the current lawyer is declining the client's request
                 if let caseId = referral.caseId {
-                    self?.executeCaseHandover(caseId: caseId, approved: false, isCurrentLawyer: true) { success in
+                    self?.executeCaseHandover(caseId: caseId, approved: false, role: .lawyer, userId: referral.targetLawyerId) { success in
                         completion?(success)
                     }
                 } else {
@@ -947,22 +958,26 @@ class FirestoreManager: ObservableObject {
         }
     }
     
-    func respondToTransferRequest(caseId: String, approved: Bool, isCurrentLawyer: Bool) {
+    func respondToTransferRequest(caseId: String, approved: Bool, role: UserRole, userId: String, completion: ((Bool) -> Void)? = nil) {
         db.collection("cases").document(caseId).getDocument { [weak self] snapshot, error in
-            guard let legalCase = try? snapshot?.data(as: FBLegalCase.self) else { return }
+            guard let legalCase = try? snapshot?.data(as: FBLegalCase.self) else {
+                completion?(false)
+                return
+            }
             
-            if isCurrentLawyer {
+            // Logic Branching based on Role
+            if role == .lawyer && legalCase.lawyerId == userId {
+                // CURRENT LAWYER RESPONDING
                 if approved {
-                    // Current lawyer approves. Case goes to 'pending_acceptance' for the recommended lawyer.
                     self?.db.collection("cases").document(caseId).updateData([
                         "transferStatus": "pending_acceptance"
                     ]) { error in
                         if let error = error {
                             print("Error approving transfer: \(error)")
+                            completion?(false)
                             return
                         }
                         
-                        // Notify the recommended lawyer
                         if let recommendedId = legalCase.recommendedLawyerId {
                             let notification = FBNotification(
                                 title: "New Case Referral",
@@ -973,9 +988,9 @@ class FirestoreManager: ObservableObject {
                             )
                             self?.addNotification(notification, toUserId: recommendedId)
                         }
+                        completion?(true)
                     }
                 } else {
-                    // Current lawyer declined
                     self?.db.collection("cases").document(caseId).updateData([
                         "transferStatus": FieldValue.delete(),
                         "recommendedLawyerId": FieldValue.delete(),
@@ -984,10 +999,10 @@ class FirestoreManager: ObservableObject {
                     ]) { error in
                         if let error = error {
                             print("Error declining transfer: \(error)")
+                            completion?(false)
                             return
                         }
                         
-                        // Notify client
                         let notification = FBNotification(
                             title: "Transfer Declined",
                             body: "Your request to transfer '\(legalCase.title)' was declined by the current lawyer.",
@@ -996,10 +1011,11 @@ class FirestoreManager: ObservableObject {
                             relatedId: caseId
                         )
                         self?.addNotification(notification, toUserId: legalCase.clientId)
+                        completion?(true)
                     }
                 }
-            } else {
-                // Response from the RECOMMENDED lawyer
+            } else if role == .client && legalCase.clientId == userId {
+                // CLIENT CONFIRMING THE HANDOVER
                 if approved {
                     let newLawyerId = legalCase.recommendedLawyerId ?? ""
                     let newLawyerName = legalCase.recommendedLawyerName ?? ""
@@ -1018,51 +1034,76 @@ class FirestoreManager: ObservableObject {
                     ]) { error in
                         if let error = error {
                             print("Error completing transfer: \(error)")
+                            completion?(false)
                             return
                         }
                         
-                        // Notify client
+                        // Notify both lawyers
+                        let oldNotification = FBNotification(title: "Case Transferred", body: "Case '\(legalCase.title)' was transferred to \(newLawyerName).", type: "case", timestamp: Date(), relatedId: caseId)
+                        self?.addNotification(oldNotification, toUserId: oldLawyerId)
+                        
+                        let newNotification = FBNotification(title: "New Case Assigned", body: "You are now the lead lawyer for '\(legalCase.title)'.", type: "case", timestamp: Date(), relatedId: caseId)
+                        self?.addNotification(newNotification, toUserId: newLawyerId)
+                        
+                        completion?(true)
+                    }
+                } else {
+                    // Client cancels transfer
+                    self?.db.collection("cases").document(caseId).updateData(["transferStatus": FieldValue.delete()]) { _ in completion?(true) }
+                }
+            } else {
+                // RECOMMENDED LAWYER RESPONDING (or other)
+                if approved {
+                    self?.db.collection("cases").document(caseId).updateData([
+                        "transferStatus": "pending_acceptance",
+                        "lawyerAcceptedTransfer": true
+                    ]) { error in
+                        if let error = error {
+                            completion?(false)
+                            return
+                        }
+                        
+                        // SYNC: Update the referral document to 'Accepted'
+                        self?.db.collection("referrals").whereField("caseId", isEqualTo: caseId).getDocuments { snap, _ in
+                            if let doc = snap?.documents.first {
+                                doc.reference.updateData(["status": "Accepted"])
+                            }
+                        }
+                        
+                        // Notify client that the lawyer they were recommended has accepted
                         let notification = FBNotification(
-                            title: "Transfer Completed",
-                            body: "Your case '\(legalCase.title)' has been successfully transferred to \(newLawyerName).",
-                            type: "case",
+                            title: "Lawyer Accepted Referral",
+                            body: "\(AuthService.shared.currentUser?.fullName ?? "A lawyer") has accepted your referral. Please confirm the transfer.",
+                            type: "referral",
                             timestamp: Date(),
                             relatedId: caseId
                         )
                         self?.addNotification(notification, toUserId: legalCase.clientId)
                         
-                        // Notify old lawyer
-                        let oldNotification = FBNotification(
-                            title: "Case Transferred",
-                            body: "Case '\(legalCase.title)' was accepted by \(newLawyerName).",
-                            type: "case",
-                            timestamp: Date(),
-                            relatedId: caseId
-                        )
-                        self?.addNotification(oldNotification, toUserId: oldLawyerId)
+                        completion?(true)
                     }
                 } else {
-                    // Recommended lawyer declined
                     self?.db.collection("cases").document(caseId).updateData([
                         "transferStatus": "pending_lawyer",
                         "recommendedLawyerId": FieldValue.delete(),
                         "recommendedLawyerName": FieldValue.delete(),
                         "recommendedLawyerImage": FieldValue.delete()
-                    ]) { error in
-                        if let error = error {
-                            print("Error declining referral: \(error)")
+                    ]) { err in
+                        if let err = err {
+                            print("Error declining referral: \(err)")
+                            completion?(false)
                             return
                         }
                         
-                        // Notify current lawyer
                         let notification = FBNotification(
                             title: "Referral Declined",
-                            body: "The lawyer you recommended for '\(legalCase.title)' has declined.",
+                            body: "The lawyer recommended for '\(legalCase.title)' has declined.",
                             type: "case",
                             timestamp: Date(),
                             relatedId: caseId
                         )
                         self?.addNotification(notification, toUserId: legalCase.lawyerId)
+                        completion?(true)
                     }
                 }
             }
@@ -1312,43 +1353,60 @@ class FirestoreManager: ObservableObject {
                     if m?.id == nil { m?.id = doc.documentID }
                     return m
                 }
-                DispatchQueue.main.async {
-                    let currentUserId = AuthService.shared.currentUser?.id
-                    let partnerId = self?.conversations
-                        .first(where: { $0.id == conversationId })?
-                        .participants
-                        .first(where: { $0 != currentUserId })
-                    let partnerKey = partnerId.flatMap { self?.publicKey(for: $0) }
 
-                    self?.messages = fetched.map { message in
-                        guard message.isEncrypted == true,
-                              let ciphertext = message.ciphertext else {
-                            return message
+                let currentUserId = AuthService.shared.currentUser?.id
+                
+                // Perform decryption after ensuring we have the partner's public key
+                self?.db.collection("conversations").document(conversationId).getDocument { conversationDoc, _ in
+                    let participants = conversationDoc?.get("participants") as? [String] ?? []
+                    let partnerId = participants.first(where: { $0 != currentUserId })
+                    
+                    if let partnerId = partnerId, self?.publicKey(for: partnerId) == nil {
+                        self?.db.collection("users").document(partnerId).getDocument { userDoc, _ in
+                            let partnerKey = userDoc?.get("messagePublicKey") as? String
+                            self?.decryptAndSetMessages(fetched, partnerId: partnerId, partnerKey: partnerKey, conversationId: conversationId, currentUserId: currentUserId)
                         }
-
-                        let decryptionKey: String?
-                        if let currentUserId = currentUserId, message.senderId == currentUserId {
-                            decryptionKey = partnerKey
-                        } else {
-                            decryptionKey = message.senderPublicKey ?? self?.publicKey(for: message.senderId)
-                        }
-
-                        guard let senderKey = decryptionKey else {
-                            return message
-                        }
-
-                        if let decrypted = MessageCryptoManager.shared.decryptMessage(ciphertext, senderPublicKeyBase64: senderKey, conversationId: conversationId) {
-                            var updated = message
-                            updated.text = decrypted
-                            return updated
-                        }
-
-                        var fallback = message
-                        fallback.text = "(Unable to decrypt message)"
-                        return fallback
+                    } else {
+                        let partnerKey = partnerId.flatMap { self?.publicKey(for: $0) }
+                        self?.decryptAndSetMessages(fetched, partnerId: partnerId, partnerKey: partnerKey, conversationId: conversationId, currentUserId: currentUserId)
                     }
                 }
             }
+    }
+
+    private func decryptAndSetMessages(_ fetched: [FBMessage], partnerId: String?, partnerKey: String?, conversationId: String, currentUserId: String?) {
+        let decryptedMessages = fetched.map { message -> FBMessage in
+            guard message.isEncrypted == true, let ciphertext = message.ciphertext else {
+                return message
+            }
+
+            let decryptionKey: String?
+            if let currentUserId = currentUserId, message.senderId == currentUserId {
+                decryptionKey = partnerKey
+            } else {
+                decryptionKey = message.senderPublicKey ?? partnerKey ?? self.publicKey(for: message.senderId)
+            }
+
+            guard let senderKey = decryptionKey else {
+                var fallback = message
+                fallback.text = "(Securing connection...)"
+                return fallback
+            }
+
+            if let decrypted = MessageCryptoManager.shared.decryptMessage(ciphertext, senderPublicKeyBase64: senderKey, conversationId: conversationId) {
+                var updated = message
+                updated.text = decrypted
+                return updated
+            }
+
+            var fallback = message
+            fallback.text = "(Unable to decrypt message)"
+            return fallback
+        }
+        
+        DispatchQueue.main.async {
+            self.messages = decryptedMessages
+        }
     }
 
     func stopListeningForMessages() {

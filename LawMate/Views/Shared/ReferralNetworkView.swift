@@ -939,6 +939,7 @@ struct ReferralConfirmationView: View {
     @Binding var activeConversation: FBConversation?
     @EnvironmentObject var firestore: FirestoreManager
     @EnvironmentObject var auth: AuthService
+    @State private var isCompleting = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -1034,22 +1035,34 @@ struct ReferralConfirmationView: View {
                         VStack(spacing: 16) {
                             if let caseId = referral.caseId {
                                 Button {
-                                    firestore.executeCaseHandover(caseId: caseId, approved: true, isCurrentLawyer: true) { _ in
-                                        navPath.removeLast()
+                                    isCompleting = true
+                                    firestore.executeCaseHandover(caseId: caseId, approved: true, role: auth.currentUser?.role ?? .client, userId: auth.currentUser?.id ?? "") { success in
+                                        isCompleting = false
+                                        if success {
+                                            navPath.removeLast()
+                                            ToastManager.shared.show(title: "Transfer Complete", message: "Case successfully transferred.", type: .success)
+                                        }
                                     }
                                 } label: {
                                     HStack {
-                                        Image(systemName: "arrow.left.arrow.right.circle.fill")
-                                        Text("Confirm Case Transfer")
+                                        if isCompleting {
+                                            ProgressView()
+                                                .tint(.white)
+                                                .padding(.trailing, 8)
+                                        } else {
+                                            Image(systemName: "arrow.left.arrow.right.circle.fill")
+                                        }
+                                        Text(isCompleting ? "Completing..." : "Confirm Case Transfer")
                                     }
                                     .font(.system(size: 16, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(.vertical, 16)
                                     .frame(maxWidth: .infinity)
-                                    .background(Color.orange)
+                                    .background(isCompleting ? Color.gray : Color.orange)
                                     .clipShape(Capsule())
                                     .shadow(color: Color.orange.opacity(0.3), radius: 10, x: 0, y: 5)
                                 }
+                                .disabled(isCompleting)
                                 .buttonStyle(.plain)
                             }
 

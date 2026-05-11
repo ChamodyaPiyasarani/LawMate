@@ -36,11 +36,12 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
     var recommendedLawyerId: String? = nil
     var recommendedLawyerName: String? = nil
     var recommendedLawyerImage: String? = nil
+    var lawyerAcceptedTransfer: Bool? = nil
     
     enum CodingKeys: String, CodingKey {
         case id
         case caseNumber, title, clientName, clientId, clientImage, lawyerName, lawyerId, lawyerImage, type, status, priority, description, hearingDate, hearingDates, hearings, locationLat, locationLng, address, createdDate, stages, documents
-        case transferStatus, targetLawyerId, targetLawyerName, targetLawyerImage, transferRequestedBy, previousLawyerId, recommendedLawyerId, recommendedLawyerName, recommendedLawyerImage
+        case transferStatus, targetLawyerId, targetLawyerName, targetLawyerImage, transferRequestedBy, previousLawyerId, recommendedLawyerId, recommendedLawyerName, recommendedLawyerImage, lawyerAcceptedTransfer
     }
     
     init(id: String? = nil, caseNumber: String, title: String, clientName: String, clientId: String, clientImage: String? = nil, lawyerName: String, lawyerId: String, lawyerImage: String? = nil, type: String, status: String, priority: String, description: String? = nil, hearingDate: Date? = nil, hearingDates: [Date] = [], hearings: [FBHearingDate] = [], locationLat: Double? = nil, locationLng: Double? = nil, address: String? = nil, createdDate: Date? = nil, stages: [FBCaseStage] = [], documents: [FBDocument]? = nil, transferStatus: String? = nil, targetLawyerId: String? = nil, targetLawyerName: String? = nil, targetLawyerImage: String? = nil, transferRequestedBy: String? = nil, previousLawyerId: String? = nil, recommendedLawyerId: String? = nil, recommendedLawyerName: String? = nil, recommendedLawyerImage: String? = nil) {
@@ -114,6 +115,7 @@ struct FBLegalCase: Identifiable, Codable, Hashable {
         recommendedLawyerId = try? container.decode(String.self, forKey: .recommendedLawyerId)
         recommendedLawyerName = try? container.decode(String.self, forKey: .recommendedLawyerName)
         recommendedLawyerImage = try? container.decode(String.self, forKey: .recommendedLawyerImage)
+        lawyerAcceptedTransfer = try? container.decode(Bool.self, forKey: .lawyerAcceptedTransfer)
         
         // Flexible decoding for clientImage (String or Map)
         if let direct = try? container.decode(String.self, forKey: .clientImage) {
@@ -550,7 +552,39 @@ struct FBReview: Identifiable, Codable, Hashable {
     var timestamp: Date
     
     enum CodingKeys: String, CodingKey {
+        case id
         case lawyerId, clientId, clientName, clientImage, rating, reviewText, timestamp
+    }
+    
+    init(id: String? = nil, lawyerId: String, clientId: String, clientName: String, clientImage: String? = nil, rating: Int, reviewText: String, timestamp: Date) {
+        self._id = DocumentID(wrappedValue: id)
+        self.lawyerId = lawyerId
+        self.clientId = clientId
+        self.clientName = clientName
+        self.clientImage = clientImage
+        self.rating = rating
+        self.reviewText = reviewText
+        self.timestamp = timestamp
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self._id = try container.decode(DocumentID<String>.self, forKey: .id)
+        lawyerId = try container.decode(String.self, forKey: .lawyerId)
+        clientId = try container.decode(String.self, forKey: .clientId)
+        clientName = try container.decode(String.self, forKey: .clientName)
+        rating = try container.decode(Int.self, forKey: .rating)
+        reviewText = try container.decode(String.self, forKey: .reviewText)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        
+        // Flexible decoding for clientImage
+        if let direct = try? container.decode(String.self, forKey: .clientImage) {
+            clientImage = direct
+        } else if let dict = try? container.decode([String: String].self, forKey: .clientImage), let url = dict["url"] {
+            clientImage = url
+        } else {
+            clientImage = nil
+        }
     }
 }
 

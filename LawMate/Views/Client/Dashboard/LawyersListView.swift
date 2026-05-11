@@ -1,4 +1,4 @@
-import SwiftUI
+ import SwiftUI
 import MapKit
 
 struct Lawyer: Identifiable, Hashable {
@@ -470,85 +470,94 @@ struct LawyerRow: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Header Section
             HStack(alignment: .top, spacing: 16) {
-                // Left: High-end Avatar
-                LawMateAvatar(url: lawyer.image, name: lawyer.name, size: 60)
-                    .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1.5))
-                    .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
-                
-                // Right: Primary Info
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .center) {
-                        Text(lawyer.name)
-                            .font(.system(size: 17, weight: .bold))
+                // Initial/Avatar Box
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.lmPrimary.opacity(0.05))
+                        .frame(width: 56, height: 56)
+                    
+                    if !lawyer.image.isEmpty {
+                        LawMateAvatar(url: lawyer.image, name: lawyer.name, size: 56)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                    } else {
+                        Text(String(lawyer.name.prefix(2)).uppercased())
+                            .font(.system(size: 16, weight: .black))
                             .foregroundColor(.lmPrimary)
+                    }
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .top) {
+                        Text(lawyer.name)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(Color(red: 0.05, green: 0.25, blue: 0.22)) // Dark greenish
                             .lineLimit(1)
                         
                         Spacer()
                         
-                        // Specialty Badge
+                        // Rating Badge
                         HStack(spacing: 4) {
-                            Image(systemName: lawyer.specialtyIcon)
-                                .font(.system(size: 8))
-                            Text(lawyer.specialty)
-                                .font(.system(size: 9, weight: .bold))
+                            Image(systemName: "star.fill")
+                                .foregroundColor(.orange)
+                                .font(.system(size: 10))
+                            Text(String(format: "%.1f", lawyer.rating))
+                                .font(.system(size: 11, weight: .black))
+                                .foregroundColor(.orange)
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.lmPrimary.opacity(0.06))
-                        .foregroundColor(.lmPrimary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.orange.opacity(0.1))
                         .clipShape(Capsule())
                     }
                     
-                    Text(lawyer.bio)
-                        .font(.system(size: 13))
-                        .foregroundColor(.lmTextSecondary.opacity(0.8))
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Text(lawyer.specialty)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.lmTextSecondary)
                 }
             }
-            .padding(16)
+            .padding(.bottom, 20)
             
             Divider()
-                .padding(.horizontal, 16)
-                .opacity(0.05)
+                .background(Color.lmPrimary.opacity(0.05))
+                .padding(.bottom, 16)
             
-            // Bottom Metadata Bar
-            HStack(spacing: 20) {
-                // Ratings
-                HStack(spacing: 4) {
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 11))
-                        .foregroundColor(.orange)
-                    Text(String(format: "%.1f", lawyer.rating))
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.lmPrimary)
-                    Text("(\(lawyer.reviewCount))")
-                        .font(.system(size: 10))
-                        .foregroundColor(.lmTextSecondary.opacity(0.5))
+            // Footer Section
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "briefcase.fill")
+                        .font(.system(size: 12))
+                    Text(lawyer.experience)
+                        .font(.system(size: 13, weight: .bold))
                 }
+                .foregroundColor(Color(red: 0.35, green: 0.45, blue: 0.42))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.lmPrimary.opacity(0.04))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
                 
                 Spacer()
                 
-                // Location
                 HStack(spacing: 4) {
                     Image(systemName: "mappin.and.ellipse")
                         .font(.system(size: 10))
                     Text(lawyer.location.components(separatedBy: ",").first ?? lawyer.location)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.lmTextSecondary.opacity(0.8))
                 }
-                .foregroundColor(.lmTextSecondary.opacity(0.6))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.lmTextSecondary.opacity(0.2), lineWidth: 1)
+                )
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
         }
+        .padding(20)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 4)
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.white.opacity(0.5), lineWidth: 1)
-        )
+        .clipShape(RoundedRectangle(cornerRadius: 32))
+        .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 5)
     }
 }
 

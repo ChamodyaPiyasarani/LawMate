@@ -92,26 +92,31 @@ struct BookingView: View {
                             VStack(spacing: 0) {
                                 if let selected = selectedLawyer, lawyer != nil {
                                     // Pre-selected Lawyer Card (Read-only)
-                                    HStack(spacing: 12) {
-                                        LawMateAvatar(url: selected.image, name: selected.name, size: 48)
+                                    HStack(alignment: .top, spacing: 16) {
+                                        // Initial/Avatar Box
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .fill(Color.lmPrimary.opacity(0.05))
+                                                .frame(width: 56, height: 56)
+                                            
+                                            LawMateAvatar(url: selected.image, name: selected.name, size: 56)
+                                                .clipShape(RoundedRectangle(cornerRadius: 16))
+                                        }
                                         
-                                        VStack(alignment: .leading, spacing: 2) {
+                                        VStack(alignment: .leading, spacing: 4) {
                                             Text(selected.name)
-                                                .font(.system(size: 16, weight: .bold))
-                                                .foregroundColor(.lmPrimary)
+                                                .font(.system(size: 18, weight: .bold))
+                                                .foregroundColor(Color(red: 0.05, green: 0.25, blue: 0.22))
                                             Text(selected.specialty)
-                                                .font(.system(size: 12))
+                                                .font(.system(size: 14, weight: .medium))
                                                 .foregroundColor(.lmTextSecondary)
                                         }
                                         Spacer()
                                     }
-                                    .padding(16)
-                                    .background(Color.white.opacity(0.4))
-                                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 16)
-                                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                    )
+                                    .padding(20)
+                                    .background(Color.white)
+                                    .clipShape(RoundedRectangle(cornerRadius: 24))
+                                    .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 5)
                                 } else {
                                     // Searchable Lawyer Selection
                                     HStack {

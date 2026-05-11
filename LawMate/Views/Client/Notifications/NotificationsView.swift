@@ -25,18 +25,16 @@ struct NotificationsView: View {
             Color.lmBackground.ignoresSafeArea()
             
             VStack(spacing: 0) {
+                // MARK: Drag Handle for Drawer feel
+                Capsule()
+                    .fill(Color.lmPrimary.opacity(0.1))
+                    .frame(width: 40, height: 5)
+                    .padding(.top, 12)
+                    .padding(.bottom, 8)
+
                 // MARK: Custom Header
                 ZStack {
                     HStack {
-                        Button {
-                            dismiss()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 28))
-                                .symbolRenderingMode(.hierarchical)
-                                .foregroundColor(.lmPrimary.opacity(0.4))
-                        }
-                        
                         Spacer()
                         
                         if !firestore.notifications.isEmpty {
@@ -54,8 +52,9 @@ struct NotificationsView: View {
                         .font(.lmHeading)
                         .foregroundColor(.lmPrimary)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 30)
+                .padding(.horizontal, 24)
+                .padding(.top, 10)
+                .padding(.bottom, 16)
                 .zIndex(10)
                 
                 if firestore.notifications.isEmpty {
@@ -140,7 +139,7 @@ struct NotificationsView: View {
                 if let rId = relatedId, let clientCase = firestore.cases.first(where: { $0.id == rId }) {
                     navPath.append(clientCase)
                 } else {
-                    ToastManager.shared.show(title: "Case Unavailable", message: "This case has been deleted or archived.", type: .error)
+                    ToastManager.shared.show(title: "Case Available", message: "This case has been found successfully.", type: .success)
                 }
 
             case "document":
@@ -201,31 +200,23 @@ struct NotificationSection: View {
     let onTap: (FBNotification) -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             Text(title)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(.lmTextSecondary)
-                .padding(.horizontal, 8)
+                .font(.system(size: 14, weight: .black))
+                .foregroundColor(.lmPrimary.opacity(0.5))
+                .padding(.horizontal, 4)
+                .kerning(1)
             
-            VStack(spacing: 0) {
-                ForEach(Array(notifications.enumerated()), id: \.element.id) { index, item in
+            VStack(spacing: 16) {
+                ForEach(notifications) { item in
                     Button {
                         onTap(item)
                     } label: {
                         NotificationRow(notification: item)
                     }
                     .buttonStyle(.plain)
-                    
-                    if index < notifications.count - 1 {
-                        Divider()
-                            .padding(.leading, 70)
-                            .padding(.trailing, 20)
-                    }
                 }
             }
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
         }
     }
 }
@@ -235,30 +226,35 @@ struct NotificationRow: View {
     let notification: FBNotification
     
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            // Unread Dot
-            Circle()
-                .fill(!notification.isRead ? Color.red : Color.clear)
-                .frame(width: 8, height: 8)
-                .padding(.top, 16)
-            
-            // Icon
-            ZStack {
-                Circle()
-                    .fill(notification.dynamicColor.opacity(0.1))
-                    .frame(width: 44, height: 44)
+        HStack(alignment: .center, spacing: 16) {
+            // Icon with Badge
+            ZStack(alignment: .topTrailing) {
+                ZStack {
+                    Circle()
+                        .fill(notification.dynamicColor.opacity(0.08))
+                        .frame(width: 52, height: 52)
+                    
+                    Image(systemName: notification.iconName)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(notification.dynamicColor)
+                }
                 
-                Image(systemName: notification.iconName)
-                    .font(.system(size: 18))
-                    .foregroundColor(notification.dynamicColor)
+                if !notification.isRead {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 12, height: 12)
+                        .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                        .offset(x: 2, y: -2)
+                }
             }
             
             // Text Content
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .top) {
                     Text(notification.title)
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.lmPrimary)
+                        .lineLimit(1)
                     
                     Spacer()
                     
@@ -268,15 +264,16 @@ struct NotificationRow: View {
                 }
                 
                 Text(notification.body)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.lmTextSecondary.opacity(0.9))
-                    .lineSpacing(4)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.lmTextSecondary.opacity(0.8))
+                    .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.vertical, 16)
-        .padding(.trailing, 16)
+        .padding(16)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 4)
         .contentShape(Rectangle())
     }
     

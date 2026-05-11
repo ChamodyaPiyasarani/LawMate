@@ -7,6 +7,7 @@ struct AdvisoryListView: View {
     @State private var selectedFileType = "All"
     @State private var selectedSort = "Latest"
     @State private var showFilterSheet = false
+    @State private var selectedDocumentForDetail: FBAdvisoryDocument? = nil
     
     @EnvironmentObject var firestore: FirestoreManager
     
@@ -81,7 +82,9 @@ struct AdvisoryListView: View {
                                 emptyState
                             } else {
                                 ForEach(filteredDocuments) { doc in
-                                    NavigationLink(value: doc) {
+                                    Button {
+                                        selectedDocumentForDetail = doc
+                                    } label: {
                                         AdvisoryDocumentCard(document: doc)
                                     }
                                     .buttonStyle(.plain)
@@ -106,6 +109,11 @@ struct AdvisoryListView: View {
                 categories: categories
             )
                 .presentationDetents([.medium])
+        }
+        .sheet(item: $selectedDocumentForDetail) { doc in
+            DocumentDetailView(document: doc)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
     }
 
@@ -158,76 +166,87 @@ struct AdvisoryListView: View {
 
 // MARK: - Supporting Views
 
+// MARK: - Supporting Views
+
 struct AdvisoryDocumentCard: View {
     let document: FBAdvisoryDocument
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header Section
             HStack(alignment: .top, spacing: 16) {
-                // Icon
+                // Initial/Icon Box
                 ZStack {
-                    RoundedRectangle(cornerRadius: 14)
+                    RoundedRectangle(cornerRadius: 16)
                         .fill(iconColor.opacity(0.1))
-                        .frame(width: 52, height: 52)
+                        .frame(width: 56, height: 56)
+                    
                     Image(systemName: iconName)
                         .font(.system(size: 24))
                         .foregroundColor(iconColor)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(document.title)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.lmPrimary)
-                        .lineLimit(1)
+                    HStack(alignment: .top) {
+                        Text(document.title)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(Color(red: 0.05, green: 0.25, blue: 0.22)) // Dark greenish
+                            .lineLimit(1)
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.lmPrimary.opacity(0.3))
+                    }
                     
                     Text(document.description)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.lmTextSecondary)
                         .lineLimit(2)
                 }
-                
-                Spacer()
-                
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.lmPrimary.opacity(0.3))
             }
+            .padding(.bottom, 20)
             
-            HStack(spacing: 8) {
-                HStack(spacing: 4) {
+            Divider()
+                .background(Color.lmPrimary.opacity(0.05))
+                .padding(.bottom, 16)
+            
+            // Footer Section
+            HStack {
+                HStack(spacing: 8) {
                     Image(systemName: categoryIcon(for: document.category))
-                        .font(.system(size: 10))
+                        .font(.system(size: 12))
                     Text(document.category)
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 13, weight: .bold))
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.lmPrimary.opacity(0.1))
-                .foregroundColor(.lmPrimary)
-                .clipShape(Capsule())
-                
-                ForEach(document.tags.prefix(2), id: \.self) { tag in
-                    Text("#\(tag)")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(.lmTextSecondary)
-                }
+                .foregroundColor(Color(red: 0.35, green: 0.45, blue: 0.42))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.lmPrimary.opacity(0.04))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
                 
                 Spacer()
                 
-                Text(document.lawyerName)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.lmPrimary.opacity(0.6))
+                HStack(spacing: 4) {
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 10))
+                    Text(document.lawyerName)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.lmTextSecondary.opacity(0.8))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.lmTextSecondary.opacity(0.2), lineWidth: 1)
+                )
             }
         }
         .padding(20)
-        .background(Color.white.opacity(0.8))
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-        .overlay(
-            RoundedRectangle(cornerRadius: 24)
-                .stroke(Color.white.opacity(0.5), lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 32))
+        .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 5)
     }
     
     private func categoryIcon(for category: String) -> String {

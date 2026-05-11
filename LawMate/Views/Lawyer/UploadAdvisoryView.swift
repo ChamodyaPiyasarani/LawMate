@@ -45,17 +45,6 @@ struct UploadAdvisoryView: View {
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 28) {
-                        // MARK: Title & Subtitle Section
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Upload Advisory Document")
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(.lmPrimary)
-                            Text("Share helpful legal documents for public access")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.lmTextSecondary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        
                         // MARK: Document Info Section
                         VStack(spacing: 20) {
                             // Category Picker
