@@ -6,12 +6,23 @@
 //
 
 import SwiftUI
+import FirebaseCore
 
 @main
 struct LawMateApp: App {
+    @UIApplicationDelegateAdaptor(LawMateAppDelegate.self) var delegate
+    let persistenceController = PersistenceController.shared
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
+                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                .environmentObject(FirestoreManager.shared)
+                .environmentObject(AuthService.shared)
+                .environmentObject(NotificationManager.shared)
+                .environmentObject(AccessibilityManager.shared)
+                .environmentObject(EventKitService.shared)
+                .preferredColorScheme(.light) // LawMate uses a light theme
         }
     }
 }

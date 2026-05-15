@@ -6,143 +6,696 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		2C16014155FB231EFDE65B76 /* FirestoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C65B5ECB07C88DA6A929E43 /* FirestoreManager.swift */; };
+		7A1B2C3D4E5F678901234569 /* KeychainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F67890123456A /* KeychainManager.swift */; };
+		7A1B2C3D4E5F678901234567 /* MessageCryptoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234568 /* MessageCryptoManager.swift */; };
+		7A1B2C3D4E5F67890123456B /* ReferralNetworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F67890123456C /* ReferralNetworkView.swift */; };
+		450EDE41A4F414632EC004C6 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2591DAA9A86CC87FB4681D5C /* GoogleService-Info.plist */; };
+		49BB10012F84BD2800EF1001 /* LawMateApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB20012F84BD2800EF2001 /* LawMateApp.swift */; };
+		49BB10022F84BD2800EF1002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB20022F84BD2800EF2002 /* ContentView.swift */; };
+		49BB10032F84BD2800EF1003 /* LawMate.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 49BB20032F84BD2800EF2003 /* LawMate.xcdatamodeld */; };
+		49BB10042F84BD2800EF1004 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49BB20042F84BD2800EF2004 /* Assets.xcassets */; };
+		49BB11012F84BD2800EF1101 /* CalendarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB21012F84BD2800EF2101 /* CalendarViewModel.swift */; };
+		49BB11022F84BD2800EF1102 /* LawyerCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB21022F84BD2800EF2102 /* LawyerCalendarView.swift */; };
+		49BB11032F84BD2800EF1103 /* EventListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB21032F84BD2800EF2103 /* EventListView.swift */; };
+		49BB11042F84BD2800EF1104 /* EventKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB21042F84BD2800EF2104 /* EventKitService.swift */; };
+		49BB12012F84BD2800EF1201 /* FontTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB22012F84BD2800EF2201 /* FontTheme.swift */; };
+		49BB12022F84BD2800EF1202 /* ColorTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB22022F84BD2800EF2202 /* ColorTheme.swift */; };
+		49BB13012F84BD2800EF1301 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB23012F84BD2800EF2301 /* NotificationManager.swift */; };
+		49BB13032F84BD2800EF1303 /* EventKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB23032F84BD2800EF2303 /* EventKitManager.swift */; };
+		49BB13052F84BD2800EF1305 /* PersistenceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB23052F84BD2800EF2305 /* PersistenceController.swift */; };
+		49BB14012F84BD2800EF1401 /* LegalDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB24012F84BD2800EF2401 /* LegalDocument.swift */; };
+		49BB14022F84BD2800EF1402 /* LegalCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB24022F84BD2800EF2402 /* LegalCase.swift */; };
+		49BB14032F84BD2800EF1403 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB24032F84BD2800EF2403 /* User.swift */; };
+		49BB15012F84BD2800EF1501 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB25012F84BD2800EF2501 /* AuthService.swift */; };
+		49BB20112F84BD2800EE3001 /* DocumentScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB30012F84BD2800EE3001 /* DocumentScannerView.swift */; };
+		49BB20122F84BD2800EE3002 /* LawMateFooter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB30022F84BD2800EE3002 /* LawMateFooter.swift */; };
+		49BB20132F84BD2800EE3003 /* LawMateSearchBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB30032F84BD2800EE3003 /* LawMateSearchBar.swift */; };
+		49BB20142F84BD2800EE3004 /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB30042F84BD2800EE3004 /* ImagePicker.swift */; };
+		49BB20152F84BD2800EE3005 /* RatingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB30052F84BD2800EE3005 /* RatingView.swift */; };
+		49BB20162F84BD2800EE3006 /* TabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB30062F84BD2800EE3006 /* TabBarView.swift */; };
+		49BB20172F84BD2800EE3007 /* LawMatePrimaryButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB30072F84BD2800EE3007 /* LawMatePrimaryButton.swift */; };
+		49BB20182F84BD2800EE3008 /* FilterPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB30082F84BD2800EE3008 /* FilterPill.swift */; };
+		49BB20192F84BD2800EE3009 /* NavComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB30092F84BD2800EE3009 /* NavComponents.swift */; };
+		49BB20202F84BD2800EE3010 /* GreenBlobBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB30102F84BD2800EE3010 /* GreenBlobBackground.swift */; };
+		49BB20212F84BD2800EE3011 /* LawMateLogoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB30112F84BD2800EE3011 /* LawMateLogoView.swift */; };
+		49BB20222F84BD2800EE3012 /* LawMateTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB30122F84BD2800EE3012 /* LawMateTextField.swift */; };
+		49BB20232F84BD2800EE3013 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB30132F84BD2800EE3013 /* RootView.swift */; };
+		49BB40022F84BD2800EE4002 /* AddCaseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB50022F84BD2800EE5001 /* AddCaseView.swift */; };
+		49BB40032F84BD2800EE4003 /* LawyerCasesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB50032F84BD2800EE5001 /* LawyerCasesView.swift */; };
+		49BB40052F84BD2800EE4005 /* LawyerHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB50052F84BD2800EE5005 /* LawyerHomeView.swift */; };
+		49BB40062F84BD2800EE4006 /* LawyerMyUploadsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB50062F84BD2800EE5001 /* LawyerMyUploadsView.swift */; };
+		49BB40072F84BD2800EE4007 /* UploadAdvisoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB50072F84BD2800EE5001 /* UploadAdvisoryView.swift */; };
+		49BB60012F84BD2800EE6001 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB70012F84BD2800EE7001 /* LoginView.swift */; };
+		49BB60022F84BD2800EE6002 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB70022F84BD2800EE7002 /* SplashView.swift */; };
+		49BB60032F84BD2800EE6003 /* SignUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB70032F84BD2800EE7003 /* SignUpView.swift */; };
+		49BB80012F84BD2800EE8001 /* ChatDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90012F84BD2800EE9001 /* ChatDetailView.swift */; };
+		49BB80022F84BD2800EE8002 /* MessagesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90022F84BD2800EE9002 /* MessagesListView.swift */; };
+		49BB80032F84BD2800EE8003 /* ClientHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90032F84BD2800EE9003 /* ClientHomeView.swift */; };
+		49BB80042F84BD2800EE8004 /* MyCaseDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90042F84BD2800EE9004 /* MyCaseDetailsView.swift */; };
+		49BB80052F84BD2800EE8005 /* CancelBookingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90052F84BD2800EE9005 /* CancelBookingView.swift */; };
+		49BB80062F84BD2800EE8006 /* RescheduleBookingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90062F84BD2800EE9006 /* RescheduleBookingView.swift */; };
+		49BB80072F84BD2800EE8007 /* BookingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90072F84BD2800EE9007 /* BookingView.swift */; };
+		49BB80082F84BD2800EE8008 /* MyCasesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90082F84BD2800EE9008 /* MyCasesView.swift */; };
+		49BB80092F84BD2800EE8009 /* LawyersListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90092F84BD2800EE9009 /* LawyersListView.swift */; };
+		49BB80102F84BD2800EE8010 /* BookingDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90102F84BD2800EE9010 /* BookingDetailsView.swift */; };
+		49BB80112F84BD2800EE8011 /* LawyerDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90112F84BD2800EE9011 /* LawyerDetailView.swift */; };
+		49BB80122F84BD2800EE8012 /* CaseDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90122F84BD2800EE9012 /* CaseDetailView.swift */; };
+		49BB80132F84BD2800EE8013 /* SecurityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90132F84BD2800EE9013 /* SecurityView.swift */; };
+		49BB80142F84BD2800EE8014 /* PrivacyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90142F84BD2800EE9014 /* PrivacyView.swift */; };
+		49BB80152F84BD2800EE8015 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90152F84BD2800EE9015 /* ProfileView.swift */; };
+		49BB80162F84BD2800EE8016 /* TermsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90162F84BD2800EE9016 /* TermsView.swift */; };
+		49BB80172F84BD2800EE8017 /* BiometricsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90172F84BD2800EE9017 /* BiometricsView.swift */; };
+		49BB80182F84BD2800EE8018 /* PersonalInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90182F84BD2800EE9018 /* PersonalInfoView.swift */; };
+		49BB80192F84BD2800EE8019 /* ProfileNotificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90192F84BD2800EE9019 /* ProfileNotificationsView.swift */; };
+		49BB80202F84BD2800EE8020 /* AdvisoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90202F84BD2800EE9020 /* AdvisoryListView.swift */; };
+		49BB80212F84BD2800EE8021 /* DocumentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90212F84BD2800EE9021 /* DocumentDetailView.swift */; };
+		49BB80222F84BD2800EE8022 /* NotificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BB90222F84BD2800EE9022 /* NotificationsView.swift */; };
+		49D010912F98BA0B0044BEE3 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 49D010902F98BA0B0044BEE3 /* FirebaseAuth */; };
+		49D010932F98BA0B0044BEE3 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 49D010922F98BA0B0044BEE3 /* FirebaseCore */; };
+		49D010952F98BA0B0044BEE3 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 49D010942F98BA0B0044BEE3 /* FirebaseFirestore */; };
+		49D010972F98BA0B0044BEE3 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 49D010962F98BA0B0044BEE3 /* FirebaseMessaging */; };
+		49D010992F98BA0B0044BEE3 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 49D010982F98BA0B0044BEE3 /* FirebaseStorage */; };
+		4FF9C609408920E8FF0AEB24 /* FirebaseModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9833447BD20972AD271D76BB /* FirebaseModels.swift */; };
+		59B005FA700C9C9FEB066A88 /* AccessibilityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3545A6EA24BDE718974EAA15 /* AccessibilityManager.swift */; };
+		682D1798563E4DA7F5489A9A /* CDDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6E82D8945B154EF23084EA1 /* CDDocument.swift */; };
+		83BD6F634AB1A78FA40B82FE /* LawMateAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE8F2B844F4147232CDCD0C /* LawMateAppDelegate.swift */; };
+		8AC84985BC924055E5F9E8F8 /* AccessibilitySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DC03F5DCE9D577A2B9DDC0 /* AccessibilitySettingsView.swift */; };
+		96054EECCC7DFF58B2A886C5 /* CDUser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B33E5F7D9A4B91D159867F1F /* CDUser.swift */; };
+		A527CB51D6CE07A86C9F5949 /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2E6E50AA0481D9CA067521C /* Toast.swift */; };
+		AC0F0A28C7321D7205E05124 /* CDLegalCase+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40B0804085D82197C171421C /* CDLegalCase+Extensions.swift */; };
+		F3E891EA25A1531D52F5A434 /* CDLegalCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64FFDDAFDF6FB6FBAAEBCC /* CDLegalCase.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
-		49BA11092F84BD2800EF064A /* LawMate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LawMate.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1F64FFDDAFDF6FB6FBAAEBCC /* CDLegalCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CDLegalCase.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F67890123456A /* KeychainManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234568 /* MessageCryptoManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MessageCryptoManager.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F67890123456C /* ReferralNetworkView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReferralNetworkView.swift; sourceTree = "<group>"; };
+		2591DAA9A86CC87FB4681D5C /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		3545A6EA24BDE718974EAA15 /* AccessibilityManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccessibilityManager.swift; sourceTree = "<group>"; };
+		40B0804085D82197C171421C /* CDLegalCase+Extensions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "CDLegalCase+Extensions.swift"; sourceTree = "<group>"; };
+		49BB20012F84BD2800EF2001 /* LawMateApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LawMateApp.swift; sourceTree = "<group>"; };
+		49BB20022F84BD2800EF2002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		49BB20032F84BD2800EF2003 /* LawMate.xcdatamodeld */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = LawMate.xcdatamodeld; sourceTree = "<group>"; };
+		49BB20042F84BD2800EF2004 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		49BB21012F84BD2800EF2101 /* CalendarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarViewModel.swift; sourceTree = "<group>"; };
+		49BB21022F84BD2800EF2102 /* LawyerCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LawyerCalendarView.swift; sourceTree = "<group>"; };
+		49BB21032F84BD2800EF2103 /* EventListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventListView.swift; sourceTree = "<group>"; };
+		49BB21042F84BD2800EF2104 /* EventKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventKitService.swift; sourceTree = "<group>"; };
+		49BB22012F84BD2800EF2201 /* FontTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontTheme.swift; sourceTree = "<group>"; };
+		49BB22022F84BD2800EF2202 /* ColorTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorTheme.swift; sourceTree = "<group>"; };
+		49BB23012F84BD2800EF2301 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		49BB23032F84BD2800EF2303 /* EventKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventKitManager.swift; sourceTree = "<group>"; };
+		49BB23052F84BD2800EF2305 /* PersistenceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceController.swift; sourceTree = "<group>"; };
+		49BB24012F84BD2800EF2401 /* LegalDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalDocument.swift; sourceTree = "<group>"; };
+		49BB24022F84BD2800EF2402 /* LegalCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalCase.swift; sourceTree = "<group>"; };
+		49BB24032F84BD2800EF2403 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
+		49BB25012F84BD2800EF2501 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
+		49BB30012F84BD2800EE3001 /* DocumentScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentScannerView.swift; sourceTree = "<group>"; };
+		49BB30022F84BD2800EE3002 /* LawMateFooter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LawMateFooter.swift; sourceTree = "<group>"; };
+		49BB30032F84BD2800EE3003 /* LawMateSearchBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LawMateSearchBar.swift; sourceTree = "<group>"; };
+		49BB30042F84BD2800EE3004 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
+		49BB30052F84BD2800EE3005 /* RatingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingView.swift; sourceTree = "<group>"; };
+		49BB30062F84BD2800EE3006 /* TabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarView.swift; sourceTree = "<group>"; };
+		49BB30072F84BD2800EE3007 /* LawMatePrimaryButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LawMatePrimaryButton.swift; sourceTree = "<group>"; };
+		49BB30082F84BD2800EE3008 /* FilterPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterPill.swift; sourceTree = "<group>"; };
+		49BB30092F84BD2800EE3009 /* NavComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavComponents.swift; sourceTree = "<group>"; };
+		49BB30102F84BD2800EE3010 /* GreenBlobBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreenBlobBackground.swift; sourceTree = "<group>"; };
+		49BB30112F84BD2800EE3011 /* LawMateLogoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LawMateLogoView.swift; sourceTree = "<group>"; };
+		49BB30122F84BD2800EE3012 /* LawMateTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LawMateTextField.swift; sourceTree = "<group>"; };
+		49BB30132F84BD2800EE3013 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		49BB50022F84BD2800EE5001 /* AddCaseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddCaseView.swift; sourceTree = "<group>"; };
+		49BB50032F84BD2800EE5001 /* LawyerCasesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LawyerCasesView.swift; sourceTree = "<group>"; };
+		49BB50052F84BD2800EE5005 /* LawyerHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LawyerHomeView.swift; sourceTree = "<group>"; };
+		49BB50062F84BD2800EE5001 /* LawyerMyUploadsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LawyerMyUploadsView.swift; sourceTree = "<group>"; };
+		49BB50072F84BD2800EE5001 /* UploadAdvisoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadAdvisoryView.swift; sourceTree = "<group>"; };
+		49BB70012F84BD2800EE7001 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		49BB70022F84BD2800EE7002 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
+		49BB70032F84BD2800EE7003 /* SignUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignUpView.swift; sourceTree = "<group>"; };
+		49BB90012F84BD2800EE9001 /* ChatDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatDetailView.swift; sourceTree = "<group>"; };
+		49BB90022F84BD2800EE9002 /* MessagesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesListView.swift; sourceTree = "<group>"; };
+		49BB90032F84BD2800EE9003 /* ClientHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientHomeView.swift; sourceTree = "<group>"; };
+		49BB90042F84BD2800EE9004 /* MyCaseDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCaseDetailsView.swift; sourceTree = "<group>"; };
+		49BB90052F84BD2800EE9005 /* CancelBookingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancelBookingView.swift; sourceTree = "<group>"; };
+		49BB90062F84BD2800EE9006 /* RescheduleBookingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RescheduleBookingView.swift; sourceTree = "<group>"; };
+		49BB90072F84BD2800EE9007 /* BookingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingView.swift; sourceTree = "<group>"; };
+		49BB90082F84BD2800EE9008 /* MyCasesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCasesView.swift; sourceTree = "<group>"; };
+		49BB90092F84BD2800EE9009 /* LawyersListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LawyersListView.swift; sourceTree = "<group>"; };
+		49BB90102F84BD2800EE9010 /* BookingDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingDetailsView.swift; sourceTree = "<group>"; };
+		49BB90112F84BD2800EE9011 /* LawyerDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LawyerDetailView.swift; sourceTree = "<group>"; };
+		49BB90122F84BD2800EE9012 /* CaseDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaseDetailView.swift; sourceTree = "<group>"; };
+		49BB90132F84BD2800EE9013 /* SecurityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityView.swift; sourceTree = "<group>"; };
+		49BB90142F84BD2800EE9014 /* PrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyView.swift; sourceTree = "<group>"; };
+		49BB90152F84BD2800EE9015 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		49BB90162F84BD2800EE9016 /* TermsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermsView.swift; sourceTree = "<group>"; };
+		49BB90172F84BD2800EE9017 /* BiometricsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricsView.swift; sourceTree = "<group>"; };
+		49BB90182F84BD2800EE9018 /* PersonalInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalInfoView.swift; sourceTree = "<group>"; };
+		49BB90192F84BD2800EE9019 /* ProfileNotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileNotificationsView.swift; sourceTree = "<group>"; };
+		49BB90202F84BD2800EE9020 /* AdvisoryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvisoryListView.swift; sourceTree = "<group>"; };
+		49BB90212F84BD2800EE9021 /* DocumentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentDetailView.swift; sourceTree = "<group>"; };
+		49BB90222F84BD2800EE9022 /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
+		49BBF0012F84BD2800EA2001 /* LawMate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LawMate.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		57DC03F5DCE9D577A2B9DDC0 /* AccessibilitySettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccessibilitySettingsView.swift; sourceTree = "<group>"; };
+		5C65B5ECB07C88DA6A929E43 /* FirestoreManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FirestoreManager.swift; sourceTree = "<group>"; };
+		6F86A017FA26CDDC61BFD7BE /* LawMateDebug.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = LawMateDebug.entitlements; path = LawMate/LawMateDebug.entitlements; sourceTree = "<group>"; };
+		7CE8F2B844F4147232CDCD0C /* LawMateAppDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LawMateAppDelegate.swift; sourceTree = "<group>"; };
+		9833447BD20972AD271D76BB /* FirebaseModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FirebaseModels.swift; sourceTree = "<group>"; };
+		B33E5F7D9A4B91D159867F1F /* CDUser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CDUser.swift; sourceTree = "<group>"; };
+		C2E6E50AA0481D9CA067521C /* Toast.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Toast.swift; sourceTree = "<group>"; };
+		D6E82D8945B154EF23084EA1 /* CDDocument.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CDDocument.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		49BA110B2F84BD2800EF064A /* LawMate */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = LawMate;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
-
 /* Begin PBXFrameworksBuildPhase section */
-		49BA11062F84BD2800EF064A /* Frameworks */ = {
+		49BBF1012F84BD2800EA2001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				49D010972F98BA0B0044BEE3 /* FirebaseMessaging in Frameworks */,
+				49D010932F98BA0B0044BEE3 /* FirebaseCore in Frameworks */,
+				49D010912F98BA0B0044BEE3 /* FirebaseAuth in Frameworks */,
+				49D010992F98BA0B0044BEE3 /* FirebaseStorage in Frameworks */,
+				49D010952F98BA0B0044BEE3 /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		49BA11002F84BD2800EF064A = {
+		49BBA0012F84BD2800EA0001 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				49BA110B2F84BD2800EF064A /* LawMate */,
-				49BA110A2F84BD2800EF064A /* Products */,
+				49BB24012F84BD2800EF2401 /* LegalDocument.swift */,
+				49BB24022F84BD2800EF2402 /* LegalCase.swift */,
+				49BB24032F84BD2800EF2403 /* User.swift */,
+				E72FE31F2AEFF24FD620FCAD /* CoreData */,
+				9833447BD20972AD271D76BB /* FirebaseModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		49BBA0022F84BD2800EA0001 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				49BBB0012F84BD2800EB0001 /* Shared */,
+				49BBB0022F84BD2800EB0001 /* Main */,
+				49BBB0032F84BD2800EB0001 /* Lawyer */,
+				49BBB0042F84BD2800EB0001 /* Authentication */,
+				49BBB0052F84BD2800EB0001 /* Client */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		49BBA0032F84BD2800EA0001 /* Managers */ = {
+			isa = PBXGroup;
+			children = (
+				49BB23012F84BD2800EF2301 /* NotificationManager.swift */,
+				49BB23032F84BD2800EF2303 /* EventKitManager.swift */,
+				49BB23052F84BD2800EF2305 /* PersistenceController.swift */,
+				5C65B5ECB07C88DA6A929E43 /* FirestoreManager.swift */,
+				7CE8F2B844F4147232CDCD0C /* LawMateAppDelegate.swift */,
+				3545A6EA24BDE718974EAA15 /* AccessibilityManager.swift */,
+				7A1B2C3D4E5F678901234568 /* MessageCryptoManager.swift */,
+				7A1B2C3D4E5F67890123456A /* KeychainManager.swift */,
+			);
+			path = Managers;
+			sourceTree = "<group>";
+		};
+		49BBA0042F84BD2800EA0001 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				49BB25012F84BD2800EF2501 /* AuthService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		49BBA0052F84BD2800EA0001 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				49BB22012F84BD2800EF2201 /* FontTheme.swift */,
+				49BB22022F84BD2800EF2202 /* ColorTheme.swift */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		49BBA0062F84BD2800EA0001 /* Calendar */ = {
+			isa = PBXGroup;
+			children = (
+				49BBA0072F84BD2800EA0001 /* ViewModels */,
+				49BBA0082F84BD2800EA0001 /* Views */,
+				49BBA0092F84BD2800EA0001 /* Services */,
+			);
+			path = Calendar;
+			sourceTree = "<group>";
+		};
+		49BBA0072F84BD2800EA0001 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				49BB21012F84BD2800EF2101 /* CalendarViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		49BBA0082F84BD2800EA0001 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				49BB21022F84BD2800EF2102 /* LawyerCalendarView.swift */,
+				49BB21032F84BD2800EF2103 /* EventListView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		49BBA0092F84BD2800EA0001 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				49BB21042F84BD2800EF2104 /* EventKitService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		49BBB0012F84BD2800EB0001 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				49BBB0062F84BD2800EB0001 /* Scanning */,
+				49BBB0072F84BD2800EB0001 /* Components */,
+				7A1B2C3D4E5F67890123456C /* ReferralNetworkView.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		49BBB0022F84BD2800EB0001 /* Main */ = {
+			isa = PBXGroup;
+			children = (
+				49BB30132F84BD2800EE3013 /* RootView.swift */,
+			);
+			path = Main;
+			sourceTree = "<group>";
+		};
+		49BBB0032F84BD2800EB0001 /* Lawyer */ = {
+			isa = PBXGroup;
+			children = (
+				49BB50022F84BD2800EE5001 /* AddCaseView.swift */,
+				49BB50032F84BD2800EE5001 /* LawyerCasesView.swift */,
+				49BB50052F84BD2800EE5005 /* LawyerHomeView.swift */,
+				49BB50062F84BD2800EE5001 /* LawyerMyUploadsView.swift */,
+				49BB50072F84BD2800EE5001 /* UploadAdvisoryView.swift */,
+			);
+			path = Lawyer;
+			sourceTree = "<group>";
+		};
+		49BBB0042F84BD2800EB0001 /* Authentication */ = {
+			isa = PBXGroup;
+			children = (
+				49BB70012F84BD2800EE7001 /* LoginView.swift */,
+				49BB70022F84BD2800EE7002 /* SplashView.swift */,
+				49BB70032F84BD2800EE7003 /* SignUpView.swift */,
+			);
+			path = Authentication;
+			sourceTree = "<group>";
+		};
+		49BBB0052F84BD2800EB0001 /* Client */ = {
+			isa = PBXGroup;
+			children = (
+				49BBC0012F84BD2800EC0001 /* Messages */,
+				49BBC0022F84BD2800EC0002 /* Dashboard */,
+				49BBC0032F84BD2800EC0003 /* Profile */,
+				49BBC0042F84BD2800EC0004 /* Documents */,
+				49BBC0052F84BD2800EC0005 /* Notifications */,
+			);
+			path = Client;
+			sourceTree = "<group>";
+		};
+		49BBB0062F84BD2800EB0001 /* Scanning */ = {
+			isa = PBXGroup;
+			children = (
+				49BB30012F84BD2800EE3001 /* DocumentScannerView.swift */,
+			);
+			path = Scanning;
+			sourceTree = "<group>";
+		};
+		49BBB0072F84BD2800EB0001 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				49BB30022F84BD2800EE3002 /* LawMateFooter.swift */,
+				49BB30032F84BD2800EE3003 /* LawMateSearchBar.swift */,
+				49BB30042F84BD2800EE3004 /* ImagePicker.swift */,
+				49BB30052F84BD2800EE3005 /* RatingView.swift */,
+				49BB30062F84BD2800EE3006 /* TabBarView.swift */,
+				49BB30072F84BD2800EE3007 /* LawMatePrimaryButton.swift */,
+				49BB30082F84BD2800EE3008 /* FilterPill.swift */,
+				49BB30092F84BD2800EE3009 /* NavComponents.swift */,
+				49BB30102F84BD2800EE3010 /* GreenBlobBackground.swift */,
+				49BB30112F84BD2800EE3011 /* LawMateLogoView.swift */,
+				49BB30122F84BD2800EE3012 /* LawMateTextField.swift */,
+				C2E6E50AA0481D9CA067521C /* Toast.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		49BBC0012F84BD2800EC0001 /* Messages */ = {
+			isa = PBXGroup;
+			children = (
+				49BB90012F84BD2800EE9001 /* ChatDetailView.swift */,
+				49BB90022F84BD2800EE9002 /* MessagesListView.swift */,
+			);
+			path = Messages;
+			sourceTree = "<group>";
+		};
+		49BBC0022F84BD2800EC0002 /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				49BB90032F84BD2800EE9003 /* ClientHomeView.swift */,
+				49BB90042F84BD2800EE9004 /* MyCaseDetailsView.swift */,
+				49BB90052F84BD2800EE9005 /* CancelBookingView.swift */,
+				49BB90062F84BD2800EE9006 /* RescheduleBookingView.swift */,
+				49BB90072F84BD2800EE9007 /* BookingView.swift */,
+				49BB90082F84BD2800EE9008 /* MyCasesView.swift */,
+				49BB90092F84BD2800EE9009 /* LawyersListView.swift */,
+				49BB90102F84BD2800EE9010 /* BookingDetailsView.swift */,
+				49BB90112F84BD2800EE9011 /* LawyerDetailView.swift */,
+				49BB90122F84BD2800EE9012 /* CaseDetailView.swift */,
+			);
+			path = Dashboard;
+			sourceTree = "<group>";
+		};
+		49BBC0032F84BD2800EC0003 /* Profile */ = {
+			isa = PBXGroup;
+			children = (
+				49BB90132F84BD2800EE9013 /* SecurityView.swift */,
+				49BB90142F84BD2800EE9014 /* PrivacyView.swift */,
+				49BB90152F84BD2800EE9015 /* ProfileView.swift */,
+				49BB90162F84BD2800EE9016 /* TermsView.swift */,
+				49BB90172F84BD2800EE9017 /* BiometricsView.swift */,
+				49BB90182F84BD2800EE9018 /* PersonalInfoView.swift */,
+				49BB90192F84BD2800EE9019 /* ProfileNotificationsView.swift */,
+				57DC03F5DCE9D577A2B9DDC0 /* AccessibilitySettingsView.swift */,
+			);
+			path = Profile;
+			sourceTree = "<group>";
+		};
+		49BBC0042F84BD2800EC0004 /* Documents */ = {
+			isa = PBXGroup;
+			children = (
+				49BB90202F84BD2800EE9020 /* AdvisoryListView.swift */,
+				49BB90212F84BD2800EE9021 /* DocumentDetailView.swift */,
+			);
+			path = Documents;
+			sourceTree = "<group>";
+		};
+		49BBC0052F84BD2800EC0005 /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				49BB90222F84BD2800EE9022 /* NotificationsView.swift */,
+			);
+			path = Notifications;
+			sourceTree = "<group>";
+		};
+		49BBF2012F84BD2800EA2001 = {
+			isa = PBXGroup;
+			children = (
+				49BBF2022F84BD2800EA2002 /* LawMate */,
+				49BBF2032F84BD2800EA2003 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		49BA110A2F84BD2800EF064A /* Products */ = {
+		49BBF2022F84BD2800EA2002 /* LawMate */ = {
 			isa = PBXGroup;
 			children = (
-				49BA11092F84BD2800EF064A /* LawMate.app */,
+				49BB20012F84BD2800EF2001 /* LawMateApp.swift */,
+				49BB20022F84BD2800EF2002 /* ContentView.swift */,
+				49BBA0012F84BD2800EA0001 /* Models */,
+				49BBA0022F84BD2800EA0001 /* Views */,
+				49BBA0032F84BD2800EA0001 /* Managers */,
+				49BBA0042F84BD2800EA0001 /* Services */,
+				49BBA0052F84BD2800EA0001 /* Resources */,
+				49BBA0062F84BD2800EA0001 /* Calendar */,
+				49BB20032F84BD2800EF2003 /* LawMate.xcdatamodeld */,
+				49BB20042F84BD2800EF2004 /* Assets.xcassets */,
+				2591DAA9A86CC87FB4681D5C /* GoogleService-Info.plist */,
+				6F86A017FA26CDDC61BFD7BE /* LawMateDebug.entitlements */,
+			);
+			path = LawMate;
+			sourceTree = "<group>";
+		};
+		49BBF2032F84BD2800EA2003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				49BBF0012F84BD2800EA2001 /* LawMate.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		E72FE31F2AEFF24FD620FCAD /* CoreData */ = {
+			isa = PBXGroup;
+			children = (
+				B33E5F7D9A4B91D159867F1F /* CDUser.swift */,
+				1F64FFDDAFDF6FB6FBAAEBCC /* CDLegalCase.swift */,
+				D6E82D8945B154EF23084EA1 /* CDDocument.swift */,
+				40B0804085D82197C171421C /* CDLegalCase+Extensions.swift */,
+			);
+			path = CoreData;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		49BA11082F84BD2800EF064A /* LawMate */ = {
+		49BBF3012F84BD2800EA2301 /* LawMate */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 49BA11142F84BD2A00EF064A /* Build configuration list for PBXNativeTarget "LawMate" */;
+			buildConfigurationList = 49BBF4012F84BD2800EA2401 /* Build configuration list for PBXNativeTarget "LawMate" */;
 			buildPhases = (
-				49BA11052F84BD2800EF064A /* Sources */,
-				49BA11062F84BD2800EF064A /* Frameworks */,
-				49BA11072F84BD2800EF064A /* Resources */,
+				49BBF5012F84BD2800EA2501 /* Sources */,
+				49BBF1012F84BD2800EA2001 /* Frameworks */,
+				49BBF6012F84BD2800EA2601 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				49BA110B2F84BD2800EF064A /* LawMate */,
-			);
 			name = LawMate;
 			packageProductDependencies = (
+				49D010902F98BA0B0044BEE3 /* FirebaseAuth */,
+				49D010922F98BA0B0044BEE3 /* FirebaseCore */,
+				49D010942F98BA0B0044BEE3 /* FirebaseFirestore */,
+				49D010962F98BA0B0044BEE3 /* FirebaseMessaging */,
+				49D010982F98BA0B0044BEE3 /* FirebaseStorage */,
 			);
 			productName = LawMate;
-			productReference = 49BA11092F84BD2800EF064A /* LawMate.app */;
+			productReference = 49BBF0012F84BD2800EA2001 /* LawMate.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		49BA11012F84BD2800EF064A /* Project object */ = {
+		49BBF7012F84BD2800EA2701 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2620;
-				LastUpgradeCheck = 2620;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
 				TargetAttributes = {
-					49BA11082F84BD2800EF064A = {
-						CreatedOnToolsVersion = 26.2;
+					49BBF3012F84BD2800EA2301 = {
+						CreatedOnToolsVersion = 16.0;
 					};
 				};
 			};
-			buildConfigurationList = 49BA11042F84BD2800EF064A /* Build configuration list for PBXProject "LawMate" */;
+			buildConfigurationList = 49BBF8012F84BD2800EA2801 /* Build configuration list for PBXProject "LawMate" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = 49BA11002F84BD2800EF064A;
+			mainGroup = 49BBF2012F84BD2800EA2001;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				49D0108F2F98BA0B0044BEE3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 49BA110A2F84BD2800EF064A /* Products */;
+			productRefGroup = 49BBF2032F84BD2800EA2003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				49BA11082F84BD2800EF064A /* LawMate */,
+				49BBF3012F84BD2800EA2301 /* LawMate */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		49BA11072F84BD2800EF064A /* Resources */ = {
+		49BBF6012F84BD2800EA2601 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				49BB10042F84BD2800EF1004 /* Assets.xcassets in Resources */,
+				450EDE41A4F414632EC004C6 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		49BA11052F84BD2800EF064A /* Sources */ = {
+		49BBF5012F84BD2800EA2501 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				49BB10012F84BD2800EF1001 /* LawMateApp.swift in Sources */,
+				49BB10022F84BD2800EF1002 /* ContentView.swift in Sources */,
+				49BB10032F84BD2800EF1003 /* LawMate.xcdatamodeld in Sources */,
+				49BB11012F84BD2800EF1101 /* CalendarViewModel.swift in Sources */,
+				49BB11022F84BD2800EF1102 /* LawyerCalendarView.swift in Sources */,
+				49BB11032F84BD2800EF1103 /* EventListView.swift in Sources */,
+				49BB11042F84BD2800EF1104 /* EventKitService.swift in Sources */,
+				49BB12012F84BD2800EF1201 /* FontTheme.swift in Sources */,
+				49BB12022F84BD2800EF1202 /* ColorTheme.swift in Sources */,
+				49BB13012F84BD2800EF1301 /* NotificationManager.swift in Sources */,
+				49BB13032F84BD2800EF1303 /* EventKitManager.swift in Sources */,
+				49BB13052F84BD2800EF1305 /* PersistenceController.swift in Sources */,
+				7A1B2C3D4E5F678901234567 /* MessageCryptoManager.swift in Sources */,
+				7A1B2C3D4E5F678901234569 /* KeychainManager.swift in Sources */,
+				49BB14012F84BD2800EF1401 /* LegalDocument.swift in Sources */,
+				49BB14022F84BD2800EF1402 /* LegalCase.swift in Sources */,
+				49BB14032F84BD2800EF1403 /* User.swift in Sources */,
+				49BB15012F84BD2800EF1501 /* AuthService.swift in Sources */,
+				49BB20112F84BD2800EE3001 /* DocumentScannerView.swift in Sources */,
+				49BB20122F84BD2800EE3002 /* LawMateFooter.swift in Sources */,
+				49BB20132F84BD2800EE3003 /* LawMateSearchBar.swift in Sources */,
+				49BB20142F84BD2800EE3004 /* ImagePicker.swift in Sources */,
+				49BB20152F84BD2800EE3005 /* RatingView.swift in Sources */,
+				49BB20162F84BD2800EE3006 /* TabBarView.swift in Sources */,
+				49BB20172F84BD2800EE3007 /* LawMatePrimaryButton.swift in Sources */,
+				49BB20182F84BD2800EE3008 /* FilterPill.swift in Sources */,
+				49BB20192F84BD2800EE3009 /* NavComponents.swift in Sources */,
+				49BB20202F84BD2800EE3010 /* GreenBlobBackground.swift in Sources */,
+				49BB20212F84BD2800EE3011 /* LawMateLogoView.swift in Sources */,
+				49BB20222F84BD2800EE3012 /* LawMateTextField.swift in Sources */,
+				49BB20232F84BD2800EE3013 /* RootView.swift in Sources */,
+				7A1B2C3D4E5F67890123456B /* ReferralNetworkView.swift in Sources */,
+				49BB40022F84BD2800EE4002 /* AddCaseView.swift in Sources */,
+				49BB40032F84BD2800EE4003 /* LawyerCasesView.swift in Sources */,
+				49BB40052F84BD2800EE4005 /* LawyerHomeView.swift in Sources */,
+				49BB40062F84BD2800EE4006 /* LawyerMyUploadsView.swift in Sources */,
+				49BB40072F84BD2800EE4007 /* UploadAdvisoryView.swift in Sources */,
+				49BB60012F84BD2800EE6001 /* LoginView.swift in Sources */,
+				49BB60022F84BD2800EE6002 /* SplashView.swift in Sources */,
+				49BB60032F84BD2800EE6003 /* SignUpView.swift in Sources */,
+				49BB80012F84BD2800EE8001 /* ChatDetailView.swift in Sources */,
+				49BB80022F84BD2800EE8002 /* MessagesListView.swift in Sources */,
+				49BB80032F84BD2800EE8003 /* ClientHomeView.swift in Sources */,
+				49BB80042F84BD2800EE8004 /* MyCaseDetailsView.swift in Sources */,
+				49BB80052F84BD2800EE8005 /* CancelBookingView.swift in Sources */,
+				49BB80062F84BD2800EE8006 /* RescheduleBookingView.swift in Sources */,
+				49BB80072F84BD2800EE8007 /* BookingView.swift in Sources */,
+				49BB80082F84BD2800EE8008 /* MyCasesView.swift in Sources */,
+				49BB80092F84BD2800EE8009 /* LawyersListView.swift in Sources */,
+				49BB80102F84BD2800EE8010 /* BookingDetailsView.swift in Sources */,
+				49BB80112F84BD2800EE8011 /* LawyerDetailView.swift in Sources */,
+				49BB80122F84BD2800EE8012 /* CaseDetailView.swift in Sources */,
+				49BB80132F84BD2800EE8013 /* SecurityView.swift in Sources */,
+				49BB80142F84BD2800EE8014 /* PrivacyView.swift in Sources */,
+				49BB80152F84BD2800EE8015 /* ProfileView.swift in Sources */,
+				49BB80162F84BD2800EE8016 /* TermsView.swift in Sources */,
+				49BB80172F84BD2800EE8017 /* BiometricsView.swift in Sources */,
+				49BB80182F84BD2800EE8018 /* PersonalInfoView.swift in Sources */,
+				49BB80192F84BD2800EE8019 /* ProfileNotificationsView.swift in Sources */,
+				49BB80202F84BD2800EE8020 /* AdvisoryListView.swift in Sources */,
+				49BB80212F84BD2800EE8021 /* DocumentDetailView.swift in Sources */,
+				49BB80222F84BD2800EE8022 /* NotificationsView.swift in Sources */,
+				96054EECCC7DFF58B2A886C5 /* CDUser.swift in Sources */,
+				F3E891EA25A1531D52F5A434 /* CDLegalCase.swift in Sources */,
+				682D1798563E4DA7F5489A9A /* CDDocument.swift in Sources */,
+				AC0F0A28C7321D7205E05124 /* CDLegalCase+Extensions.swift in Sources */,
+				4FF9C609408920E8FF0AEB24 /* FirebaseModels.swift in Sources */,
+				2C16014155FB231EFDE65B76 /* FirestoreManager.swift in Sources */,
+				83BD6F634AB1A78FA40B82FE /* LawMateAppDelegate.swift in Sources */,
+				A527CB51D6CE07A86C9F5949 /* Toast.swift in Sources */,
+				59B005FA700C9C9FEB066A88 /* AccessibilityManager.swift in Sources */,
+				8AC84985BC924055E5F9E8F8 /* AccessibilitySettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		49BA11122F84BD2A00EF064A /* Debug */ = {
+		49BBF4012F84BD2800EA4011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = LawMate/LawMateDebug.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "LawMate needs access to your calendar to manage your hearings and appointments.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "LawMate needs full access to add appointments to your calendar.";
+				INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription = "LawMate needs write access to add appointments to your calendar.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "LawMate needs access to your camera to take a profile picture.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "LawMate needs access to your photos to upload your profile picture and advisory documents.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
+				INFOPLIST_KEY_FirebaseAppDelegateProxyEnabled = NO;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = mcee.LawMate;
+				PRODUCT_NAME = LawMate;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		49BBF4012F84BD2800EA4012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = LawMate/LawMateDebug.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "LawMate needs access to your calendar to manage your hearings and appointments.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "LawMate needs full access to add appointments to your calendar.";
+				INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription = "LawMate needs write access to add appointments to your calendar.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "LawMate needs access to your camera to take a profile picture.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "LawMate needs access to your photos to upload your profile picture and advisory documents.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
+				INFOPLIST_KEY_FirebaseAppDelegateProxyEnabled = NO;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = mcee.LawMate;
+				PRODUCT_NAME = LawMate;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		49BBF9012F84BD2800EA2901 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
 				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_MODULE_DEBUGGING = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_64_TO_32_BIT_CONVERSION = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_DUPLICATE_METHOD_DEF = YES;
+				CLANG_WARN_DUPLICATE_METHOD_MATCH = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -155,9 +708,8 @@
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNDECLARED_SELECTOR = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -171,41 +723,43 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_GENERATE_LOCALIZATION_SYMBOLS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_USE_EXPLICIT_MODULES = NO;
 			};
 			name = Debug;
 		};
-		49BA11132F84BD2A00EF064A /* Release */ = {
+		49BBF9022F84BD2800EA2901 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
 				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_MODULE_DEBUGGING = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_64_TO_32_BIT_CONVERSION = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_DUPLICATE_METHOD_DEF = YES;
+				CLANG_WARN_DUPLICATE_METHOD_MATCH = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -218,9 +772,8 @@
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNDECLARED_SELECTOR = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -228,106 +781,83 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_GENERATE_LOCALIZATION_SYMBOLS = YES;
+				SWIFT_USE_EXPLICIT_MODULES = NO;
 				VALIDATE_PRODUCT = YES;
-			};
-			name = Release;
-		};
-		49BA11152F84BD2A00EF064A /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = mcee.LawMate;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		49BA11162F84BD2A00EF064A /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = mcee.LawMate;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		49BA11042F84BD2800EF064A /* Build configuration list for PBXProject "LawMate" */ = {
+		49BBF4012F84BD2800EA2401 /* Build configuration list for PBXNativeTarget "LawMate" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				49BA11122F84BD2A00EF064A /* Debug */,
-				49BA11132F84BD2A00EF064A /* Release */,
+				49BBF4012F84BD2800EA4011 /* Debug */,
+				49BBF4012F84BD2800EA4012 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		49BA11142F84BD2A00EF064A /* Build configuration list for PBXNativeTarget "LawMate" */ = {
+		49BBF8012F84BD2800EA2801 /* Build configuration list for PBXProject "LawMate" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				49BA11152F84BD2A00EF064A /* Debug */,
-				49BA11162F84BD2A00EF064A /* Release */,
+				49BBF9012F84BD2800EA2901 /* Debug */,
+				49BBF9022F84BD2800EA2901 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		49D0108F2F98BA0B0044BEE3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.12.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		49D010902F98BA0B0044BEE3 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 49D0108F2F98BA0B0044BEE3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		49D010922F98BA0B0044BEE3 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 49D0108F2F98BA0B0044BEE3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		49D010942F98BA0B0044BEE3 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 49D0108F2F98BA0B0044BEE3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		49D010962F98BA0B0044BEE3 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 49D0108F2F98BA0B0044BEE3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+		49D010982F98BA0B0044BEE3 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 49D0108F2F98BA0B0044BEE3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 49BA11012F84BD2800EF064A /* Project object */;
+	rootObject = 49BBF7012F84BD2800EA2701 /* Project object */;
 }
