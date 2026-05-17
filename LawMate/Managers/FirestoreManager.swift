@@ -1063,7 +1063,7 @@ class FirestoreManager: ObservableObject {
                             return
                         }
                         
-                        // SYNC: Update the referral document to 'Accepted'
+                        // SYN: Update the referral document to 'Accepted'
                         self?.db.collection("referrals").whereField("caseId", isEqualTo: caseId).getDocuments { snap, _ in
                             if let doc = snap?.documents.first {
                                 doc.reference.updateData(["status": "Accepted"])
